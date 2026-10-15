@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | Food System</title>
+    <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+
+
+  </head>
+  <body class="login-page">
+    <div class="bg-blob bg-blob--1"></div>
+    <div class="bg-blob bg-blob--2"></div>
+    <main class="shell">
+      <section class="login-panel">
+        <div class="auth-copy">
+          <p class="eyebrow">Food System</p>
+          <h1>Entrar</h1>
+        </div>
+        <form class="auth-form" id="loginForm">
+          <div class="field">
+            <label for="usuario">E-mail</label>
+            <input id="usuario" type="email" placeholder="seu@email.com" autocomplete="username" required />
+          </div>
+          <div class="field">
+            <label for="senha">Senha</label>
+            <input id="senha" type="password" placeholder="Digite sua senha" autocomplete="current-password" required />
+          </div>
+          <div class="login-options">
+            <label><input type="checkbox" id="lembrar" /> Lembrar-me</label>
+            <a href="../forgot-password/index.html" class="forgot-link">Esqueceu a senha?</a>
+          </div>
+          <p id="loginFeedback" class="form-feedback form-feedback--error" hidden></p>
+          <button class="btn btn--primary" type="submit">Entrar no painel</button>
+          <div class="social-row">
+            <div class="divider">ou</div>
+            <div id="googleSignInBtn" class="social-icon"></div>
+          </div>
+        </form>
+        <div class="auth-switch">
+          <span>Não tem conta?</span>
+          <a href="../register/index.html">Cadastre-se</a>
+        </div>
+      </section>
+    </main>
+    <script src="../../../env.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,85 @@
+.cash-history{padding:18px;margin-top:18px;display:grid;gap:14px;min-width:0}
+.cash-history__head h2{margin:0;font-size:1.15rem}
+.cash-controls{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 220px;
+  gap:12px;
+  align-items:end;
+}
+.cash-search{
+  position:relative;
+  display:flex;
+  align-items:center;
+}
+.cash-search__icon{
+  position:absolute;
+  left:14px;
+  top:50%;
+  transform:translateY(-50%);
+  width:18px;
+  height:18px;
+  color:var(--accent);
+  pointer-events:none;
+}
+.cash-search input{
+  width:100%;
+  padding:12px 14px 12px 42px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+  box-shadow:0 10px 24px rgba(31,42,36,.04);
+}
+.cash-search input:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(15,118,110,.12), 0 10px 24px rgba(31,42,36,.04);
+}
+.cash-date-filter{
+  display:grid;
+  gap:8px;
+}
+.cash-date-filter__label{
+  font-size:.82rem;
+  font-weight:700;
+  color:var(--muted);
+}
+.cash-date-filter__label svg{display:none}
+.cash-date-filter__toggle{display:none}
+.cash-date-filter input{
+  width:100%;
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+  box-shadow:0 10px 24px rgba(31,42,36,.04);
+}
+.cash-date-filter input:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(15,118,110,.12), 0 10px 24px rgba(31,42,36,.04);
+}
+.cash-row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.cash-row strong,
+.cash-row span{
+  word-break:break-word;
+}
+.cash-row span{color:var(--muted)}
+.cash-row--entry{color:var(--success)}
+.cash-row--exit{color:var(--danger)}
+.cash-row--pending{background:#fffaf0;margin:0 -8px;padding:12px 8px;border-radius:10px}
+.cash-row__actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.cash-empty{padding:24px;text-align:center;color:var(--muted)}
+.cash-history #cashLog{display:grid;gap:2px}
+@media(max-width:767px){
+  .cash-controls{grid-template-columns:1fr}
+  .cash-row{flex-direction:column;align-items:flex-start;gap:6px}
+  .cash-row__actions{width:100%;justify-content:space-between}
+}
+
+@media(max-width:479px){
+  .cash-history{padding:14px}
+  .cash-search input,
+  .cash-date-filter input{
+    font-size:16px;
+  }
+}

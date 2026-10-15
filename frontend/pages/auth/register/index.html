@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registro | Food System</title>
+    <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+
+
+  </head>
+  <body class="register-page">
+    <div class="bg-blob bg-blob--1"></div>
+    <div class="bg-blob bg-blob--2"></div>
+    <main class="shell">
+      <section class="register-layout">
+        <section class="signup-panel">
+          <div class="auth-copy">
+            <p class="eyebrow">Food System</p>
+            <h1>Criar conta</h1>
+          </div>
+          <form class="auth-form" id="registerForm">
+            <div class="field">
+              <label for="nome">Nome completo</label>
+              <input id="nome" type="text" placeholder="Seu nome completo" required />
+            </div>
+            <div class="field">
+              <label for="registerEmail">E-mail</label>
+              <input id="registerEmail" type="email" placeholder="seu@gmail.com" required />
+            </div>
+            <div class="field">
+              <label for="registerPassword">Senha</label>
+              <input id="registerPassword" type="password" placeholder="Crie uma senha" minlength="6" required />
+            </div>
+            <div class="field">
+              <label for="confirmar_senha">Confirmar senha</label>
+              <input id="confirmar_senha" type="password" placeholder="Repita a senha" required />
+              <div id="senhaErro" class="error-message">As senhas não coincidem!</div>
+            </div>
+            <div class="terms">
+              <input type="checkbox" id="termos" />
+              <label for="termos">
+                Concordo com os
+                <button type="button" class="terms-link" id="openTerms">termos de serviço</button>
+              </label>
+            </div>
+            <p id="registerFeedback" class="form-feedback form-feedback--error" hidden></p>
+            <button class="btn btn--primary" type="submit">Próxima etapa</button>
+          </form>
+          <div class="divider auth-divider">ou</div>
+          <div id="googleSignInBtnRegister"></div>
+          <div class="auth-switch">
+            <span>Já tem conta?</span>
+            <a href="../login/index.html">Ir para login</a>
+          </div>
+        </section>
+      </section>
+    </main>
+    <div class="terms-modal" id="termsModal" hidden>
+      <div class="terms-modal__backdrop" data-action="close-terms"></div>
+      <section class="terms-panel" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
+        <div class="terms-panel__header">
+          <div>
+            <p class="eyebrow">Food System</p>
+            <h2 id="termsTitle">Termos de Serviço</h2>
+          </div>
+        </div>
+        <div class="terms-panel__body" id="termsBody"></div>
+        <div class="terms-panel__footer">
+          <button type="button" class="btn btn--secondary terms-back" data-action="close-terms">Voltar</button>
+        </div>
+      </section>
+    </div>
+    <script src="../../../env.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

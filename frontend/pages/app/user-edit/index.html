@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configurações | Food System</title>
+    <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+
+
+  </head>
+  <body>
+    <main class="user-edit-page">
+      <section class="user-edit-card panel">
+        <div class="user-edit-card__header">
+          <div>
+            <p class="eyebrow">Conta</p>
+            <h1>Configurações do usuário</h1>
+          </div>
+          <a class="btn btn--secondary" href="../dashboard/index.html">Voltar</a>
+        </div>
+        <div class="user-edit-card__content">
+          <aside class="user-edit-card__avatar" aria-label="Imagem do usuário">
+            <div class="user-edit-card__avatar-frame">
+              <div class="user-edit-card__avatar-glow"></div>
+              <img class="user-edit-card__avatar-image" id="userAvatarPreview" alt="Foto do usuário" hidden />
+              <span class="user-edit-card__avatar-placeholder" id="userAvatarPlaceholder">U</span>
+            </div>
+            <div class="user-edit-card__avatar-meta">
+              <strong>Imagem do perfil</strong>
+              <p>Foto do painel</p>
+            </div>
+            <input id="userAvatarInput" type="file" accept="image/*" hidden />
+            <button class="btn btn--secondary" type="button" id="userAvatarButton">Alterar foto</button>
+          </aside>
+          <div class="user-edit-card__grid">
+            <article class="user-edit-card__section user-edit-card__section--form">
+              <h2>Configurações</h2>
+              <p>Dados da conta</p>
+              <div class="user-edit-form">
+                <label class="field" for="userName">
+                  <span>Nome</span>
+                  <input id="userName" type="text" autocomplete="name" />
+                </label>
+                <label class="field" for="userEmail">
+                  <span>E-mail</span>
+                  <input id="userEmail" type="email" autocomplete="email" />
+                </label>
+                <label class="field" for="userPhone">
+                  <span>Telefone</span>
+                  <input id="userPhone" type="tel" autocomplete="tel" placeholder="(00) 00000-0000" />
+                </label>
+              </div>
+            </article>
+            <article class="user-edit-card__section">
+              <h2>Plano atual</h2>
+              <p>Plano e cobranças</p>
+              <a class="btn btn--secondary" href="../../checkout/plans/index.html">Ver planos</a>
+            </article>
+            <article class="user-edit-card__section">
+              <h2>Sessão</h2>
+              <p>Encerrar acesso</p>
+              <button class="btn btn--primary" type="button" data-action="logout">Sair da conta</button>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="../../../env.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

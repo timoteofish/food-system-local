@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planos | Food System</title>
+    <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../register/styles.css" />
+    <link rel="stylesheet" href="../payment/styles.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+
+
+  </head>
+  <body class="plans-page">
+    <main class="shell">
+      <section class="purchase-shell card" aria-label="Planos de compra">
+        <div class="purchase-copy">
+          <p class="eyebrow">Plano Food</p>
+          <h2>Escolha seu plano</h2>
+          <p>Acesso da franquia</p>
+        </div>
+        <div class="plan-grid" id="planGrid" aria-busy="true">
+          <p class="plan-grid__loading">Carregando planos</p>
+        </div>
+        <div class="plan-actions">
+          <button class="btn btn--secondary" type="button" onclick="window.location.href='../../auth/register/index.html'">Trocar conta</button>
+        </div>
+      </section>
+    </main>
+    <script src="../../../env.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

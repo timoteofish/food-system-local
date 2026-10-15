@@ -1,0 +1,12 @@
+/* ===== DASHBOARD GRID ===== */
+.cards-3{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+/* ===== RESPONSIVE TABLET (768px - 1023px) ===== */
+@media(max-width:1023px){
+  .cards-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* ===== RESPONSIVE MOBILE (480px - 767px) ===== */
+@media(max-width:767px){
+  .cards-3{grid-template-columns:1fr}
+}

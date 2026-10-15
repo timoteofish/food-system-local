@@ -1,0 +1,307 @@
+/* Minimal polish shared by app screens. Loaded after page styles when linked. */
+.content,
+.menu-content{
+  color:var(--text);
+}
+
+.page-title,
+.content > header,
+.menu-content > header{
+  border-radius:8px !important;
+  background:#fff !important;
+  border:1px solid var(--line) !important;
+  box-shadow:none !important;
+  backdrop-filter:none !important;
+}
+
+.page-title{
+  padding:18px 20px !important;
+  margin-bottom:16px !important;
+}
+
+.page-title h1,
+.content > header h1,
+.menu-content > header h1{
+  font-size:1.42rem !important;
+  line-height:1.2 !important;
+  letter-spacing:0 !important;
+}
+
+.login-panel,
+.signup-panel,
+.recover-panel,
+.validation-panel,
+.payment-panel{
+  width:min(390px,100%) !important;
+  padding:28px !important;
+  margin-inline:auto !important;
+}
+
+.register-layout{
+  width:min(430px,100%) !important;
+}
+
+.auth-copy{
+  gap:6px !important;
+  margin-bottom:18px !important;
+}
+
+.login-panel .auth-copy,
+.signup-panel .auth-copy,
+.recover-panel .auth-copy,
+.validation-panel .auth-copy{
+  text-align:center !important;
+  justify-items:center !important;
+}
+
+.login-panel .auth-form{
+  width:100% !important;
+  justify-items:stretch !important;
+  text-align:left !important;
+}
+
+.login-panel .auth-form .field,
+.login-panel .form-feedback,
+.login-panel .btn{
+  width:100% !important;
+}
+
+.auth-copy h1{
+  font-size:1.58rem !important;
+}
+
+.auth-copy .subtitle{
+  display:none !important;
+}
+
+.login-panel .login-options{
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:12px !important;
+  width:100% !important;
+  text-align:center !important;
+  flex-wrap:wrap !important;
+}
+
+.login-panel .login-options label,
+.login-panel .forgot-link{
+  margin:0 !important;
+}
+
+.login-panel .login-options label{
+  justify-content:center !important;
+}
+
+.login-panel .forgot-link{
+  justify-content:center !important;
+  margin-left:0 !important;
+}
+
+.login-panel .social-row,
+.login-panel .social-icon{
+  width:100% !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+}
+
+.login-panel .btn--primary,
+.signup-panel .btn--primary,
+.recover-panel .btn--primary,
+.validation-panel .btn--primary,
+.payment-panel .btn--primary,
+.purchase-shell .btn--primary{
+  background:var(--accent) !important;
+  border-color:var(--accent) !important;
+  color:#fff !important;
+  box-shadow:none !important;
+}
+
+.login-panel .btn--primary:hover,
+.signup-panel .btn--primary:hover,
+.recover-panel .btn--primary:hover,
+.validation-panel .btn--primary:hover,
+.payment-panel .btn--primary:hover,
+.purchase-shell .btn--primary:hover{
+  background:var(--accent-dark) !important;
+  border-color:var(--accent-dark) !important;
+}
+
+.grid,
+.cards-3,
+.quick-grid,
+.orders-board,
+.orders-board__grid,
+.orders-board__overview,
+.product-form,
+.cash-controls,
+.team-layout{
+  gap:14px !important;
+}
+
+.product-form-panel,
+.table-panel,
+.orders-table,
+.orders-card,
+.orders-overview-card,
+.cash-history,
+.team-invite,
+.team-list{
+  padding:16px !important;
+}
+
+.table-panel table{
+  background:#fff;
+}
+
+th{
+  letter-spacing:.06em;
+  font-size:.76rem;
+}
+
+td,
+th{
+  padding:12px;
+}
+
+.orders-board__heading h2,
+.cash-history__head h2,
+.team-invite h2,
+.team-list__head h2{
+  font-size:1.05rem !important;
+}
+
+.orders-filter,
+.orders-card__action,
+.status-btn,
+.category-button,
+.image-actions__item{
+  box-shadow:none !important;
+}
+
+.orders-filter.is-active{
+  box-shadow:none !important;
+}
+
+.orders-card,
+.orders-table{
+  align-content:start;
+}
+
+.image-picker-button{
+  min-height:168px;
+  box-shadow:none !important;
+}
+
+.image-picker-button--square{
+  width:144px;
+  max-width:144px;
+}
+
+.menu-builder{
+  gap:18px !important;
+}
+
+.menu-preview{
+  min-height:520px;
+}
+
+.preview-header{
+  padding:20px;
+}
+
+.preview-header::after{
+  display:none;
+}
+
+.menu-item{
+  box-shadow:none !important;
+}
+
+.bag-panel{
+  box-shadow:-8px 0 24px rgba(31,42,36,.12) !important;
+}
+
+.menu-sidebar__profile:hover,
+.menu-sidebar__profile:focus-within,
+.menu-sidebar__profile:hover .profile-btn,
+.menu-sidebar__profile:focus-within .profile-btn,
+.menu-sidebar__profile:hover .profile-label,
+.menu-sidebar__profile:focus-within .profile-label,
+.qty-btn:hover,
+.choose-btn:hover,
+.qr-code-copy-btn:hover,
+.bag-panel__item:hover{
+  transform:none !important;
+}
+
+.menu-sidebar__profile:hover,
+.menu-sidebar__profile:focus-within,
+.menu-sidebar__profile:hover .profile-btn,
+.menu-sidebar__profile:focus-within .profile-btn,
+.qty-btn:hover,
+.qr-code-copy-btn:hover,
+.bag-panel__item:hover{
+  box-shadow:none !important;
+}
+
+.menu-sidebar .profile-btn,
+.menu-qr__button,
+.menu-theme-card.is-active,
+.category-check.is-active,
+.preview-stats article,
+.menu-preview[data-style="premium"] .menu-item,
+.menu-preview[data-style="editorial"] .menu-item{
+  box-shadow:none !important;
+}
+
+.bag-panel__item,
+.bag-panel__empty,
+.bag-panel__close,
+.bag-panel .btn,
+.qr-code-panel__body img,
+.qr-code-copy-btn{
+  border-radius:8px !important;
+}
+
+@media(max-width:767px){
+  .product-form-panel,
+  .table-panel,
+  .orders-table,
+  .orders-card,
+  .orders-overview-card,
+  .cash-history,
+  .team-invite,
+  .team-list{
+    padding:14px !important;
+  }
+
+  .login-panel,
+  .signup-panel,
+  .recover-panel,
+  .validation-panel,
+  .payment-panel{
+    padding:22px !important;
+  }
+
+  .login-panel .login-options{
+    flex-direction:row !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:10px !important;
+  }
+
+  .login-panel .login-options label,
+  .login-panel .forgot-link{
+    font-size:.82rem !important;
+  }
+}
+
+@media(max-width:420px){
+  .login-panel .login-options{
+    flex-direction:column !important;
+    gap:8px !important;
+  }
+}

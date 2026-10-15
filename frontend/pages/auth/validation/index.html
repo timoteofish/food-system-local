@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Validar empresa | Food System</title>
+    <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+
+  </head>
+  <body class="validation-page">
+    <div class="bg-blob bg-blob--1"></div>
+    <div class="bg-blob bg-blob--2"></div>
+    <main class="shell">
+      <section class="validation-panel">
+        <div class="auth-copy">
+          <p class="eyebrow">Food System</p>
+          <h1>Dados da empresa</h1>
+          <p class="subtitle">Confirme como seu negócio vai aparecer no sistema.</p>
+        </div>
+
+        <form class="validation-form" id="validationForm">
+          <div class="company-photo">
+            <div class="company-photo__frame">
+              <img id="companyPhotoPreview" alt="Foto da empresa" hidden />
+              <span id="companyPhotoPlaceholder">F</span>
+            </div>
+            <div class="company-photo__actions">
+              <label class="btn btn--secondary company-photo__button" for="companyPhoto">Escolher foto</label>
+              <input id="companyPhoto" name="companyPhoto" type="file" accept="image/*" hidden />
+            </div>
+          </div>
+
+          <label class="field" for="businessName">
+            <span>Nome da empresa</span>
+            <input id="businessName" name="businessName" type="text" autocomplete="organization" placeholder="Ex.: Sabor da Serra" required />
+          </label>
+
+          <p id="validationFeedback" class="form-feedback form-feedback--error" hidden></p>
+
+          <div class="validation-actions">
+            <a class="btn btn--secondary" href="../register/index.html">Voltar</a>
+            <button class="btn btn--primary" type="submit">Continuar</button>
+          </div>
+        </form>
+      </section>
+    </main>
+    <script src="../../../env.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

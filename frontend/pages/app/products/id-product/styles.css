@@ -1,0 +1,95 @@
+.mobile-product-list{display:none}
+
+.id-product-backdrop,
+.id-product-panel{display:none}
+
+.id-product-backdrop[hidden],
+.id-product-panel[hidden]{display:none !important}
+
+@media(max-width:767px){
+  body.id-product-open{overflow:hidden}
+  .table-panel > table{display:none}
+
+  .mobile-product-list{
+    display:grid;
+    gap:8px;
+  }
+
+  .mobile-product-list__item{
+    width:100%;
+    min-height:56px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    color:var(--text);
+    background:linear-gradient(180deg,#fff,#f6f7f4);
+    text-align:left;
+    font-weight:800;
+    box-shadow:0 8px 18px rgba(31,42,36,.04);
+  }
+
+  .mobile-product-list__item:active{transform:scale(.99)}
+  .mobile-product-list__item span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mobile-product-list__arrow{color:var(--accent);font-size:1.3rem;line-height:1}
+  .mobile-product-list__empty{margin:0;padding:20px 8px;text-align:center;color:var(--muted)}
+
+  .id-product-backdrop{
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:110;
+    border:0;
+    background:rgba(31,42,36,.46);
+    opacity:0;
+    transition:opacity .18s ease;
+  }
+
+  .id-product-panel{
+    display:block;
+    position:fixed;
+    right:8px;
+    bottom:8px;
+    left:calc(var(--app-rail) + 8px);
+    z-index:115;
+    max-height:calc(100dvh - 16px);
+    overflow:auto;
+    border:1px solid rgba(223,231,220,.96);
+    border-radius:20px;
+    background:#fff;
+    box-shadow:0 24px 56px rgba(31,42,36,.26);
+    transform:translateY(110%);
+    transition:transform .2s ease;
+  }
+
+  .id-product-backdrop.is-open{opacity:1}
+  .id-product-panel.is-open{transform:translateY(0)}
+  .id-product-panel__handle{width:42px;height:4px;margin:10px auto 2px;border-radius:99px;background:#b8c9c0}
+  .id-product-panel__header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 16px 14px;border-bottom:1px solid var(--line)}
+  .id-product-panel__header p{margin:0 0 4px;color:var(--muted);font-size:.74rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+  .id-product-panel__header h2{margin:0;font-size:1.18rem;overflow-wrap:anywhere}
+  .id-product-panel__close{width:40px;min-width:40px;height:40px;border:0;border-radius:12px;background:#f6f7f4;color:var(--text);font-size:1.7rem;line-height:1}
+  .id-product-panel__body{display:grid;gap:14px;padding:16px}
+  .id-product-panel__image{width:100%;height:min(180px,26dvh);border-radius:16px;object-fit:cover;background:#f6f7f4}
+  .id-product-panel__image--empty{display:grid;place-items:center;color:var(--accent);font-size:2rem;font-weight:900;background:linear-gradient(135deg,#dff3ee,#f6f7f4)}
+  .id-product-panel__price{color:var(--accent);font-size:1.5rem;font-weight:900}
+  .id-product-panel__description{margin:0;color:var(--muted);line-height:1.55;overflow-wrap:anywhere}
+  .id-product-panel__data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+  .id-product-panel__data div{min-width:0;padding:10px;border-radius:12px;background:#f6f7f4}
+  .id-product-panel__data dt{margin-bottom:4px;color:var(--muted);font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+  .id-product-panel__data dd{margin:0;font-size:.9rem;font-weight:800;overflow-wrap:anywhere}
+  .id-product-panel__status{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:.78rem}
+  .id-product-panel__status.is-active{color:#115e59;background:#dff3ee}
+  .id-product-panel__status.is-inactive{color:#115e59;background:#dff3ee}
+  .id-product-panel__actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px 16px;border-top:1px solid var(--line)}
+  .id-product-panel__actions .btn{min-width:0;padding-inline:10px}
+}
+
+@media(max-width:380px){
+  .id-product-panel{left:calc(var(--app-rail) + 6px);right:6px;bottom:6px;border-radius:16px}
+  .id-product-panel__data{grid-template-columns:1fr}
+  .id-product-panel__actions{grid-template-columns:1fr}
+}

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cardápio | Food System</title>
+    <link rel="icon" href="../../assets/favicon.png" type="image/png" />
+    <link rel="stylesheet" href="../../styles/base.css" />
+    <link rel="stylesheet" href="../app/menu/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../styles/minimal-polish.css" />
+
+
+  </head>
+  <body class="customer-menu-page">
+    <main class="customer-menu-shell">
+      <div class="browser-window customer-browser-window">
+        <div class="browser-bar"><span></span><span></span><span></span><strong>Cardápio</strong></div>
+        <div class="menu-preview customer-menu-preview" id="customerMenuPreview">
+          <header class="preview-header" id="customerHero">
+            <p id="customerBusinessName">Food System</p>
+            <h2 id="customerMenuSubtitle">Cardápio digital</h2>
+            <p class="preview-banner" id="customerMenuBanner" hidden></p>
+          </header>
+          <div class="category-row" id="customerCategories"></div>
+          <div class="menu-search">
+            <svg class="menu-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-5.34C15.39 5.59 12.3 3 8.7 3S2 5.59 2 8.39 4.09 13.78 7.69 13.78c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM7.69 12.28C5.1 12.28 3 10.28 3 8.39S5.1 4.5 7.69 4.5 12.38 6.5 12.38 8.39 10.28 12.28 7.69 12.28z"/></svg>
+            <input id="customerMenuSearch" type="search" placeholder="Pesquisar produto" />
+            <button class="menu-bag" id="customerMenuBag" type="button" aria-live="polite" title="Itens no carrinho" aria-label="Abrir sacola de compras">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6 2l1 2h10l1-2H6zm13 4H5l-1 14a2 2 0 002 2h12a2 2 0 002-2L19 6zM9 10a1 1 0 112 0v4a1 1 0 11-2 0v-4zm4 0a1 1 0 112 0v4a1 1 0 11-2 0v-4z"/></svg>
+              <span id="customerMenuBagCount">0</span>
+            </button>
+          </div>
+          <div class="menu-list" id="customerMenuList"></div>
+          <div class="bag-panel-backdrop" id="customerBagBackdrop" hidden></div>
+          <aside class="bag-panel panel customer-bag-panel" id="customerBagPanel" aria-hidden="true" role="dialog" aria-label="Sacola do pedido" hidden>
+            <div class="bag-panel__header">
+              <div>
+                <p class="eyebrow">Sacola</p>
+                <h3>Finalize seu pedido</h3>
+              </div>
+              <button class="bag-panel__close" id="customerBagClose" type="button" aria-label="Fechar sacola">×</button>
+            </div>
+            <div class="bag-panel__items" id="customerBagItems"></div>
+            <div class="bag-panel__footer">
+              <label class="field" for="customerNameInput">
+                <span>Seu nome</span>
+                <input id="customerNameInput" type="text" placeholder="Ex: Maria" />
+              </label>
+              <div class="customer-table-fixed">
+                <span>Mesa</span>
+                <strong id="customerTableDisplay">Mesa não definida</strong>
+              </div>
+              <label class="field" for="customerPaymentMethod">
+                <span>Pagamento</span>
+                <select id="customerPaymentMethod">
+                  <option value="pix">Pix</option>
+                  <option value="credito">Cartão de crédito</option>
+                  <option value="debito">Cartão de débito</option>
+                  <option value="dinheiro_balcao">Dinheiro no balcão</option>
+                </select>
+              </label>
+              <div class="customer-payment-note" id="customerPaymentNote"></div>
+              <div class="bag-panel__total">
+                <span>Total</span>
+                <strong id="customerBagTotal">R$ 0,00</strong>
+              </div>
+              <button class="btn btn--primary" id="customerBagConfirm" type="button">Pagar e enviar pedido</button>
+            </div>
+          </aside>
+          <section class="customer-success" id="customerSuccess" hidden aria-live="polite"></section>
+        </div>
+      </div>
+    </main>
+
+    <script src="../../env.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
