@@ -68,7 +68,7 @@ export const logoutRequest = () => apiRequest("/auth/logout", { method: "POST" }
 export const fetchProfile = () => apiRequest("/auth/profile");
 
 export const fetchProducts = (businessId) =>
-  apiRequest(`/businesses/${businessId}/products`);
+  apiRequest(`/businesses/${businessId}/products`).then((data) => data.products || []);
 
 export const fetchPublicMenu = (businessId) =>
   apiRequest(`/businesses/${businessId}/public`, { auth: false });
@@ -80,16 +80,16 @@ export const createProduct = (businessId, product) =>
   apiRequest(`/businesses/${businessId}/products`, {
     method: "POST",
     body: { product },
-  });
+  }).then((data) => data.product || data);
 
 export const updateProduct = (businessId, productId, product) =>
   apiRequest(`/businesses/${businessId}/products/${productId}`, {
     method: "PATCH",
     body: { product },
-  });
+  }).then((data) => data.product || data);
 
 export const fetchCategories = (businessId) =>
-  apiRequest(`/businesses/${businessId}/categories`);
+  apiRequest(`/businesses/${businessId}/categories`).then((data) => data.categories || []);
 
 export const fetchRestaurantTables = (businessId) =>
   apiRequest(`/businesses/${businessId}/tables`);
@@ -129,12 +129,12 @@ export const createCategory = (businessId, name) =>
   apiRequest(`/businesses/${businessId}/categories`, {
     method: "POST",
     body: { category: { name } },
-  });
+  }).then((data) => data.category || data);
 
 export const deleteCategory = (businessId, categoryId) =>
   apiRequest(`/businesses/${businessId}/categories/${categoryId}`, {
     method: "DELETE",
-  });
+  }).then(() => true);
 
 export const updateBusiness = (businessId, business) =>
   apiRequest(`/businesses/${businessId}`, {
