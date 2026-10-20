@@ -5,6 +5,10 @@ import { config } from "./config.js";
 import { checkDatabase } from "./db.js";
 import businessesRoutes from "./routes/businesses.js";
 import catalogRoutes from "./routes/catalog.js";
+import tableRoutes from "./routes/tables.js";
+import orderRoutes from "./routes/orders.js";
+import cashRoutes from "./routes/cash.js";
+import authRoutes from "./routes/auth.js";
 
 const app = Fastify({ logger: true });
 
@@ -15,6 +19,10 @@ await app.register(cors, {
 });
 await app.register(businessesRoutes);
 await app.register(catalogRoutes);
+await app.register(tableRoutes);
+await app.register(orderRoutes);
+await app.register(cashRoutes);
+await app.register(authRoutes);
 
 app.get("/up", async () => ({
   status: "ok",

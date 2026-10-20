@@ -23,6 +23,8 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
     "X-Food-System-Client": "web",
     ...(body ? { "Content-Type": "application/json" } : {}),
   };
+  const storedSession = JSON.parse(localStorage.getItem("food-system-session") || "null");
+  if (storedSession?.token) headers.Authorization = `Bearer ${storedSession.token}`;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
@@ -92,7 +94,7 @@ export const fetchCategories = (businessId) =>
   apiRequest(`/businesses/${businessId}/categories`).then((data) => data.categories || []);
 
 export const fetchRestaurantTables = (businessId) =>
-  apiRequest(`/businesses/${businessId}/tables`);
+  apiRequest(`/businesses/${businessId}/tables`).then((data) => data.tables || []);
 
 export const createRestaurantTable = (businessId, name) =>
   apiRequest(`/businesses/${businessId}/tables`, {
@@ -143,13 +145,13 @@ export const updateBusiness = (businessId, business) =>
   });
 
 export const fetchOrders = (businessId) =>
-  apiRequest(`/businesses/${businessId}/orders`);
+  apiRequest(`/businesses/${businessId}/orders`).then((data) => data.orders || []);
 
 export const updateOrderStatusRequest = (businessId, orderId, status) =>
   apiRequest(`/businesses/${businessId}/orders/${orderId}/update_status`, {
     method: "PATCH",
     body: { status },
-  });
+  }).then((data) => data.order || data);
 
 export const createOrder = (businessId, order, items, tableToken = "") =>
   apiRequest(`/businesses/${businessId}/orders`, {
@@ -159,7 +161,11 @@ export const createOrder = (businessId, order, items, tableToken = "") =>
   });
 
 export const fetchTodayStats = (businessId) =>
-  apiRequest(`/businesses/${businessId}/orders/today_stats`);
+  apiRequest(`/businesses/${businessId}/orders/today_stats`).then((data) => ({
+    total_revenue: data.total,
+    total_orders: data.orders,
+    cash_balance: data.total,
+  }));
 
 export const fetchCashMovements = (businessId) =>
   apiRequest(`/businesses/${businessId}/cash_movements`);
@@ -168,15 +174,15 @@ export const createCashMovement = (businessId, cashMovement) =>
   apiRequest(`/businesses/${businessId}/cash_movements`, {
     method: "POST",
     body: { cash_movement: cashMovement },
-  });
+  }).then((data) => data.movement || data);
 
-export const persistAuthSession = ({ user, business, plan = "completo" }) => {
+export const persistAuthSession = ({ user, business, plan = "completo", token = "" }) => {
   setSession({
     userId: user.id,
     email: user.email,
     name: user.business_name || user.name,
     plan,
-    token: "",
+    token,
     businessId: business?.id,
     needsOnboarding: false,
     loggedAt: new Date().toISOString(),

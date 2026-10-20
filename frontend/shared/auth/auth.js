@@ -72,7 +72,7 @@ export const checkApiAvailability = async () => {
     return false;
   }
   apiAvailable = await pingApi();
-  if (apiAvailable && LOCAL_MODE) {
+  if (apiAvailable && !LOCAL_MODE) {
     const profile = await fetchProfile();
     persistAuthSession({ user: profile.user, business: profile.business, local: true });
   }
@@ -92,7 +92,7 @@ export const login = async ({ email, password }) => {
   if (!isUsingApi()) throw new Error("API indisponível. Verifique o backend antes de entrar.");
 
   const data = await loginRequest(email, password);
-  persistAuthSession({ user: data.user, business: data.business });
+  persistAuthSession({ user: data.user, business: data.business, token: data.token });
   return data.user;
 };
 
@@ -109,7 +109,7 @@ export const loginWithFirebaseGoogle = async () => {
 
   const { idToken } = await signInWithFirebaseGoogle();
   const data = await firebaseAuthRequest(idToken);
-  persistAuthSession({ user: data.user, business: data.business });
+  persistAuthSession({ user: data.user, business: data.business, token: data.token });
   setSession({
     ...getSession(),
     needsOnboarding: !data.business?.city || !data.business?.phone,
@@ -170,6 +170,7 @@ export const completeRegistration = async (plan = "simples") => {
   persistAuthSession({
     user: data.user,
     business: data.business,
+    token: data.token,
     plan,
   });
   setSession({
@@ -384,10 +385,10 @@ export const loadOrdersRemote = async () => {
   const orders = await fetchOrders(businessId);
   return (orders || []).map((order) => ({
     id: order.id,
-    total: order.total_amount,
+    total: order.total,
     createdAt: order.created_at,
     updatedAt: order.updated_at,
-    items: order.order_items || [],
+    items: order.items || [],
     customerName: order.customer_name || "Cliente balcão",
     tableName: order.restaurant_table_name || order.delivery_address || extractTableName(order.notes),
     notes: order.notes || "",
@@ -401,10 +402,10 @@ export const updateOrderStatusRemote = async (orderId, status) => {
   const updated = await updateOrderStatusRequest(businessId, orderId, normalizeApiOrderStatus(status));
   return {
     id: updated.id,
-    total: updated.total_amount,
+    total: updated.total,
     createdAt: updated.created_at,
     updatedAt: updated.updated_at,
-    items: updated.order_items || [],
+    items: updated.items || [],
     customerName: updated.customer_name || "Cliente balcão",
     tableName: updated.restaurant_table_name || updated.delivery_address || extractTableName(updated.notes),
     notes: updated.notes || "",
@@ -462,7 +463,7 @@ export const loadDashboardData = async () => {
     stats: {
       activeProducts: products.filter((item) => item.active).length,
       salesToday: Number(statsPayload.total_revenue || 0),
-      cashBalance: Number(statsPayload.total_revenue || 0),
+      cashBalance: Number(statsPayload.cash_balance || 0),
       ordersToday: Number(statsPayload.total_orders || 0),
       activeTables: activeTables.size,
     },
@@ -470,7 +471,7 @@ export const loadDashboardData = async () => {
       id: order.id,
       total: order.total_amount,
       createdAt: order.created_at,
-      items: order.order_items || [],
+      items: order.items || [],
     })),
   };
 };
@@ -490,9 +491,9 @@ export const loadCashierData = async () => {
     orders: (orders || []).map((order) => ({
       id: order.id,
       orderCode: order.order_number,
-      total: order.total_amount,
+      total: order.total,
       paymentMethod: extractPaymentMethod(order.notes),
-      paymentStatus: order.payment_status === "completed" ? "paid" : "pending",
+      paymentStatus: order.status === "completed" ? "paid" : "pending",
       customerName: order.customer_name || "Cliente",
       tableName: order.restaurant_table_name || order.delivery_address || extractTableName(order.notes),
       createdAt: order.created_at,
@@ -537,6 +538,7 @@ export const processCheckout = async ({ planSlug, paymentMethod, metadata = {} }
     persistAuthSession({
       user: data.user,
       business: data.business,
+      token: data.token,
       plan: planSlug,
     });
     setSession({

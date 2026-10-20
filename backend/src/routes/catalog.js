@@ -13,6 +13,7 @@ export default async function catalogRoutes(app) {
   app.post("/api/v1/businesses/:businessId/categories", async (request, reply) => {
     const name = String(request.body?.category?.name || request.body?.name || "").trim();
     if (!name) return reply.badRequest("Category name is required");
+    if (name.length > 120) return reply.badRequest("Category name must be at most 120 characters");
     const id = randomUUID();
     await pool.query("INSERT INTO categories (id, business_id, name) VALUES (?, ?, ?)", [id, request.params.businessId, name]);
     return reply.code(201).send({ category: { id, business_id: request.params.businessId, name } });
@@ -49,7 +50,10 @@ export default async function catalogRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/products", async (request, reply) => {
     const product = request.body?.product || request.body || {};
-    if (!String(product.name || "").trim() || !(product.category_id || product.category)) return reply.badRequest("Product name and category are required");
+    const name = String(product.name || "").trim();
+    const price = Number(product.price);
+    if (!name || name.length > 160 || !(product.category_id || product.category)) return reply.badRequest("Product name and category are required");
+    if (!Number.isFinite(price) || price < 0 || price > 99999999.99) return reply.badRequest("Product price must be a valid non-negative amount");
     let categoryId = product.category_id;
     if (!categoryId) {
       const [categories] = await pool.query("SELECT id FROM categories WHERE business_id = ? AND name = ? LIMIT 1", [request.params.businessId, product.category]);
@@ -59,7 +63,7 @@ export default async function catalogRoutes(app) {
     const id = randomUUID();
     await pool.query(
       "INSERT INTO products (id, business_id, category_id, name, description, price, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [id, request.params.businessId, categoryId, product.name.trim(), product.description || null, Number(product.price || 0), product.image || product.image_url || null]
+      [id, request.params.businessId, categoryId, name, product.description || null, price, product.image || product.image_url || null]
     );
     return reply.code(201).send({ product: { id, ...product, category_id: categoryId } });
   });
