@@ -1,5 +1,4 @@
 import {
-  checkoutSubscription as apiCheckoutSubscription,
   createRestaurantTable,
   createTeamMember,
   createOrder as apiCreateOrder,
@@ -26,6 +25,7 @@ import {
   updateTeamMember,
   updateProduct as apiUpdateProduct,
   disableTeamMember,
+  checkForUpdates,
 } from "../api/client.js";
 import { isApiEnabled } from "../api/config.js";
 import {
@@ -40,20 +40,23 @@ import {
 } from "../data/storage.js";
 import { signInWithFirebaseGoogle, signOutFirebaseSession } from "./firebase.js";
 
+// This is an installed, single-computer application. The local profile is
+// created automatically; there is no login, password or subscription flow.
 const LOCAL_MODE = true;
 
 const ensureLocalSession = () => {
   const existing = getSession();
-  if (existing?.businessId) return existing;
+  if (existing?.local === true && existing.businessId) return existing;
 
   const localSession = {
     id: "local-user",
     email: "local@food-system.local",
     name: "Administrador",
-    businessId: "local-business",
+    businessId: "00000000-0000-4000-8000-000000000001",
     role: "owner",
     provider: "local",
     local: true,
+    token: "",
   };
   setSession(localSession);
   saveBusiness({
@@ -72,7 +75,7 @@ export const checkApiAvailability = async () => {
     return false;
   }
   apiAvailable = await pingApi();
-  if (apiAvailable && !LOCAL_MODE) {
+  if (apiAvailable && !LOCAL_MODE && getSession()?.token) {
     const profile = await fetchProfile();
     persistAuthSession({ user: profile.user, business: profile.business, local: true });
   }
@@ -118,6 +121,7 @@ export const loginWithFirebaseGoogle = async () => {
 };
 
 export const logout = async () => {
+  if (LOCAL_MODE) return ensureLocalSession();
   if (getSession()) {
     try {
       await logoutRequest();
@@ -153,13 +157,13 @@ export const saveRegistrationStep = ({ name, email, password }) => {
   });
 };
 
-export const completeRegistration = async (plan = "simples") => {
+export const completeRegistration = async () => {
   const pending = getPendingRegistration();
   if (!pending?.email || !pending?.password) {
     throw new Error("Cadastro incompleto. Volte e preencha seus dados.");
   }
   if (!pending?.businessName) {
-    throw new Error("Valide os dados da empresa antes de escolher um plano.");
+    throw new Error("Valide os dados da empresa antes de concluir o cadastro.");
   }
 
   await checkApiAvailability();
@@ -171,7 +175,6 @@ export const completeRegistration = async (plan = "simples") => {
     user: data.user,
     business: data.business,
     token: data.token,
-    plan,
   });
   setSession({
     ...getSession(),
@@ -518,66 +521,9 @@ export const addCashMovementRemote = async ({ type, label, value }) => {
 
 export const bootstrapApi = checkApiAvailability;
 
-export const processCheckout = async ({ planSlug, paymentMethod, metadata = {} }) => {
+export const checkForSystemUpdates = async () => {
   await checkApiAvailability();
-
-  const isFree = planSlug === "gratis";
-
-  if (!isUsingApi()) throw new Error("API indisponível. Não é possível concluir checkout sem backend.");
-
-  const session = getSession();
-  if (!session) {
-    const pending = getPendingRegistration();
-    if (!pending?.email || !pending?.password) {
-      throw new Error("Cadastro incompleto. Volte e preencha seus dados.");
-    }
-    if (!pending?.businessName) {
-      throw new Error("Valide os dados da empresa antes de escolher um plano.");
-    }
-    const data = await registerRequest(pending);
-    persistAuthSession({
-      user: data.user,
-      business: data.business,
-      token: data.token,
-      plan: planSlug,
-    });
-    setSession({
-      ...getSession(),
-      name: pending.businessName,
-      avatar: pending.businessAvatar || "",
-      needsOnboarding: false,
-    });
-    saveBusiness({
-      ...(data.business || {}),
-      name: pending.businessName,
-      email: pending.email,
-      avatar: pending.businessAvatar || "",
-      logo_url: pending.businessAvatar || data.business?.logo_url || "",
-      onboardingCompleted: true,
-    });
-    await saveMenuSettingsRemote({
-      businessName: pending.businessName,
-      menuName: pending.businessName,
-    });
-    clearPendingRegistration();
-  }
-
-  if (isFree) {
-    const current = getSession();
-    if (current) setSession({ ...current, plan: "gratis" });
-    return { source: "api", plan: "gratis" };
-  }
-
-  const result = await apiCheckoutSubscription({
-    planSlug,
-    paymentMethod,
-    metadata,
-  });
-
-  const current = getSession();
-  if (current && result?.plan?.slug) {
-    setSession({ ...current, plan: result.plan.slug });
-  }
-
-  return { source: "api", ...result };
+  if (!isUsingApi()) throw new Error("API indisponível. Não foi possível verificar atualizações.");
+  const businessId = requireBusinessId();
+  return checkForUpdates(businessId);
 };

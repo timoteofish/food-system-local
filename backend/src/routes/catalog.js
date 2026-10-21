@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
+import { requireBusinessAccess } from "./auth.js";
 
 export default async function catalogRoutes(app) {
-  app.get("/api/v1/businesses/:businessId/categories", async ({ params }) => {
+  app.get("/api/v1/businesses/:businessId/categories", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
+    const { params } = request;
     const [rows] = await pool.query(
       "SELECT * FROM categories WHERE business_id = ? ORDER BY position, name",
       [params.businessId]
@@ -11,6 +14,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/categories", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const name = String(request.body?.category?.name || request.body?.name || "").trim();
     if (!name) return reply.badRequest("Category name is required");
     if (name.length > 120) return reply.badRequest("Category name must be at most 120 characters");
@@ -20,6 +24,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.patch("/api/v1/businesses/:businessId/categories/:id", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const category = request.body?.category || request.body || {};
     const updates = Object.entries({ name: category.name, description: category.description, position: category.position, active: category.active })
       .filter(([, value]) => value !== undefined);
@@ -35,12 +40,15 @@ export default async function catalogRoutes(app) {
   });
 
   app.delete("/api/v1/businesses/:businessId/categories/:id", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const [result] = await pool.query("DELETE FROM categories WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
     if (!result.affectedRows) return reply.notFound("Category not found");
     return reply.code(204).send();
   });
 
-  app.get("/api/v1/businesses/:businessId/products", async ({ params }) => {
+  app.get("/api/v1/businesses/:businessId/products", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
+    const { params } = request;
     const [rows] = await pool.query(
       "SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON c.id = p.category_id WHERE p.business_id = ? ORDER BY p.position, p.name",
       [params.businessId]
@@ -49,6 +57,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/products", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const product = request.body?.product || request.body || {};
     const name = String(product.name || "").trim();
     const price = Number(product.price);
@@ -69,6 +78,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.patch("/api/v1/businesses/:businessId/products/:id", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const product = request.body?.product || request.body || {};
     const fields = { name: product.name, description: product.description, price: product.price, category_id: product.category_id, image_url: product.image_url || product.image, position: product.position, active: product.active };
     const updates = Object.entries(fields).filter(([, value]) => value !== undefined);
@@ -84,6 +94,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.delete("/api/v1/businesses/:businessId/products/:id", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const [result] = await pool.query("DELETE FROM products WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
     if (!result.affectedRows) return reply.notFound("Product not found");
     return reply.code(204).send();

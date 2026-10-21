@@ -1,1 +1,1 @@
-export { processCheckout } from "../../auth/auth.js";
+export { checkForSystemUpdates } from "../../auth/auth.js";

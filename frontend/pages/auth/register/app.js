@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         button.disabled = true;
         await loginWithFirebaseGoogle();
-        window.location.href = "../../checkout/plans/index.html";
+        window.location.href = "../../app/dashboard/index.html";
       } catch (error) {
         showFeedback(error.message || "Nao foi possivel registrar com Google.");
         button.disabled = false;

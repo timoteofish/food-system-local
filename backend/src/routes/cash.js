@@ -1,14 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
+import { requireBusinessAccess } from "./auth.js";
 
 export default async function cashRoutes(app) {
-  app.get("/api/v1/businesses/:businessId/cash_movements", async ({ params }) => {
+  app.get("/api/v1/businesses/:businessId/cash_movements", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
+    const { params } = request;
     const [movements] = await pool.query("SELECT * FROM cash_movements WHERE business_id = ? ORDER BY created_at DESC", [params.businessId]);
     const [totals] = await pool.query("SELECT COALESCE(SUM(CASE WHEN type IN ('sale','entry') THEN amount ELSE -amount END), 0) AS balance FROM cash_movements WHERE business_id = ?", [params.businessId]);
     return { movements, balance: Number(totals[0].balance) };
   });
 
   app.post("/api/v1/businesses/:businessId/cash_movements", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const input = request.body?.cash_movement || request.body || {};
     const type = String(input.type || "entry");
     const amount = Number(input.amount);

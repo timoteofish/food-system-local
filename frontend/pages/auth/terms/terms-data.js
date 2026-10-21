@@ -22,10 +22,10 @@ export const TERMS_SECTIONS = [
     ],
   },
   {
-    title: "Pagamentos e planos",
+    title: "Uso local do aplicativo",
     items: [
-      "Alguns recursos podem depender do plano contratado, da configuração do estabelecimento ou da integração com meios de pagamento.",
-      "Quando houver cobrança, cancelamento ou alteração de plano, as condições exibidas no momento da contratação serão consideradas.",
+      "Os recursos são executados localmente neste computador e dependem da configuração do estabelecimento.",
+      "Atualizações do aplicativo poderão ser verificadas nas configurações e instaladas somente quando o usuário autorizar.",
     ],
   },
   {

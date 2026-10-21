@@ -1,3 +1,4 @@
+import { completeRegistration } from "../../../shared/auth/auth.js";
 import { getPendingRegistration, savePendingRegistration } from "../../../shared/data/storage.js";
 
 const pending = getPendingRegistration();
@@ -60,7 +61,7 @@ photoInput.addEventListener("change", () => {
   reader.readAsDataURL(file);
 });
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const businessName = businessNameInput.value.trim();
@@ -77,5 +78,10 @@ form.addEventListener("submit", (event) => {
     validatedAt: new Date().toISOString(),
   });
 
-  window.location.href = "../../checkout/plans/index.html";
+  try {
+    await completeRegistration();
+    window.location.href = "../../app/dashboard/index.html";
+  } catch (error) {
+    showFeedback(error?.message || "Não foi possível concluir o cadastro.");
+  }
 });

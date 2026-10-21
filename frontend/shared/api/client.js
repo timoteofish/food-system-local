@@ -21,6 +21,7 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
   const headers = {
     Accept: "application/json",
     "X-Food-System-Client": "web",
+    "X-Food-System-Local": "true",
     ...(body ? { "Content-Type": "application/json" } : {}),
   };
   const storedSession = JSON.parse(localStorage.getItem("food-system-session") || "null");
@@ -176,12 +177,11 @@ export const createCashMovement = (businessId, cashMovement) =>
     body: { cash_movement: cashMovement },
   }).then((data) => data.movement || data);
 
-export const persistAuthSession = ({ user, business, plan = "completo", token = "" }) => {
+export const persistAuthSession = ({ user, business, token = "" }) => {
   setSession({
     userId: user.id,
     email: user.email,
     name: user.business_name || user.name,
-    plan,
     token,
     businessId: business?.id,
     needsOnboarding: false,
@@ -200,17 +200,5 @@ export const pingApi = async () => {
   }
 };
 
-export const fetchPlans = () =>
-  apiRequest("/plans", { method: "GET", auth: false });
-
-export const checkoutSubscription = ({ planSlug, paymentMethod, metadata = {} }) =>
-  apiRequest("/subscription/checkout", {
-    method: "POST",
-    body: {
-      checkout: {
-        plan_slug: planSlug,
-        payment_method: paymentMethod,
-        metadata,
-      },
-    },
-  });
+export const checkForUpdates = (businessId) =>
+  apiRequest(`/businesses/${businessId}/system/update`);

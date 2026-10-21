@@ -1,10 +1,18 @@
 import { getBusiness, getMenuSettings, getSession, saveBusiness, setSession } from "../data/storage.js";
 import { bootstrapApi, completeBusinessOnboarding, logout, requireAuth, saveMenuSettingsRemote } from "../auth/auth.js";
-import { isFreePlan, loadPlans } from "../data/plans.js";
-import { processCheckout } from "../features/auth/index.js";
+import { checkForSystemUpdates } from "../auth/auth.js";
 import { escapeHtml } from "../utils/utils.js";
 
 export { requireAuth };
+
+const closeApplication = () => {
+  const tauriWindow = window.__TAURI__?.window?.getCurrentWindow?.();
+  if (tauriWindow) {
+    void tauriWindow.close();
+  } else {
+    window.close();
+  }
+};
 
 const SIDEBAR_COLLAPSE_KEY = "food-system-sidebar-collapsed";
 
@@ -267,20 +275,13 @@ export const initProfileMenu = () => {
   let session = getSession();
   let business = getBusiness();
   let displayName = session?.name || business.name || "Usuário";
-  const clientCategory = session?.plan || "Plano básico";
+  const clientCategory = "Aplicação local";
   const createdAt = session?.createdAt || business.createdAt || new Date().toISOString();
   const createdAtText = new Date(createdAt).toLocaleDateString("pt-BR");
   let clientEmail = session?.email || business.email || "";
   const clientPhone = business.phone || session?.phone || "";
   const clientAvatar = session?.avatar || business.avatar || "";
-  const planLabelMap = {
-    simples: "Plano Simples",
-    completo: "Plano Completo",
-    basico: "Plano Básico",
-    "plano básico": "Plano Básico",
-  };
-  const normalizedPlan = String(clientCategory || "").trim().toLowerCase();
-  const displayPlan = planLabelMap[normalizedPlan] || clientCategory || "Plano básico";
+  const displayPlan = clientCategory;
   const supportEmail = clientEmail || business.email || "suporte@foodsystem.com";
   let backdrop = document.getElementById("userEditBackdrop");
   let panel = document.getElementById("userEditPanel");
@@ -314,9 +315,9 @@ export const initProfileMenu = () => {
           <section class="user-edit-panel__view is-current" data-profile-view="home">
             <div class="user-edit-panel__actions-stack">
               <button class="user-edit-panel__action" type="button" data-profile-open="settings">Configurações</button>
-              <button class="user-edit-panel__action" type="button" data-profile-open="plan">Plano</button>
+              <button class="user-edit-panel__action" type="button" data-profile-open="updates">Atualizações do sistema</button>
               <button class="user-edit-panel__action" type="button" data-profile-open="support">Suporte</button>
-              <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-action="logout">Sair da conta</button>
+              <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-action="close-app">Fechar aplicação</button>
             </div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="settings" hidden>
@@ -341,11 +342,11 @@ export const initProfileMenu = () => {
                   </div>
                   <div class="user-edit-panel__settings-summary">
                     <article class="user-edit-panel__card">
-                      <span>Plano atual</span>
-                      <strong>${displayPlan}</strong>
-                      <small>Assinatura ativa</small>
+                      <span>Aplicativo instalado</span>
+                      <strong>Food System</strong>
+                      <small>Operação local neste computador</small>
                     </article>
-                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-open="plan">Gerenciar plano</button>
+                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-open="updates">Verificar atualizações</button>
                   </div>
                 </aside>
                 <form class="user-edit-panel__settings-form" data-settings-form>
@@ -389,14 +390,21 @@ export const initProfileMenu = () => {
               </div>
             </div>
           </section>
-          <section class="user-edit-panel__view" data-profile-view="plan" hidden>
+          <section class="user-edit-panel__view" data-profile-view="updates" hidden>
             <div class="user-edit-panel__page-head">
               <span>Central de assinatura</span>
               <strong>Área de planos</strong>
             </div>
             <div class="user-edit-panel__page-shell">
-              <div class="user-edit-panel__plan-catalog" data-plan-catalog></div>
-              <p class="user-edit-panel__feedback" data-plan-feedback hidden></p>
+              <div class="user-edit-panel__plan-catalog" data-update-panel>
+                <strong>Atualizações do sistema</strong>
+                <p data-update-current>Verificação ainda não executada.</p>
+                <p data-update-notes></p>
+                <button class="user-edit-panel__action" type="button" data-update-check>Verificar agora</button>
+                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-update-later hidden>Lembrar depois</button>
+                <a class="user-edit-panel__action" data-update-now hidden target="_blank" rel="noopener">Atualizar agora</a>
+              </div>
+              <p class="user-edit-panel__feedback" data-update-feedback hidden></p>
               <div class="user-edit-panel__actions-stack">
                 <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Voltar</button>
               </div>
@@ -494,7 +502,7 @@ export const initProfileMenu = () => {
 
   const humanPlanLabel = (slug) => {
     const normalized = String(slug || "").trim().toLowerCase();
-    return planLabelMap[normalized] || slug || "Plano básico";
+    return slug || "Aplicação local";
   };
 
   const formatDate = (value) =>
@@ -540,7 +548,7 @@ export const initProfileMenu = () => {
         </div>
       `;
       try {
-        availablePlans = await loadPlans({ force: true });
+        availablePlans = [];
       } catch {
         availablePlans = [];
       }
@@ -559,8 +567,8 @@ export const initProfileMenu = () => {
     planCatalog.innerHTML = availablePlans
       .map((plan) => {
         const current = plan.slug === currentPlanSlug;
-        const priceText = isFreePlan(plan) ? "Sem custo" : `${plan.price_label}/mês`;
-        const actionLabel = current ? "Plano atual" : `Trocar para ${plan.label || plan.name}`;
+        const priceText = "Aplicação local";
+        const actionLabel = current ? "Instalado" : "Disponível";
         const billingNote = current
           ? `
             <div class="user-edit-panel__plan-reminder">
@@ -765,7 +773,39 @@ export const initProfileMenu = () => {
     supportFileStatus.textContent = file?.name || "No file selected";
   });
 
-  renderPlanPanel();
+  const updateCurrent = panel.querySelector("[data-update-current]");
+  const updateNotes = panel.querySelector("[data-update-notes]");
+  const updateFeedback = panel.querySelector("[data-update-feedback]");
+  const updateCheck = panel.querySelector("[data-update-check]");
+  const updateLater = panel.querySelector("[data-update-later]");
+  const updateNow = panel.querySelector("[data-update-now]");
+
+  const checkSystemUpdate = async () => {
+    if (!updateFeedback) return;
+    updateFeedback.hidden = false;
+    updateFeedback.textContent = "Verificando atualizações...";
+    try {
+      const result = await checkForSystemUpdates();
+      updateCurrent.textContent = `Versão instalada: ${result.current_version}. Versão disponível: ${result.available_version}.`;
+      updateNotes.textContent = result.notes || "O sistema já está atualizado.";
+      updateLater.hidden = !result.update_available;
+      updateNow.hidden = !result.update_available || !result.download_url;
+      updateNow.href = result.download_url || "#";
+      updateFeedback.textContent = result.update_available
+        ? result.download_url ? "Atualização disponível. Escolha quando instalar." : "Há uma atualização registrada, mas o pacote ainda não foi disponibilizado."
+        : "O sistema já está atualizado.";
+    } catch (error) {
+      updateFeedback.textContent = error?.message || "Não foi possível verificar atualizações.";
+    }
+  };
+
+  updateCheck?.addEventListener("click", checkSystemUpdate);
+  updateLater?.addEventListener("click", () => {
+    if (updateFeedback) {
+      updateFeedback.textContent = "Tudo bem. Você poderá verificar novamente quando quiser.";
+      updateFeedback.hidden = false;
+    }
+  });
 
   const switchProfileView = (viewName = "home") => {
     panel.classList.toggle("user-edit-panel--compact-view", viewName !== "home");
@@ -792,12 +832,10 @@ export const initProfileMenu = () => {
 
   backdrop.addEventListener("click", closePanel);
   panel.addEventListener("click", async (event) => {
-    const logoutButton = event.target.closest("[data-action='logout']");
-    if (logoutButton) {
+    const closeButton = event.target.closest("[data-action='close-app']");
+    if (closeButton) {
       event.preventDefault();
-      logout().finally(() => {
-        window.location.href = "../../auth/login/index.html";
-      });
+      closeApplication();
       return;
     }
 
@@ -805,43 +843,6 @@ export const initProfileMenu = () => {
     if (openButton) {
       event.preventDefault();
       switchProfileView(openButton.dataset.profileOpen);
-      if (openButton.dataset.profileOpen === "plan") renderPlanPanel();
-      return;
-    }
-
-    const planButton = event.target.closest("[data-plan-change]");
-    if (planButton) {
-      event.preventDefault();
-      const nextPlan = planButton.dataset.planChange;
-      if (!nextPlan) return;
-
-      planButton.disabled = true;
-      planFeedback.textContent = "Atualizando plano";
-      planFeedback.className = "user-edit-panel__feedback";
-      planFeedback.hidden = false;
-
-      try {
-        const paymentMethod = nextPlan === "gratis" ? "free" : "pix";
-        await processCheckout({ planSlug: nextPlan, paymentMethod });
-
-        const current = getSession() || session || {};
-        setSession({
-          ...current,
-          plan: nextPlan,
-          planChangedAt: new Date().toISOString(),
-          planPaymentMethod: nextPlan === "gratis" ? "Sem cobrança" : "Pix recorrente",
-        });
-        session = getSession();
-
-        planFeedback.textContent = `Plano alterado para ${humanPlanLabel(nextPlan)}.`;
-        planFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--success";
-        await renderPlanPanel();
-      } catch (error) {
-        planFeedback.textContent = error?.message || "Não foi possível alterar o plano agora.";
-        planFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
-      } finally {
-        planFeedback.hidden = false;
-      }
       return;
     }
 
@@ -966,6 +967,14 @@ export const initAppShell = async ({ activeNav } = {}) => {
   }
 
   await bootstrapApi();
+  document.querySelectorAll("[data-action='close-app']").forEach((button) => {
+    if (button.dataset.closeAppBound === "true") return;
+    button.dataset.closeAppBound = "true";
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      closeApplication();
+    });
+  });
   initProfileMenu();
   ensureBusinessOnboarding();
 

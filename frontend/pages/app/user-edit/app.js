@@ -1,4 +1,4 @@
-import { logout } from "../../../shared/auth/auth.js";
+import { checkForSystemUpdates } from "../../../shared/auth/auth.js";
 import { getSession } from "../../../shared/data/storage.js";
 
 const session = getSession() || {};
@@ -9,6 +9,8 @@ const avatarPlaceholder = document.getElementById("userAvatarPlaceholder");
 const nameInput = document.getElementById("userName");
 const emailInput = document.getElementById("userEmail");
 const phoneInput = document.getElementById("userPhone");
+const checkUpdateButton = document.getElementById("checkUpdateButton");
+const updateFeedback = document.getElementById("updateFeedback");
 
 const initials = String(session.name || session.email || "U")
   .trim()
@@ -41,11 +43,29 @@ avatarInput?.addEventListener("change", () => {
   reader.readAsDataURL(file);
 });
 
-document.querySelectorAll("[data-action='logout']").forEach((button) => {
+document.querySelectorAll("[data-action='close-app']").forEach((button) => {
   button.addEventListener("click", (event) => {
     event.preventDefault();
-    logout().finally(() => {
-      window.location.href = "../../auth/login/index.html";
-    });
+    const tauriWindow = window.__TAURI__?.window?.getCurrentWindow?.();
+    if (tauriWindow) void tauriWindow.close();
+    else window.close();
   });
+});
+
+checkUpdateButton?.addEventListener("click", async () => {
+  checkUpdateButton.disabled = true;
+  updateFeedback.hidden = false;
+  updateFeedback.textContent = "Verificando atualizações...";
+  try {
+    const result = await checkForSystemUpdates();
+    updateFeedback.textContent = result.update_available
+      ? result.download_url
+        ? `Versão ${result.available_version} disponível. Abra o link para atualizar quando quiser.`
+        : `A versão ${result.available_version} está registrada, mas o pacote ainda não foi publicado.`
+      : `Você já está usando a versão ${result.current_version}.`;
+  } catch (error) {
+    updateFeedback.textContent = error?.message || "Não foi possível verificar atualizações.";
+  } finally {
+    checkUpdateButton.disabled = false;
+  }
 });

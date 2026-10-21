@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
+import { requireBusinessAccess } from "./auth.js";
 
 const statuses = new Set(["pending", "confirmed", "preparing", "ready", "completed", "cancelled"]);
 const number = (value) => Number(Number(value).toFixed(2));
 
 export default async function orderRoutes(app) {
-  app.get("/api/v1/businesses/:businessId/orders", async (request) => {
+  app.get("/api/v1/businesses/:businessId/orders", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const status = request.query?.status;
     const params = [request.params.businessId];
     let where = "o.business_id = ?";
@@ -52,6 +54,7 @@ export default async function orderRoutes(app) {
   });
 
   app.patch("/api/v1/businesses/:businessId/orders/:id/update_status", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const status = String(request.body?.status || "");
     if (!statuses.has(status)) return reply.badRequest("Invalid order status");
     const [result] = await pool.query("UPDATE orders SET status = ? WHERE id = ? AND business_id = ?", [status, request.params.id, request.params.businessId]);
@@ -60,7 +63,9 @@ export default async function orderRoutes(app) {
     return { order: rows[0] };
   });
 
-  app.get("/api/v1/businesses/:businessId/orders/today_stats", async ({ params }) => {
+  app.get("/api/v1/businesses/:businessId/orders/today_stats", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
+    const { params } = request;
     const [rows] = await pool.query("SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS total FROM orders WHERE business_id = ? AND created_at >= CURDATE() AND status <> 'cancelled'", [params.businessId]);
     return { orders: Number(rows[0].orders), total: Number(rows[0].total) };
   });

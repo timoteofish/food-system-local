@@ -9,6 +9,7 @@ import tableRoutes from "./routes/tables.js";
 import orderRoutes from "./routes/orders.js";
 import cashRoutes from "./routes/cash.js";
 import authRoutes from "./routes/auth.js";
+import platformRoutes from "./routes/platform.js";
 
 const app = Fastify({ logger: true });
 
@@ -23,6 +24,7 @@ await app.register(tableRoutes);
 await app.register(orderRoutes);
 await app.register(cashRoutes);
 await app.register(authRoutes);
+await app.register(platformRoutes);
 
 app.get("/up", async () => ({
   status: "ok",

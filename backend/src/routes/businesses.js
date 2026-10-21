@@ -1,14 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
+import { requireBusinessAccess } from "./auth.js";
 
 export default async function businessesRoutes(app) {
   app.get("/api/v1/businesses/:id", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const [rows] = await pool.query("SELECT * FROM businesses WHERE id = ? LIMIT 1", [request.params.id]);
     if (!rows.length) return reply.notFound("Business not found");
     return { business: rows[0] };
   });
 
   app.patch("/api/v1/businesses/:id", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const business = request.body?.business || request.body || {};
     const fields = {
       name: business.name,

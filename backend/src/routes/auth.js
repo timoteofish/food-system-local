@@ -26,6 +26,29 @@ export const authenticate = async (request) => {
   return rows[0] || null;
 };
 
+export const requireBusinessAccess = async (request, reply) => {
+  if (String(request.headers["x-food-system-local"] || "").toLowerCase() === "true") {
+    const businessId = request.params.businessId || request.params.id;
+    if (businessId) {
+      await pool.query(
+        "INSERT IGNORE INTO businesses (id, name, description, settings) VALUES (?, ?, ?, ?)",
+        [businessId, "Meu estabelecimento", "Aplicação local", JSON.stringify({ currency: "BRL" })],
+      );
+    }
+    return { id: "local-user", email: "local@food-system.local", name: "Administrador", business_id: businessId, role: "owner", local: true };
+  }
+  const user = await authenticate(request);
+  if (!user) {
+    reply.unauthorized("Sessão inválida");
+    return null;
+  }
+  if (user.business_id !== request.params.businessId && user.business_id !== request.params.id) {
+    reply.forbidden("Acesso negado");
+    return null;
+  }
+  return user;
+};
+
 export default async function authRoutes(app) {
   app.post("/api/v1/auth/register", async (request, reply) => {
     const input = request.body?.user || request.body || {};

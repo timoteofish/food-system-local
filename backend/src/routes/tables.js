@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { pool } from "../db.js";
+import { requireBusinessAccess } from "./auth.js";
 
 const tableView = (row) => ({
   id: row.id,
@@ -10,7 +11,9 @@ const tableView = (row) => ({
 });
 
 export default async function tableRoutes(app) {
-  app.get("/api/v1/businesses/:businessId/tables", async ({ params }) => {
+  app.get("/api/v1/businesses/:businessId/tables", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
+    const { params } = request;
     const [rows] = await pool.query(
       "SELECT id, business_id, name, public_token, active FROM restaurant_tables WHERE business_id = ? ORDER BY name",
       [params.businessId]
@@ -19,6 +22,7 @@ export default async function tableRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/tables", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const name = String(request.body?.restaurant_table?.name || request.body?.name || "").trim();
     if (!name || name.length > 120) return reply.badRequest("Table name is required and must be at most 120 characters");
     const table = { id: randomUUID(), business_id: request.params.businessId, name, public_token: randomBytes(24).toString("hex") };
@@ -27,6 +31,7 @@ export default async function tableRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/tables/:id/rotate_token", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
     const token = randomBytes(24).toString("hex");
     const [result] = await pool.query("UPDATE restaurant_tables SET public_token = ? WHERE id = ? AND business_id = ?", [token, request.params.id, request.params.businessId]);
     if (!result.affectedRows) return reply.notFound("Table not found");
