@@ -1,0 +1,16 @@
+import "../../../shared/i18n/legacy-control.js";
+import { createRestaurantTable, fetchDiningTabs, fetchRestaurantTables, openDiningTab, transferDiningTab, closeDiningTab } from "../../../shared/api/client.js";
+import { getSession } from "../../../shared/data/storage.js";
+import { escapeHtml, formatPrice } from "../../../shared/utils/utils.js";
+import { initAppShell, showToast } from "../../../shared/ui/ui.js";
+const businessId = getSession()?.businessId;
+const grid = document.getElementById("tableGrid");
+const status = document.getElementById("status");
+let tables = [], tabs = [];
+const getTab = (tableId) => tabs.find((tab) => tab.table_id === tableId && tab.status === "open");
+const render = () => { grid.innerHTML = tables.map((table) => { const tab = getTab(table.id); const options = tables.filter((item) => item.id !== table.id).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join(""); return `<article class="table-card ${tab ? "is-open" : ""}"><div class="table-card__head"><strong>${escapeHtml(table.name)}</strong><span>${tab ? "Open" : "Available"}</span></div>${tab ? `<div class="table-card__total">${formatPrice(tab.total)} <small>${tab.order_count} orders</small></div><div class="table-actions"><button class="btn btn--secondary" data-close="${tab.id}">Close tab</button><select data-transfer="${tab.id}" aria-label="Transfer tab"><option value="">Transfer to...</option>${options}</select></div>` : `<button class="btn btn--primary" data-open="${table.id}">Open tab</button>`}</article>`; }).join("") || "<p>No tables registered.</p>"; };
+const load = async () => { [tables, tabs] = await Promise.all([fetchRestaurantTables(businessId), fetchDiningTabs(businessId)]); render(); };
+document.getElementById("tableForm").addEventListener("submit", async (event) => { event.preventDefault(); try { await createRestaurantTable(businessId, new FormData(event.currentTarget).get("name")); event.currentTarget.reset(); await load(); } catch (error) { status.textContent = error.message; } });
+grid.addEventListener("click", async (event) => { const open = event.target.closest("[data-open]"); const close = event.target.closest("[data-close]"); try { if (open) await openDiningTab(businessId, open.dataset.open); if (close) await closeDiningTab(businessId, close.dataset.close); await load(); } catch (error) { showToast(error.message, { type: "error" }); } });
+grid.addEventListener("change", async (event) => { const select = event.target.closest("[data-transfer]"); if (!select?.value) return; try { await transferDiningTab(businessId, select.dataset.transfer, select.value); await load(); } catch (error) { showToast(error.message, { type: "error" }); } });
+(async () => { await initAppShell({ activeNav: "tables" }); await load(); })();

@@ -2,6 +2,7 @@ import { getBusiness, getMenuSettings, getSession, saveBusiness, setSession } fr
 import { bootstrapApi, completeBusinessOnboarding, logout, requireAuth, saveMenuSettingsRemote } from "../auth/auth.js";
 import { checkForSystemUpdates } from "../auth/auth.js";
 import { escapeHtml } from "../utils/utils.js";
+import { applyLegacyTranslations, installLanguageSelector } from "../i18n/i18n.js";
 
 export { requireAuth };
 
@@ -15,6 +16,19 @@ const closeApplication = () => {
 };
 
 const SIDEBAR_COLLAPSE_KEY = "food-system-sidebar-collapsed";
+
+const ensureGlobalLanguageControl = () => {
+  if (document.getElementById("globalLanguageSelect")) return;
+  const host = document.querySelector(".menu-content") || document.querySelector("main.content") || document.body;
+  const wrapper = document.createElement("label");
+  wrapper.className = "global-language-control";
+  wrapper.style.cssText = "display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 12px auto;font-size:.8rem;color:#667085";
+  wrapper.innerHTML = `<span>Language</span><select id="globalLanguageSelect" aria-label="Language"><option value="pt">Português</option><option value="en">English</option></select>`;
+  const select = wrapper.querySelector("select");
+  select.value = localStorage.getItem("food-system-language") || "pt";
+  select.addEventListener("change", () => { localStorage.setItem("food-system-language", select.value); window.location.reload(); });
+  host.prepend(wrapper);
+};
 
 const ensureBusinessOnboarding = () => {
   const session = getSession();
@@ -920,6 +934,8 @@ export const initUserEditPanel = () => {
 export const initAppShell = async ({ activeNav } = {}) => {
   requireAuth();
 
+  ensureGlobalLanguageControl();
+
   setSidebarCollapsedState(getStoredSidebarCollapsedState());
   const sidebarBackdrop = ensureSidebarBackdrop();
 
@@ -967,6 +983,8 @@ export const initAppShell = async ({ activeNav } = {}) => {
   }
 
   await bootstrapApi();
+  installLanguageSelector(document);
+  applyLegacyTranslations(document);
   document.querySelectorAll("[data-action='close-app']").forEach((button) => {
     if (button.dataset.closeAppBound === "true") return;
     button.dataset.closeAppBound = "true";

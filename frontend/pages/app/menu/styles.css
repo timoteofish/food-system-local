@@ -714,6 +714,23 @@ body:not(.customer-menu-page) .menu-preview[data-style="compact"]{
   .menu-action-wrapper{flex-direction:column;align-items:stretch}
 }
 
+.global-language-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px auto;
+  color: var(--muted, #667085);
+  font-size: .78rem;
+}
+
+.global-language-control select {
+  border: 1px solid #d7dce2;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  padding: 7px 10px;
+}
+
 /* action controls */
 .menu-action{display:flex;align-items:center;gap:8px}
 .menu-action-wrapper{display:flex;align-items:center;gap:12px;flex-wrap:wrap}

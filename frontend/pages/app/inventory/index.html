@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Estoque | Food System</title>
+    <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../menu/styles.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+    <style>
+      .inventory-form { display:grid; grid-template-columns:2fr 1fr 1fr 1fr auto; gap:12px; align-items:end; }
+      .inventory-form label { display:grid; gap:6px; font-size:.85rem; }
+      .inventory-form input,.inventory-form select { min-height:42px; padding:8px 10px; border:1px solid var(--border,#d7dce2); border-radius:8px; background:var(--surface,#fff); }
+      .inventory-table { width:100%; border-collapse:collapse; }
+      .inventory-table th,.inventory-table td { text-align:left; padding:13px 10px; border-bottom:1px solid var(--border,#e5e7eb); }
+      .inventory-table th { font-size:.8rem; text-transform:uppercase; color:#697386; }
+      .inventory-warning { color:#b45309; font-weight:700; }
+      @media (max-width:800px) { .inventory-form { grid-template-columns:1fr 1fr; } .inventory-form label:first-child { grid-column:1/-1; } .inventory-form button { grid-column:1/-1; } .inventory-table { min-width:650px; } .inventory-table-wrap { overflow:auto; } }
+    </style>
+  </head>
+  <body>
+    <div class="menu-shell">
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__brand-row"><button class="menu-sidebar__toggle" id="menuSidebarToggle" type="button" aria-label="Minimizar menu">☰</button><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div>
+        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+          <a href="../dashboard/index.html">Painel</a><a href="../products/index.html">Produtos</a><a href="../menu/index.html">Cardápio</a><a href="../cashier/index.html">Caixa</a><a href="../orders/index.html">Pedidos</a><a class="active" href="./index.html">Estoque</a><a href="../team/index.html">Equipe</a>
+        </nav>
+        <div class="profile menu-sidebar__profile"><button class="profile-btn" type="button" aria-label="Perfil">◉</button><span class="profile-label">Perfil</span></div>
+      </aside>
+      <main class="content menu-content">
+        <div class="page-title"><div><p class="eyebrow" data-i18n="operations">Operations management</p><h1 data-i18n="inventory">Inventory</h1></div><label><span data-i18n="language">Language</span><select id="languageSelect"><option value="pt" data-i18n="portuguese">Portuguese</option><option value="en" data-i18n="english">English</option></select></label></div>
+        <section class="panel"><h2 data-i18n="newIngredient">New ingredient</h2><form class="inventory-form" id="inventoryForm">
+          <label><span data-i18n="name">Name</span><input id="itemName" required maxlength="160" placeholder="Example: Beef" /></label>
+          <label><span data-i18n="unit">Unit</span><select id="itemUnit"><option value="unit">Unit</option><option value="g">Grams</option><option value="kg">Kilograms</option><option value="ml">Milliliters</option><option value="l">Liters</option></select></label>
+          <label><span data-i18n="quantity">Quantity</span><input id="itemQuantity" type="number" min="0" step="0.001" value="0" /></label>
+          <label><span data-i18n="minimumStock">Minimum stock</span><input id="itemMinimum" type="number" min="0" step="0.001" value="0" /></label>
+          <button class="btn btn--primary" type="submit" data-i18n="register">Register</button>
+        </form><p id="inventoryMessage" role="status"></p></section>
+        <section class="panel"><h2>Stock movement</h2><form class="inventory-form" id="movementForm"><label>Ingredient<select id="movementItem"></select></label><label>Type<select id="movementType"><option value="purchase">Purchase</option><option value="adjustment">Adjustment</option><option value="loss">Loss</option></select></label><label>Quantity<input id="movementQuantity" type="number" min="0.001" step="0.001" required /></label><label>Description<input id="movementDescription" maxlength="255" /></label><button class="btn btn--primary" type="submit">Save movement</button></form><p id="movementMessage" role="status"></p></section>
+        <section class="panel"><h2>Product recipe</h2><form class="inventory-form" id="recipeForm"><label>Product<select id="recipeProduct"></select></label><label>Ingredient<select id="recipeItem"></select></label><label>Quantity<input id="recipeQuantity" type="number" min="0.001" step="0.001" required /></label><button class="btn btn--primary" type="submit">Save recipe</button></form><p id="recipeMessage" role="status"></p></section>
+        <section class="panel"><h2 data-i18n="registeredItems">Registered ingredients</h2><div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th data-i18n="name">Name</th><th data-i18n="unit">Unit</th><th data-i18n="current">Current</th><th data-i18n="minimum">Minimum</th><th data-i18n="status">Status</th></tr></thead><tbody id="inventoryRows"></tbody></table></div></section>
+      </main>
+    </div>
+    <script src="../../../env.js"></script><script type="module" src="./app.js"></script>
+  </body>
+</html>

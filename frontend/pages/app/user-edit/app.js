@@ -1,3 +1,4 @@
+import "../../../shared/i18n/legacy-control.js";
 import { checkForSystemUpdates } from "../../../shared/auth/auth.js";
 import { getSession } from "../../../shared/data/storage.js";
 

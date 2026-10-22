@@ -108,6 +108,11 @@ export const rotateRestaurantTableToken = (businessId, tableId) =>
     method: "POST",
   });
 
+export const fetchDiningTabs = (businessId) => apiRequest(`/businesses/${businessId}/dining-tabs`).then((data) => data.tabs || []);
+export const openDiningTab = (businessId, tableId, customerId = null, notes = "") => apiRequest(`/businesses/${businessId}/tables/${tableId}/dining-tabs`, { method: "POST", body: { customer_id: customerId || undefined, notes } }).then((data) => data.tab || data);
+export const transferDiningTab = (businessId, tabId, tableId) => apiRequest(`/businesses/${businessId}/dining-tabs/${tabId}/transfer`, { method: "POST", body: { table_id: tableId } }).then((data) => data.tab || data);
+export const closeDiningTab = (businessId, tabId) => apiRequest(`/businesses/${businessId}/dining-tabs/${tabId}/close`, { method: "POST" }).then((data) => data.tab || data);
+
 export const fetchTeamMembers = (businessId) =>
   apiRequest(`/businesses/${businessId}/team`);
 
@@ -176,6 +181,10 @@ export const createCashMovement = (businessId, cashMovement) =>
     method: "POST",
     body: { cash_movement: cashMovement },
   }).then((data) => data.movement || data);
+
+export const fetchCurrentCashRegister = (businessId) => apiRequest(`/businesses/${businessId}/cash-register/current`).then((data) => data.session);
+export const openCashRegister = (businessId, openingAmount) => apiRequest(`/businesses/${businessId}/cash-register/open`, { method: "POST", body: { opening_amount: openingAmount } }).then((data) => data.session);
+export const closeCashRegister = (businessId, sessionId, closingAmount, notes = "") => apiRequest(`/businesses/${businessId}/cash-register/${sessionId}/close`, { method: "POST", body: { closing_amount: closingAmount, notes } });
 
 export const persistAuthSession = ({ user, business, token = "" }) => {
   setSession({

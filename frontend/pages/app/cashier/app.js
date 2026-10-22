@@ -2,6 +2,9 @@ import { escapeHtml, formatPrice, formatTime } from "../../../shared/utils/utils
 import { initAppShell } from "../../../shared/ui/ui.js";
 import { initCalendarPanel } from "./calendar-id/index.js";
 import { loadCashierData, updateOrderStatusRemote } from "../../../shared/auth/auth.js";
+import { closeCashRegister, fetchCurrentCashRegister, openCashRegister } from "../../../shared/api/client.js";
+import { createCashMovement } from "../../../shared/api/client.js";
+import { getSession } from "../../../shared/data/storage.js";
 
 const log = document.getElementById("cashLog");
 const entriesTotal = document.getElementById("entriesTotal");
@@ -19,6 +22,24 @@ let stats = {
   entriesTotal: 0,
   exitsTotal: 0,
   cashBalance: 0,
+};
+let currentRegister = null;
+const businessId = getSession()?.businessId;
+const registerStatus = document.getElementById("cashRegisterStatus");
+const registerAction = document.getElementById("cashRegisterAction");
+const registerForm = document.getElementById("cashRegisterForm");
+const registerAmount = document.getElementById("cashRegisterAmount");
+const registerNotes = document.getElementById("cashRegisterNotes");
+const registerMessage = document.getElementById("cashRegisterMessage");
+const movementForm = document.getElementById("movementForm");
+const movementMessage = document.getElementById("movementMessage");
+
+const renderRegister = () => {
+  const open = Boolean(currentRegister);
+  registerStatus.textContent = open ? `Open since ${formatDate(currentRegister.opened_at)}` : "Closed";
+  registerAction.textContent = open ? "Close register" : "Open register";
+  registerAmount.value = "";
+  registerNotes.value = "";
 };
 
 const formatDate = (date = new Date()) =>
@@ -154,6 +175,30 @@ dateInput?.addEventListener("click", (event) => {
 
 dateInput?.setAttribute("max", normalizeDateValue(new Date()));
 
+registerForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  registerMessage.textContent = "";
+  try {
+    const amount = Number(registerAmount.value);
+    if (currentRegister) { await closeCashRegister(businessId, currentRegister.id, amount, registerNotes.value.trim()); }
+    else { await openCashRegister(businessId, amount); }
+    currentRegister = await fetchCurrentCashRegister(businessId);
+    renderRegister();
+    registerMessage.textContent = currentRegister ? "Cash register opened." : "Cash register closed.";
+  } catch (error) { registerMessage.textContent = error.message; }
+});
+
+movementForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  movementMessage.textContent = "";
+  try {
+    await createCashMovement(businessId, { type: document.getElementById("movementType").value, amount: Number(document.getElementById("movementAmount").value), description: document.getElementById("movementDescription").value.trim() });
+    event.target.reset();
+    movementMessage.textContent = "Cash movement saved.";
+    await refresh();
+  } catch (error) { movementMessage.textContent = error.message; }
+});
+
 log?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-pay-order]");
   if (!button) return;
@@ -168,6 +213,8 @@ log?.addEventListener("click", async (event) => {
 
 const refresh = async () => {
   try {
+    currentRegister = await fetchCurrentCashRegister(businessId);
+    renderRegister();
     const data = await loadCashierData();
     orders = data.orders;
     movements = data.movements;

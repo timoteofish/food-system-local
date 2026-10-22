@@ -1,0 +1,11 @@
+import "../../../shared/i18n/legacy-control.js";
+import { getSession } from "../../../shared/data/storage.js";
+import { apiRequest } from "../../../shared/api/client.js";
+import { initAppShell } from "../../../shared/ui/ui.js";
+const businessId = getSession()?.businessId;
+const status = document.getElementById("backupStatus");
+const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+const load = async () => { const data = await apiRequest(`/businesses/${businessId}/backups`); document.getElementById("backupList").innerHTML = data.backups.length ? data.backups.map((backup) => `<div class="panel"><strong>${escapeHtml(backup.name)}</strong><span>${Number(backup.size).toLocaleString()} bytes</span><button class="btn btn--secondary" data-restore="${escapeHtml(backup.name)}" type="button">Restore</button></div>`).join("") : "No backups."; };
+document.getElementById("createBackup").addEventListener("click", async () => { status.textContent = "Creating backup..."; try { await apiRequest(`/businesses/${businessId}/backups`, { method: "POST" }); status.textContent = "Backup created."; await load(); } catch (error) { status.textContent = error.message; } });
+document.getElementById("backupList").addEventListener("click", async (event) => { const button = event.target.closest("[data-restore]"); if (!button || !confirm(`Restore ${button.dataset.restore}? Current data will be replaced.`)) return; try { await apiRequest(`/businesses/${businessId}/backups/restore`, { method: "POST", body: { name: button.dataset.restore } }); status.textContent = "Backup restored. Restart the application if needed."; } catch (error) { status.textContent = error.message; } });
+(async () => { await initAppShell({ activeNav: "backups" }); await load(); })();

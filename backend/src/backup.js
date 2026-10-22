@@ -28,7 +28,8 @@ const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const output = path.join(outputDir, `food-system-${stamp}.sql`);
 await mkdir(outputDir, { recursive: true });
 const dumpTool = await findDumpTool();
-await execFileAsync(dumpTool, ["--host", config.mysql.host, "--port", String(config.mysql.port), "--user", config.mysql.user, "--single-transaction", "--routines", "--triggers", config.mysql.database, "--result-file", output], {
+const sslArgs = config.mysql.host === "127.0.0.1" || config.mysql.host === "localhost" ? ["--skip-ssl"] : [];
+await execFileAsync(dumpTool, ["--host", config.mysql.host, "--port", String(config.mysql.port), "--user", config.mysql.user, ...sslArgs, "--single-transaction", "--routines", "--triggers", config.mysql.database, "--result-file", output], {
   env: { ...process.env, MYSQL_PWD: config.mysql.password },
   windowsHide: true,
 });

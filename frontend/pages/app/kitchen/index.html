@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kitchen | Food System</title>
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../menu/styles.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+    <style>
+      .kitchen-toolbar { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:18px; }
+      .kitchen-board { display:grid; grid-template-columns:repeat(4,minmax(220px,1fr)); gap:14px; overflow:auto; }
+      .kitchen-column { min-height:300px; background:rgba(127,127,127,.08); border-radius:10px; padding:12px; }
+      .kitchen-column h2 { font-size:1rem; margin:0 0 12px; }
+      .kitchen-ticket { background:var(--surface,#fff); border:1px solid rgba(127,127,127,.25); border-radius:8px; padding:12px; margin-bottom:10px; }
+      .kitchen-ticket__head { display:flex; justify-content:space-between; gap:8px; margin-bottom:8px; }
+      .kitchen-ticket ul { margin:8px 0 12px; padding-left:18px; }
+      .kitchen-ticket button { width:100%; }
+      @media (max-width:900px) { .kitchen-board { grid-template-columns:repeat(4, minmax(240px, 1fr)); } }
+    </style>
+  </head>
+  <body>
+    <div class="menu-shell">
+      <aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><button class="menu-sidebar__toggle" id="menuSidebarToggle" type="button" aria-label="Toggle menu">☰</button><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Main navigation"><a href="../dashboard/index.html">Dashboard</a><a href="../orders/index.html">Orders</a><a class="active" href="./index.html">Kitchen</a><a href="../inventory/index.html">Inventory</a><a href="../cashier/index.html">Cash</a></nav></aside>
+      <main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Production</p><h1>Kitchen display</h1></div></div><div class="kitchen-toolbar"><span id="kitchenStatus" role="status">Loading orders...</span><button class="btn btn--secondary" id="refreshKitchen" type="button">Refresh</button></div><section class="kitchen-board" id="kitchenBoard"></section></main>
+    </div>
+    <script src="../../../env.js"></script><script type="module" src="./app.js"></script>
+  </body>
+</html>

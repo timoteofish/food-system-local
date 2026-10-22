@@ -6,10 +6,18 @@ import { checkDatabase } from "./db.js";
 import businessesRoutes from "./routes/businesses.js";
 import catalogRoutes from "./routes/catalog.js";
 import tableRoutes from "./routes/tables.js";
+import diningTabRoutes from "./routes/dining-tabs.js";
 import orderRoutes from "./routes/orders.js";
 import cashRoutes from "./routes/cash.js";
 import authRoutes from "./routes/auth.js";
 import platformRoutes from "./routes/platform.js";
+import integrationRoutes from "./routes/integrations.js";
+import inventoryRoutes from "./routes/inventory.js";
+import operationsRoutes from "./routes/operations.js";
+import customerValueRoutes from "./routes/customer-value.js";
+import reportRoutes from "./routes/reports.js";
+import backupRoutes from "./routes/backups.js";
+import fiscalRoutes from "./routes/fiscal.js";
 
 const app = Fastify({ logger: true });
 
@@ -21,10 +29,18 @@ await app.register(cors, {
 await app.register(businessesRoutes);
 await app.register(catalogRoutes);
 await app.register(tableRoutes);
+await app.register(diningTabRoutes);
 await app.register(orderRoutes);
 await app.register(cashRoutes);
 await app.register(authRoutes);
 await app.register(platformRoutes);
+await app.register(integrationRoutes);
+await app.register(inventoryRoutes);
+await app.register(operationsRoutes);
+await app.register(customerValueRoutes);
+await app.register(reportRoutes);
+await app.register(backupRoutes);
+await app.register(fiscalRoutes);
 
 app.get("/up", async () => ({
   status: "ok",

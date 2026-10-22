@@ -1,0 +1,11 @@
+import "../../../shared/i18n/legacy-control.js";
+import { apiRequest } from "../../../shared/api/client.js";
+import { getSession } from "../../../shared/data/storage.js";
+import { escapeHtml } from "../../../shared/utils/utils.js";
+import { initAppShell, showToast } from "../../../shared/ui/ui.js";
+const businessId = getSession()?.businessId;
+const list = document.getElementById("fiscalList");
+const load = async () => { const data = await apiRequest(`/businesses/${businessId}/fiscal/documents`); list.innerHTML = (data.documents || []).map((document) => `<div class="fiscal-item"><div><strong>${escapeHtml(document.document_type.toUpperCase())}</strong><div>${escapeHtml(document.id)}</div></div><span class="status">${escapeHtml(document.status)}</span>${document.status === "draft" ? `<button class="btn btn--secondary" data-issue="${escapeHtml(document.id)}">Issue</button>` : ""}</div>`).join("") || "<p>No fiscal documents.</p>"; };
+document.getElementById("fiscalForm").addEventListener("submit", async (event) => { event.preventDefault(); const form = new FormData(event.currentTarget); try { await apiRequest(`/businesses/${businessId}/fiscal/documents`, { method: "POST", body: { document_type: form.get("document_type"), order_id: form.get("order_id") || undefined, payload: {} } }); event.currentTarget.reset(); await load(); } catch (error) { showToast(error.message, { type: "error" }); } });
+list.addEventListener("click", async (event) => { const button = event.target.closest("[data-issue]"); if (!button) return; try { await apiRequest(`/businesses/${businessId}/fiscal/documents/${button.dataset.issue}/issue`, { method: "POST" }); await load(); } catch (error) { showToast(error.message, { type: "error" }); } });
+(async () => { await initAppShell({ activeNav: "fiscal" }); await load(); })();
