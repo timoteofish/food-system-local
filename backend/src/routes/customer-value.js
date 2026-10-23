@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
-import { requireBusinessAccess } from "./auth.js";
+import { requireBusinessAccess, requireRole } from "./auth.js";
 
 const isMoney = (value) => Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 99999999.99;
 
@@ -12,7 +12,7 @@ export default async function customerValueRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/discounts", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const body = request.body?.discount || request.body || {};
     const name = String(body.name || "").trim();
     const type = String(body.type || "");

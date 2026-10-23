@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
-import { requireBusinessAccess } from "./auth.js";
+import { requireBusinessAccess, requireRole } from "./auth.js";
 
 export default async function catalogRoutes(app) {
   app.get("/api/v1/businesses/:businessId/categories", async (request, reply) => {
@@ -14,7 +14,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/categories", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const name = String(request.body?.category?.name || request.body?.name || "").trim();
     if (!name) return reply.badRequest("Category name is required");
     if (name.length > 120) return reply.badRequest("Category name must be at most 120 characters");
@@ -24,7 +24,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.patch("/api/v1/businesses/:businessId/categories/:id", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const category = request.body?.category || request.body || {};
     const updates = Object.entries({ name: category.name, description: category.description, position: category.position, active: category.active })
       .filter(([, value]) => value !== undefined);
@@ -40,7 +40,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.delete("/api/v1/businesses/:businessId/categories/:id", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const [result] = await pool.query("DELETE FROM categories WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
     if (!result.affectedRows) return reply.notFound("Category not found");
     return reply.code(204).send();
@@ -57,7 +57,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/products", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const product = request.body?.product || request.body || {};
     const name = String(product.name || "").trim();
     const price = Number(product.price);
@@ -69,18 +69,22 @@ export default async function catalogRoutes(app) {
       categoryId = categories[0]?.id;
     }
     if (!categoryId) return reply.badRequest("Category not found");
+    if (product.kitchen_station_id) {
+      const [stations] = await pool.query("SELECT id FROM kitchen_stations WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [product.kitchen_station_id, request.params.businessId]);
+      if (!stations.length) return reply.badRequest("Kitchen station not found");
+    }
     const id = randomUUID();
     await pool.query(
-      "INSERT INTO products (id, business_id, category_id, name, description, price, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [id, request.params.businessId, categoryId, name, product.description || null, price, product.image || product.image_url || null]
+      "INSERT INTO products (id, business_id, category_id, kitchen_station_id, name, description, price, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [id, request.params.businessId, categoryId, product.kitchen_station_id || null, name, product.description || null, price, product.image || product.image_url || null]
     );
     return reply.code(201).send({ product: { id, ...product, category_id: categoryId } });
   });
 
   app.patch("/api/v1/businesses/:businessId/products/:id", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const product = request.body?.product || request.body || {};
-    const fields = { name: product.name, description: product.description, price: product.price, category_id: product.category_id, image_url: product.image_url || product.image, position: product.position, active: product.active };
+    const fields = { name: product.name, description: product.description, price: product.price, category_id: product.category_id, kitchen_station_id: product.kitchen_station_id, image_url: product.image_url || product.image, position: product.position, active: product.active };
     const updates = Object.entries(fields).filter(([, value]) => value !== undefined);
     if (!updates.length) return reply.badRequest("No product fields provided");
     const setClause = updates.map(([field]) => `${field} = ?`).join(", ");
@@ -94,7 +98,7 @@ export default async function catalogRoutes(app) {
   });
 
   app.delete("/api/v1/businesses/:businessId/products/:id", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const [result] = await pool.query("DELETE FROM products WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
     if (!result.affectedRows) return reply.notFound("Product not found");
     return reply.code(204).send();

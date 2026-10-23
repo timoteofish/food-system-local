@@ -30,7 +30,7 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
-    credentials: "include",
+    credentials: "same-origin",
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -159,11 +159,11 @@ export const updateOrderStatusRequest = (businessId, orderId, status) =>
     body: { status },
   }).then((data) => data.order || data);
 
-export const createOrder = (businessId, order, items, tableToken = "") =>
+export const createOrder = (businessId, order, items, tableToken = "", delivery = null) =>
   apiRequest(`/businesses/${businessId}/orders`, {
     method: "POST",
     auth: false,
-    body: { order, items, table_token: tableToken },
+    body: { order, items, table_token: tableToken, delivery },
   });
 
 export const fetchTodayStats = (businessId) =>

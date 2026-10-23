@@ -1,11 +1,30 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
-import { requireBusinessAccess } from "./auth.js";
+import { requireBusinessAccess, requireRole } from "./auth.js";
+import { audit } from "../audit.js";
 
-const statuses = new Set(["pending", "confirmed", "preparing", "ready", "completed", "cancelled"]);
+const statuses = new Set(["pending", "confirmed", "preparing", "ready", "out_for_delivery", "completed", "cancelled"]);
 const number = (value) => Number(Number(value).toFixed(2));
 
 export default async function orderRoutes(app) {
+  app.post("/api/v1/businesses/:businessId/orders/:id/print-jobs", async (request, reply) => {
+    const user = await requireRole(request, reply);
+    if (!user) return;
+    const stationId = request.body?.station_id || null;
+    const [orders] = await pool.query("SELECT o.id, o.total, o.status, t.name AS table_name FROM orders o LEFT JOIN restaurant_tables t ON t.id = o.restaurant_table_id WHERE o.id = ? AND o.business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
+    if (!orders.length) return reply.notFound("Order not found");
+    if (stationId) {
+      const [stations] = await pool.query("SELECT id FROM kitchen_stations WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [stationId, request.params.businessId]);
+      if (!stations.length) return reply.badRequest("Kitchen station not found");
+    }
+    const [items] = await pool.query("SELECT name, quantity, unit_price, total FROM order_items WHERE order_id = ? ORDER BY created_at", [request.params.id]);
+    const payload = { order: orders[0], items };
+    const id = randomUUID();
+    await pool.query("INSERT INTO print_jobs (id, business_id, order_id, station_id, job_type, payload) VALUES (?, ?, ?, ?, 'kitchen_ticket', ?)", [id, request.params.businessId, request.params.id, stationId, JSON.stringify(payload)]);
+    await audit(request, user, "print_job.queued", "print_job", id, { order_id: request.params.id, station_id: stationId });
+    return reply.code(202).send({ job: { id, status: "queued", order_id: request.params.id, station_id: stationId } });
+  });
+
   app.get("/api/v1/businesses/:businessId/orders/:id/print", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
     const [orders] = await pool.query("SELECT o.id, o.status, o.total, o.created_at, t.name AS table_name FROM orders o LEFT JOIN restaurant_tables t ON t.id = o.restaurant_table_id WHERE o.id = ? AND o.business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
@@ -17,13 +36,17 @@ export default async function orderRoutes(app) {
   app.get("/api/v1/businesses/:businessId/orders", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
     const status = request.query?.status;
+    const stationId = request.query?.station_id;
     const params = [request.params.businessId];
     let where = "o.business_id = ?";
     if (status) { if (!statuses.has(status)) throw app.httpErrors.badRequest("Invalid order status"); where += " AND o.status = ?"; params.push(status); }
-    const [orders] = await pool.query(`SELECT o.*, t.name AS table_name, dt.status AS tab_status FROM orders o LEFT JOIN restaurant_tables t ON t.id = o.restaurant_table_id LEFT JOIN dining_tabs dt ON dt.id = o.dining_tab_id WHERE ${where} ORDER BY o.created_at DESC`, params);
+    if (stationId) { where += " AND EXISTS (SELECT 1 FROM order_items soi JOIN products sop ON sop.id = soi.product_id WHERE soi.order_id = o.id AND sop.kitchen_station_id = ? AND sop.business_id = ?)"; params.push(stationId, request.params.businessId); }
+    const [orders] = await pool.query(`SELECT o.*, t.name AS table_name, dt.status AS tab_status FROM orders o LEFT JOIN restaurant_tables t ON t.id = o.restaurant_table_id LEFT JOIN dining_tabs dt ON dt.id = o.dining_tab_id WHERE ${where} ORDER BY COALESCE(o.scheduled_for, o.created_at) DESC`, params);
     for (const order of orders) {
       const [items] = await pool.query("SELECT * FROM order_items WHERE order_id = ? ORDER BY created_at", [order.id]);
       order.items = items;
+      const [payments] = await pool.query("SELECT op.*, pm.name AS payment_method_name FROM order_payments op JOIN payment_methods pm ON pm.id = op.payment_method_id WHERE op.order_id = ? ORDER BY op.created_at", [order.id]);
+      order.payments = payments;
     }
     return { orders };
   });
@@ -54,6 +77,18 @@ export default async function orderRoutes(app) {
         if (!methods.length) return reply.badRequest("Invalid payment method");
         paymentMethodId = methods[0].id;
       }
+      const delivery = body.delivery && typeof body.delivery === "object" ? body.delivery : null;
+      const deliveryAddress = delivery?.address && typeof delivery.address === "object" ? delivery.address : null;
+      const deliveryFee = Number(delivery?.fee || 0);
+      if (delivery && (!deliveryAddress || !Number.isFinite(deliveryFee) || deliveryFee < 0 || deliveryFee > 99999999.99)) return reply.badRequest("Invalid delivery details");
+      if (deliveryAddress && (!String(deliveryAddress.street || "").trim() || !String(deliveryAddress.number || "").trim() || !String(deliveryAddress.city || "").trim())) return reply.badRequest("Delivery address is incomplete");
+      let customerId = body.customer_id || null;
+      if (customerId) {
+        const [customers] = await connection.query("SELECT id FROM customers WHERE id = ? AND business_id = ? LIMIT 1", [customerId, request.params.businessId]);
+        if (!customers.length) return reply.badRequest("Customer does not belong to this business");
+      }
+      const scheduledFor = delivery?.scheduled_for ? new Date(delivery.scheduled_for) : null;
+      if (scheduledFor && Number.isNaN(scheduledFor.getTime())) return reply.badRequest("Invalid scheduled delivery date");
       let discountCode = null;
       let discountAmount = 0;
       const ids = inputItems.map((item) => item.product_id || item.id).filter(Boolean);
@@ -74,12 +109,21 @@ export default async function orderRoutes(app) {
         if (!discounts.length) return reply.badRequest("Invalid or expired discount code");
         discountAmount = number(Math.min(subtotal, discounts[0].type === "percentage" ? subtotal * Number(discounts[0].value) / 100 : Number(discounts[0].value)));
       }
-      const total = number(subtotal - discountAmount);
+      const total = number(subtotal - discountAmount + deliveryFee);
+      const paymentInputs = Array.isArray(body.payments) ? body.payments : [];
+      if (paymentInputs.length) {
+        const paymentIds = paymentInputs.map((payment) => payment.payment_method_id).filter(Boolean);
+        const paidTotal = paymentInputs.reduce((sum, payment) => sum + Number(payment.amount), 0);
+        if (paymentIds.length !== paymentInputs.length || new Set(paymentIds).size !== paymentIds.length || paymentInputs.some((payment) => !Number.isFinite(Number(payment.amount)) || Number(payment.amount) <= 0) || Math.abs(paidTotal - total) > 0.01) return reply.badRequest("Payment allocations must equal the order total");
+        const [methods] = await connection.query(`SELECT id FROM payment_methods WHERE business_id = ? AND active = TRUE AND id IN (${paymentIds.map(() => "?").join(",")})`, [request.params.businessId, ...paymentIds]);
+        if (methods.length !== paymentIds.length) return reply.badRequest("Invalid payment method");
+      }
       const orderId = randomUUID();
-      await connection.query("INSERT INTO orders (id, business_id, restaurant_table_id, dining_tab_id, payment_method_id, subtotal, discount_code, discount_amount, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [orderId, request.params.businessId, tableId, diningTabId, paymentMethodId, subtotal, discountCode, discountAmount, total, String(body.order?.notes || "").slice(0, 2000) || null]);
+      await connection.query("INSERT INTO orders (id, business_id, restaurant_table_id, dining_tab_id, customer_id, delivery_address, delivery_fee, scheduled_for, payment_method_id, subtotal, discount_code, discount_amount, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [orderId, request.params.businessId, tableId, diningTabId, customerId, deliveryAddress ? JSON.stringify(deliveryAddress) : null, deliveryFee, scheduledFor ? scheduledFor : null, paymentMethodId, subtotal, discountCode, discountAmount, total, String(body.order?.notes || "").slice(0, 2000) || null]);
       for (const item of items) await connection.query("INSERT INTO order_items (id, order_id, product_id, name, unit_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?)", [item.id, orderId, item.product_id, item.name, item.unit_price, item.quantity, item.total]);
+      for (const payment of paymentInputs) await connection.query("INSERT INTO order_payments (id, business_id, order_id, payment_method_id, amount) VALUES (?, ?, ?, ?, ?)", [randomUUID(), request.params.businessId, orderId, payment.payment_method_id, Number(payment.amount).toFixed(2)]);
       await connection.commit();
-      return reply.code(201).send({ order: { id: orderId, business_id: request.params.businessId, restaurant_table_id: tableId, dining_tab_id: diningTabId, payment_method_id: paymentMethodId, discount_code: discountCode, discount_amount: discountAmount, status: "pending", subtotal, total, items } });
+      return reply.code(201).send({ order: { id: orderId, business_id: request.params.businessId, restaurant_table_id: tableId, dining_tab_id: diningTabId, customer_id: customerId, delivery_address: deliveryAddress, delivery_fee: deliveryFee, scheduled_for: scheduledFor, payment_method_id: paymentMethodId, discount_code: discountCode, discount_amount: discountAmount, status: "pending", subtotal, total, items } });
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
   });
 
@@ -116,7 +160,7 @@ export default async function orderRoutes(app) {
         const [sales] = await connection.query("SELECT id FROM cash_movements WHERE order_id = ? AND type = 'sale' LIMIT 1", [request.params.id]);
         if (!sales.length) {
           const [totalRows] = await connection.query("SELECT total FROM orders WHERE id = ? LIMIT 1", [request.params.id]);
-          await connection.query("INSERT INTO cash_movements (id, business_id, order_id, type, amount, description) VALUES (?, ?, ?, 'sale', ?, ?)", [randomUUID(), request.params.businessId, request.params.id, totalRows[0].total, "Venda concluída"]);
+          await connection.query("INSERT INTO cash_movements (id, business_id, session_id, order_id, type, amount, description) VALUES (?, ?, (SELECT id FROM cash_register_sessions WHERE business_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1), ?, 'sale', ?, ?)", [randomUUID(), request.params.businessId, request.params.businessId, request.params.id, totalRows[0].total, "Venda concluída"]);
         }
       }
       const [rows] = await connection.query("SELECT * FROM orders WHERE id = ? LIMIT 1", [request.params.id]);

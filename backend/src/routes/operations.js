@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
-import { requireBusinessAccess } from "./auth.js";
+import { requireBusinessAccess, requireRole } from "./auth.js";
 
 const money = (value) => Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 99999999.99;
 
@@ -12,7 +12,7 @@ export default async function operationsRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/payment-methods", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const name = String(request.body?.name || "").trim();
     if (!name || name.length > 80) return reply.badRequest("Invalid payment method");
     const id = randomUUID();
@@ -28,7 +28,7 @@ export default async function operationsRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/cash-register/open", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply, ["owner", "manager", "cashier"]))) return;
     const openingAmount = Number(request.body?.opening_amount || 0);
     if (!money(openingAmount)) return reply.badRequest("Invalid opening amount");
     const connection = await pool.getConnection();
@@ -44,12 +44,17 @@ export default async function operationsRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/cash-register/:sessionId/close", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply, ["owner", "manager", "cashier"]))) return;
     const closingAmount = Number(request.body?.closing_amount);
     if (!money(closingAmount)) return reply.badRequest("Invalid closing amount");
-    const [result] = await pool.query("UPDATE cash_register_sessions SET status = 'closed', closing_amount = ?, closed_by = ?, closed_at = CURRENT_TIMESTAMP, notes = ? WHERE id = ? AND business_id = ? AND status = 'open'", [closingAmount, request.user?.id || null, String(request.body?.notes || "").slice(0, 255) || null, request.params.sessionId, request.params.businessId]);
+    const [sessions] = await pool.query("SELECT opening_amount FROM cash_register_sessions WHERE id = ? AND business_id = ? AND status = 'open' LIMIT 1", [request.params.sessionId, request.params.businessId]);
+    if (!sessions.length) return reply.notFound("Open cash register not found");
+    const [totals] = await pool.query("SELECT COALESCE(SUM(CASE WHEN type IN ('sale','entry') THEN amount ELSE -amount END), 0) AS movements FROM cash_movements WHERE session_id = ?", [request.params.sessionId]);
+    const expectedAmount = Number((Number(sessions[0].opening_amount) + Number(totals[0].movements)).toFixed(2));
+    const differenceAmount = Number((closingAmount - expectedAmount).toFixed(2));
+    const [result] = await pool.query("UPDATE cash_register_sessions SET status = 'closed', closing_amount = ?, expected_amount = ?, difference_amount = ?, closed_by = ?, closed_at = CURRENT_TIMESTAMP, notes = ? WHERE id = ? AND business_id = ? AND status = 'open'", [closingAmount, expectedAmount, differenceAmount, request.user?.id || null, String(request.body?.notes || "").slice(0, 255) || null, request.params.sessionId, request.params.businessId]);
     if (!result.affectedRows) return reply.notFound("Open cash register not found");
-    return { closed: true };
+    return { closed: true, reconciliation: { expected_amount: expectedAmount, closing_amount: closingAmount, difference_amount: differenceAmount } };
   });
 
   for (const resource of ["customers", "suppliers"]) {
@@ -59,7 +64,7 @@ export default async function operationsRoutes(app) {
       return { [resource]: rows };
     });
     app.post(`/api/v1/businesses/:businessId/${resource}`, async (request, reply) => {
-      if (!(await requireBusinessAccess(request, reply))) return;
+      if (!(await requireRole(request, reply))) return;
       const body = request.body?.[resource.slice(0, -1)] || request.body || {};
       const name = String(body.name || "").trim();
       if (!name || name.length > 160) return reply.badRequest("Name is required");

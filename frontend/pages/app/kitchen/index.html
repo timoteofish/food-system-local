@@ -23,7 +23,7 @@
   <body>
     <div class="menu-shell">
       <aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><button class="menu-sidebar__toggle" id="menuSidebarToggle" type="button" aria-label="Toggle menu">☰</button><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Main navigation"><a href="../dashboard/index.html">Dashboard</a><a href="../orders/index.html">Orders</a><a class="active" href="./index.html">Kitchen</a><a href="../inventory/index.html">Inventory</a><a href="../cashier/index.html">Cash</a></nav></aside>
-      <main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Production</p><h1>Kitchen display</h1></div></div><div class="kitchen-toolbar"><span id="kitchenStatus" role="status">Loading orders...</span><button class="btn btn--secondary" id="refreshKitchen" type="button">Refresh</button></div><section class="kitchen-board" id="kitchenBoard"></section></main>
+    <main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Production</p><h1>Kitchen display</h1></div></div><div class="kitchen-toolbar"><span id="kitchenStatus" role="status">Loading orders...</span><label>Station <select id="kitchenStation"><option value="">All stations</option></select></label><button class="btn btn--secondary" id="refreshKitchen" type="button">Refresh</button></div><section class="kitchen-board" id="kitchenBoard"></section></main>
     </div>
     <script src="../../../env.js"></script><script type="module" src="./app.js"></script>
   </body>

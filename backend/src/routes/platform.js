@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
-import { requireBusinessAccess } from "./auth.js";
+import { requireBusinessAccess, requireRole } from "./auth.js";
 import { config } from "../config.js";
+import { audit } from "../audit.js";
 
 export default async function platformRoutes(app) {
   app.get("/api/v1/businesses/:businessId/system/update", async (request, reply) => {
@@ -13,6 +14,9 @@ export default async function platformRoutes(app) {
       available_version: availableVersion,
       update_available: availableVersion !== currentVersion,
       download_url: config.update.url,
+      sha256: config.update.sha256 || null,
+      signature: config.update.signature || null,
+      public_key: config.update.publicKey || null,
       notes: config.update.notes,
     };
   });
@@ -31,7 +35,8 @@ export default async function platformRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/team", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    const user = await requireRole(request, reply);
+    if (!user) return;
     const input = request.body?.membership || request.body || {};
     const email = String(input.email || "").trim().toLowerCase();
     const name = String(input.full_name || input.name || "").trim();
@@ -43,22 +48,27 @@ export default async function platformRoutes(app) {
     if (existing.length) return reply.conflict("Usuário já pertence à empresa");
     const id = randomUUID();
     await pool.query("INSERT INTO business_memberships (id, user_id, business_id, role) VALUES (?, ?, ?, ?)", [id, users[0].id, request.params.businessId, role]);
+    await audit(request, user, "team.member_added", "membership", id, { role, user_id: users[0].id });
     return reply.code(201).send({ member: { id, role, status: "active", user: users[0] } });
   });
 
   app.patch("/api/v1/businesses/:businessId/team/:membershipId", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    const user = await requireRole(request, reply);
+    if (!user) return;
     const role = String(request.body?.membership?.role || request.body?.role || "");
     if (!["owner", "manager", "staff"].includes(role)) return reply.badRequest("Papel inválido");
     const [result] = await pool.query("UPDATE business_memberships SET role = ? WHERE id = ? AND business_id = ?", [role, request.params.membershipId, request.params.businessId]);
     if (!result.affectedRows) return reply.notFound("Membro não encontrado");
+    await audit(request, user, "team.member_role_updated", "membership", request.params.membershipId, { role });
     return { member: { id: request.params.membershipId, role } };
   });
 
   app.delete("/api/v1/businesses/:businessId/team/:membershipId", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    const user = await requireRole(request, reply);
+    if (!user) return;
     const [result] = await pool.query("DELETE FROM business_memberships WHERE id = ? AND business_id = ? AND role <> 'owner'", [request.params.membershipId, request.params.businessId]);
     if (!result.affectedRows) return reply.notFound("Membro não encontrado ou protegido");
+    await audit(request, user, "team.member_removed", "membership", request.params.membershipId, {});
     return reply.code(204).send();
   });
 }

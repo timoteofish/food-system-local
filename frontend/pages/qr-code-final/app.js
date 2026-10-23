@@ -45,6 +45,12 @@ const elements = {
   bagTotal: document.getElementById("customerBagTotal"),
   bagConfirm: document.getElementById("customerBagConfirm"),
   customerName: document.getElementById("customerNameInput"),
+  orderType: document.getElementById("customerOrderType"),
+  deliveryFields: document.getElementById("customerDeliveryFields"),
+  deliveryStreet: document.getElementById("deliveryStreet"),
+  deliveryNumber: document.getElementById("deliveryNumber"),
+  deliveryCity: document.getElementById("deliveryCity"),
+  deliveryFee: document.getElementById("deliveryFee"),
   customerTable: document.getElementById("customerTableDisplay"),
   paymentMethod: document.getElementById("customerPaymentMethod"),
   paymentNote: document.getElementById("customerPaymentNote"),
@@ -305,19 +311,25 @@ const placeCustomerOrder = async ({ entries, total, paymentMethod, customerName 
   const businessId = publicBusinessId || settings.businessId || "";
   if (!businessId && !tableToken) throw new Error("Cardápio sem mesa informada.");
   const tableLabel = elements.customerTable?.textContent?.trim() || currentTableName;
+  const isDelivery = elements.orderType?.value === "delivery";
+  const delivery = isDelivery ? {
+    address: { street: elements.deliveryStreet.value.trim(), number: elements.deliveryNumber.value.trim(), city: elements.deliveryCity.value.trim() },
+    fee: Number(elements.deliveryFee.value || 0),
+  } : null;
 
   const data = await apiCreateOrder(
     businessId,
     {
       customer_name: customerName,
       customer_phone: "0000000000",
-      notes: `Mesa: ${tableLabel} | Pagamento: ${getPaymentLabel(paymentMethod)}`,
+      notes: `${isDelivery ? "Entrega" : `Mesa: ${tableLabel}`} | Pagamento: ${getPaymentLabel(paymentMethod)}`,
     },
     entries.map(({ product, quantity }) => ({
       product_id: product.id,
       quantity,
     })),
-    tableToken
+    tableToken,
+    delivery
   );
 
   return data.order;
@@ -395,6 +407,11 @@ elements.bagButtons.forEach((button) => button.addEventListener("click", openBag
 elements.bagClose?.addEventListener("click", closeBagPanel);
 elements.bagBackdrop?.addEventListener("click", closeBagPanel);
 elements.paymentMethod?.addEventListener("change", renderBagPanel);
+elements.orderType?.addEventListener("change", () => {
+  const delivery = elements.orderType.value === "delivery";
+  elements.deliveryFields.hidden = !delivery;
+  elements.customerTable.closest(".customer-table-fixed")?.toggleAttribute("hidden", delivery);
+});
 
 elements.bagConfirm?.addEventListener("click", async () => {
   const entries = getCartEntries();

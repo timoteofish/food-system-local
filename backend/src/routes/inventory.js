@@ -1,12 +1,57 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
-import { requireBusinessAccess } from "./auth.js";
+import { requireBusinessAccess, requireRole } from "./auth.js";
 
 const units = new Set(["unit", "g", "kg", "ml", "l"]);
 const movementTypes = new Set(["purchase", "adjustment", "loss"]);
 const positiveNumber = (value) => Number.isFinite(Number(value)) && Number(value) > 0;
 
 export default async function inventoryRoutes(app) {
+  app.get("/api/v1/businesses/:businessId/purchases", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
+    const [purchases] = await pool.query("SELECT po.*, s.name AS supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON s.id = po.supplier_id WHERE po.business_id = ? ORDER BY po.received_at DESC", [request.params.businessId]);
+    return { purchases };
+  });
+
+  app.post("/api/v1/businesses/:businessId/purchases", async (request, reply) => {
+    if (!(await requireRole(request, reply))) return;
+    const inputItems = Array.isArray(request.body?.items) ? request.body.items : [];
+    if (!inputItems.length) return reply.badRequest("At least one purchase item is required");
+    const supplierId = request.body?.supplier_id || null;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      if (supplierId) {
+        const [suppliers] = await connection.query("SELECT id FROM suppliers WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [supplierId, request.params.businessId]);
+        if (!suppliers.length) return reply.badRequest("Supplier does not belong to this business");
+      }
+      const purchaseId = randomUUID();
+      const normalized = [];
+      let totalCost = 0;
+      for (const input of inputItems) {
+        const quantity = Number(input.quantity);
+        const unitCost = Number(input.unit_cost);
+        if (!input.inventory_item_id || !positiveNumber(quantity) || !Number.isFinite(unitCost) || unitCost < 0 || unitCost > 99999999) return reply.badRequest("Invalid purchase item");
+        const [items] = await connection.query("SELECT id, current_quantity, cost_per_unit FROM inventory_items WHERE id = ? AND business_id = ? AND active = TRUE FOR UPDATE", [input.inventory_item_id, request.params.businessId]);
+        if (!items.length) return reply.badRequest("Inventory item not found");
+        const item = items[0];
+        const nextQuantity = Number(item.current_quantity) + quantity;
+        const weightedCost = nextQuantity ? ((Number(item.current_quantity) * Number(item.cost_per_unit)) + (quantity * unitCost)) / nextQuantity : unitCost;
+        await connection.query("UPDATE inventory_items SET current_quantity = ?, cost_per_unit = ? WHERE id = ? AND business_id = ?", [nextQuantity, weightedCost, item.id, request.params.businessId]);
+        const lineTotal = Number((quantity * unitCost).toFixed(2));
+        totalCost += lineTotal;
+        normalized.push({ id: randomUUID(), inventory_item_id: item.id, quantity, unit_cost: unitCost, total_cost: lineTotal, weighted_cost: weightedCost });
+      }
+      await connection.query("INSERT INTO purchase_orders (id, business_id, supplier_id, total_cost, notes) VALUES (?, ?, ?, ?, ?)", [purchaseId, request.params.businessId, supplierId, totalCost, String(request.body?.notes || "").slice(0, 255) || null]);
+      for (const item of normalized) {
+        await connection.query("INSERT INTO purchase_items (id, purchase_order_id, inventory_item_id, quantity, unit_cost, total_cost) VALUES (?, ?, ?, ?, ?, ?)", [item.id, purchaseId, item.inventory_item_id, item.quantity, item.unit_cost, item.total_cost]);
+        await connection.query("INSERT INTO inventory_movements (id, business_id, inventory_item_id, type, quantity, description) VALUES (?, ?, ?, 'purchase', ?, ?)", [randomUUID(), request.params.businessId, item.inventory_item_id, item.quantity, `Compra ${purchaseId}`]);
+      }
+      await connection.commit();
+      return reply.code(201).send({ purchase: { id: purchaseId, business_id: request.params.businessId, supplier_id: supplierId, total_cost: totalCost, items: normalized } });
+    } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
+  });
+
   app.get("/api/v1/businesses/:businessId/inventory/items", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
     const [items] = await pool.query("SELECT * FROM inventory_items WHERE business_id = ? ORDER BY name", [request.params.businessId]);
@@ -14,7 +59,7 @@ export default async function inventoryRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/inventory/items", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const body = request.body || {};
     const name = String(body.name || "").trim();
     const unit = String(body.unit || "unit");
@@ -33,7 +78,7 @@ export default async function inventoryRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/inventory/items/:id/movements", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const body = request.body || {};
     const type = String(body.type || "");
     const quantity = Number(body.quantity);
@@ -57,7 +102,7 @@ export default async function inventoryRoutes(app) {
   });
 
   app.put("/api/v1/businesses/:businessId/products/:productId/recipe", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const ingredients = Array.isArray(request.body?.ingredients) ? request.body.ingredients : [];
     if (!ingredients.length) return reply.badRequest("At least one ingredient is required");
     const connection = await pool.getConnection();

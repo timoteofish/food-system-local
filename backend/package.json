@@ -14,7 +14,8 @@
     "db:seed": "node src/seed.js",
     "db:backup": "node src/backup.js",
     "db:restore": "node src/restore.js",
-    "db:update": "npm run db:backup && npm run db:migrate"
+    "db:update": "npm run db:backup && npm run db:migrate",
+    "print:worker": "node src/print-worker.js"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",

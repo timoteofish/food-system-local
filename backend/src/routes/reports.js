@@ -30,4 +30,16 @@ export default async function reportRoutes(app) {
     const [items] = await pool.query("SELECT id, name, unit, current_quantity, minimum_quantity FROM inventory_items WHERE business_id = ? AND active = TRUE AND current_quantity <= minimum_quantity ORDER BY current_quantity", [request.params.businessId]);
     return { items };
   });
+
+  app.get("/api/v1/businesses/:businessId/reports/profitability", async (request, reply) => {
+    if (!(await requireBusinessAccess(request, reply))) return;
+    const dates = getRange(request, reply); if (!dates) return;
+    const [rows] = await pool.query(
+      "SELECT COALESCE(SUM(o.total), 0) AS revenue, COALESCE(SUM(oi.quantity * pi.quantity * ii.cost_per_unit), 0) AS cogs FROM orders o JOIN order_items oi ON oi.order_id = o.id LEFT JOIN product_ingredients pi ON pi.product_id = oi.product_id AND pi.business_id = o.business_id LEFT JOIN inventory_items ii ON ii.id = pi.inventory_item_id WHERE o.business_id = ? AND o.created_at BETWEEN ? AND ? AND o.status <> 'cancelled'",
+      [request.params.businessId, dates.from, dates.to],
+    );
+    const revenue = Number(rows[0].revenue);
+    const cogs = Number(rows[0].cogs);
+    return { revenue, cogs, gross_profit: Number((revenue - cogs).toFixed(2)), gross_margin: revenue ? Number(((revenue - cogs) / revenue * 100).toFixed(2)) : 0 };
+  });
 }

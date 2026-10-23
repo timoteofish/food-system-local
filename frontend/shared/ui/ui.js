@@ -803,8 +803,10 @@ export const initProfileMenu = () => {
       updateCurrent.textContent = `Versão instalada: ${result.current_version}. Versão disponível: ${result.available_version}.`;
       updateNotes.textContent = result.notes || "O sistema já está atualizado.";
       updateLater.hidden = !result.update_available;
-      updateNow.hidden = !result.update_available || !result.download_url;
-      updateNow.href = result.download_url || "#";
+      const safeUpdateUrl = typeof result.download_url === "string" && /^https:\/\//i.test(result.download_url) ? result.download_url : "";
+      updateNow.hidden = !result.update_available || !safeUpdateUrl;
+      updateNow.href = safeUpdateUrl || "#";
+      updateNow.rel = "noopener noreferrer";
       updateFeedback.textContent = result.update_available
         ? result.download_url ? "Atualização disponível. Escolha quando instalar." : "Há uma atualização registrada, mas o pacote ainda não foi disponibilizado."
         : "O sistema já está atualizado.";

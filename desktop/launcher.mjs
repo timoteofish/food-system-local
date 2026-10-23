@@ -1,13 +1,29 @@
-import { spawn } from "node:child_process";
-import { createReadStream, existsSync, statSync } from "node:fs";
-import { createServer } from "node:http";
+import { execFile as execFileCallback, spawn } from "node:child_process";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
+import { createServer as createHttpServer } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
+import net from "node:net";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+
+const execFile = promisify(execFileCallback);
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const frontendRoot = join(root, "frontend");
 const backendRoot = join(root, "backend");
+const configuredMariaRoot = process.env.MARIADB_ROOT || "";
+const mariaRoots = [configuredMariaRoot, "C:\\Program Files\\MariaDB 13.0", "C:\\Program Files\\MariaDB 11.0"].filter(Boolean);
+const mariaRoot = mariaRoots.find((candidate) => existsSync(join(candidate, "bin", "mariadbd.exe"))) || mariaRoots[0];
+const mariaServer = join(mariaRoot, "bin", "mariadbd.exe");
+const mariaDefaults = join(mariaRoot, "data", "my.ini");
 const frontendPort = Number(process.env.FRONTEND_PORT || 4173);
+const frontendHost = process.env.FRONTEND_HOST || "127.0.0.1";
+const tlsKeyPath = process.env.FRONTEND_TLS_KEY || "";
+const tlsCertPath = process.env.FRONTEND_TLS_CERT || "";
+if (!["127.0.0.1", "localhost", "::1"].includes(frontendHost) && (!tlsKeyPath || !tlsCertPath)) {
+  throw new Error("FRONTEND_TLS_KEY and FRONTEND_TLS_CERT are required when the cardapio is exposed on the network");
+}
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -28,7 +44,34 @@ const safePath = (urlPath) => {
   return file.startsWith(frontendRoot) ? file : null;
 };
 
-const frontend = createServer((request, response) => {
+const canConnectDatabase = () => new Promise((resolveConnection) => {
+  const socket = net.createConnection({ host: "127.0.0.1", port: 3306 });
+  const finish = (value) => { socket.destroy(); resolveConnection(value); };
+  socket.once("connect", () => finish(true));
+  socket.once("error", () => finish(false));
+  socket.setTimeout(500, () => finish(false));
+});
+
+let startedDatabase = null;
+const ensureDatabase = async () => {
+  if (await canConnectDatabase()) return;
+  if (!existsSync(mariaServer) || !existsSync(mariaDefaults)) {
+    console.warn("MariaDB não encontrado. Configure MARIADB_ROOT ou instale MariaDB 13.0.");
+    return;
+  }
+  startedDatabase = spawn(mariaServer, [`--defaults-file=${mariaDefaults}`, "--console"], {
+    cwd: mariaRoot,
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (await canConnectDatabase()) return;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+  }
+  console.warn("MariaDB foi iniciado, mas não aceitou conexões a tempo.");
+};
+
+const handleFrontend = (request, response) => {
   try {
     const file = safePath(request.url);
     if (!file || !existsSync(file) || !statSync(file).isFile()) {
@@ -42,8 +85,24 @@ const frontend = createServer((request, response) => {
     response.writeHead(400);
     response.end("Bad request");
   }
-});
+};
+const frontend = tlsKeyPath && tlsCertPath
+  ? createHttpsServer({ key: readFileSync(tlsKeyPath), cert: readFileSync(tlsCertPath) }, handleFrontend)
+  : createHttpServer(handleFrontend);
+const frontendProtocol = tlsKeyPath && tlsCertPath ? "https" : "http";
 
+await ensureDatabase();
+try {
+  await execFile(process.execPath, ["src/migrate.js"], {
+    cwd: backendRoot,
+    env: process.env,
+    windowsHide: true,
+  });
+} catch (error) {
+  console.error("Food System database migration failed:", error.message);
+  process.exitCode = 1;
+  throw error;
+}
 const backend = spawn(process.execPath, ["src/server.js"], {
   cwd: backendRoot,
   stdio: "inherit",
@@ -70,6 +129,7 @@ const waitForReadiness = async () => {
 const shutdown = () => {
   frontend.close();
   if (!backend.killed) backend.kill();
+  if (startedDatabase && !startedDatabase.killed) startedDatabase.kill();
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
@@ -78,8 +138,8 @@ backend.on("exit", (code) => {
   frontend.close();
 });
 
-frontend.listen(frontendPort, "127.0.0.1", () => {
-  console.log(`Food System frontend: http://127.0.0.1:${frontendPort}`);
+frontend.listen(frontendPort, frontendHost, () => {
+  console.log(`Food System frontend: ${frontendProtocol}://${frontendHost}:${frontendPort}`);
   console.log("Food System API: http://127.0.0.1:3000");
   void waitForReadiness();
 });

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
-import { requireBusinessAccess } from "./auth.js";
+import { authenticate, requireBusinessAccess, requireRole } from "./auth.js";
+import { audit } from "../audit.js";
 
 export default async function businessesRoutes(app) {
   app.get("/api/v1/businesses/:id", async (request, reply) => {
@@ -11,7 +12,7 @@ export default async function businessesRoutes(app) {
   });
 
   app.patch("/api/v1/businesses/:id", async (request, reply) => {
-    if (!(await requireBusinessAccess(request, reply))) return;
+    if (!(await requireRole(request, reply))) return;
     const business = request.body?.business || request.body || {};
     const fields = {
       name: business.name,
@@ -31,14 +32,31 @@ export default async function businessesRoutes(app) {
   });
 
   app.post("/api/v1/businesses", async (request, reply) => {
+    const user = await authenticate(request);
+    if (!user) return reply.unauthorized("Sessão inválida");
     const { name, description = "", primary_color = "#0f766e" } = request.body || {};
     if (!String(name || "").trim()) return reply.badRequest("Business name is required");
 
     const id = randomUUID();
-    await pool.query(
-      "INSERT INTO businesses (id, name, description, primary_color, settings) VALUES (?, ?, ?, ?, ?)",
-      [id, name.trim(), description, primary_color, JSON.stringify({ currency: "BRL" })]
-    );
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      await connection.query(
+        "INSERT INTO businesses (id, name, description, primary_color, settings) VALUES (?, ?, ?, ?, ?)",
+        [id, name.trim(), description, primary_color, JSON.stringify({ currency: "BRL" })]
+      );
+      await connection.query(
+        "INSERT INTO business_memberships (id, user_id, business_id, role) VALUES (?, ?, ?, 'owner')",
+        [randomUUID(), user.id, id]
+      );
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+    await audit(request, user, "business.created", "business", id, { name: name.trim() });
     return reply.code(201).send({ business: { id, name: name.trim(), description, primary_color } });
   });
 }

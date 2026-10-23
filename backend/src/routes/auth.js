@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { pool } from "../db.js";
+import { config } from "../config.js";
 
 const scrypt = promisify(scryptCallback);
 const hashToken = (token) => createHash("sha256").update(token).digest("hex");
@@ -22,12 +23,19 @@ export const authenticate = async (request) => {
   const header = String(request.headers.authorization || "");
   if (!header.startsWith("Bearer ")) return null;
   const tokenHash = hashToken(header.slice(7));
-  const [rows] = await pool.query("SELECT u.id, u.email, u.name, m.business_id, m.role FROM sessions s JOIN users u ON u.id = s.user_id JOIN business_memberships m ON m.user_id = u.id WHERE s.token_hash = ? AND s.expires_at > NOW() LIMIT 1", [tokenHash]);
+  const businessId = request.params?.businessId || request.params?.id || null;
+  const membershipFilter = businessId ? " AND m.business_id = ?" : "";
+  const values = businessId ? [tokenHash, businessId] : [tokenHash];
+  let [rows] = await pool.query(`SELECT u.id, u.email, u.name, m.business_id, m.role FROM sessions s JOIN users u ON u.id = s.user_id JOIN business_memberships m ON m.user_id = u.id WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > NOW()${membershipFilter} LIMIT 1`, values);
+  if (!rows[0] && businessId) {
+    [rows] = await pool.query("SELECT u.id, u.email, u.name, m.business_id, m.role FROM sessions s JOIN users u ON u.id = s.user_id JOIN business_memberships m ON m.user_id = u.id WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > NOW() LIMIT 1", [tokenHash]);
+  }
+  if (rows[0]) await pool.query("UPDATE sessions SET last_used_at = NOW() WHERE token_hash = ?", [tokenHash]);
   return rows[0] || null;
 };
 
 export const requireBusinessAccess = async (request, reply) => {
-  if (String(request.headers["x-food-system-local"] || "").toLowerCase() === "true") {
+  if (config.allowLocalHeader && config.nodeEnv !== "production" && String(request.headers["x-food-system-local"] || "").toLowerCase() === "true") {
     const businessId = request.params.businessId || request.params.id;
     if (businessId) {
       await pool.query(
@@ -35,7 +43,9 @@ export const requireBusinessAccess = async (request, reply) => {
         [businessId, "Meu estabelecimento", "Aplicação local", JSON.stringify({ currency: "BRL" })],
       );
     }
-    return { id: "local-user", email: "local@food-system.local", name: "Administrador", business_id: businessId, role: "owner", local: true };
+    const localUser = { id: "local-user", email: "local@food-system.local", name: "Administrador", business_id: businessId, role: "owner", local: true };
+    request.user = localUser;
+    return localUser;
   }
   const user = await authenticate(request);
   if (!user) {
@@ -44,6 +54,17 @@ export const requireBusinessAccess = async (request, reply) => {
   }
   if (user.business_id !== request.params.businessId && user.business_id !== request.params.id) {
     reply.forbidden("Acesso negado");
+    return null;
+  }
+  request.user = user;
+  return user;
+};
+
+export const requireRole = async (request, reply, roles = ["owner", "manager"]) => {
+  const user = await requireBusinessAccess(request, reply);
+  if (!user) return null;
+  if (!user.local && !roles.includes(user.role)) {
+    reply.forbidden("Permissão insuficiente");
     return null;
   }
   return user;
@@ -68,7 +89,7 @@ export default async function authRoutes(app) {
       await connection.query("INSERT INTO business_memberships (id, user_id, business_id, role) VALUES (?, ?, ?, 'owner')", [randomUUID(), userId, businessId]);
       await connection.commit();
       const token = randomBytes(32).toString("base64url");
-      await pool.query("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 30 DAY))", [hashToken(token), userId]);
+      await pool.query("INSERT INTO sessions (token_hash, user_id, expires_at, last_used_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? DAY), NOW())", [hashToken(token), userId, config.sessionDays]);
       return reply.code(201).send({ user: { id: userId, email, name }, business: { id: businessId, name }, token });
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
   });
@@ -80,7 +101,8 @@ export default async function authRoutes(app) {
     if (!rows.length || !(await verifyPassword(String(input.password || ""), rows[0].password_hash))) return reply.unauthorized("Email ou senha inválidos");
     const [memberships] = await pool.query("SELECT b.id, b.name, m.role FROM business_memberships m JOIN businesses b ON b.id = m.business_id WHERE m.user_id = ? LIMIT 1", [rows[0].id]);
     const token = randomBytes(32).toString("base64url");
-    await pool.query("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 30 DAY))", [hashToken(token), rows[0].id]);
+    await pool.query("UPDATE sessions SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL", [rows[0].id]);
+    await pool.query("INSERT INTO sessions (token_hash, user_id, expires_at, last_used_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? DAY), NOW())", [hashToken(token), rows[0].id, config.sessionDays]);
     return { user: publicUser(rows[0]), business: memberships[0] || null, token };
   });
 

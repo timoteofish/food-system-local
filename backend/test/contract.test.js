@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 
 const read = (file) => fs.readFile(new URL(`../${file}`, import.meta.url), "utf8");
 const readFrontend = (file) => fs.readFile(new URL(`../../frontend/${file}`, import.meta.url), "utf8");
+const readRoot = (file) => fs.readFile(new URL(`../../${file}`, import.meta.url), "utf8");
 
 test("schema contains the operational tables", async () => {
   const sql = await read("sql/001_initial.sql");
@@ -54,6 +55,17 @@ test("backend registers discount and loyalty routes", async () => {
   assert.match(routes, /loyalty\/redeem/);
 });
 
+test("frontend contains a courier mobile workflow", async () => {
+  const page = await readFrontend("pages/courier/index.html");
+  const app = await readFrontend("pages/courier/app.js");
+  assert.match(page, /Minhas entregas/);
+  assert.match(app, /X-Courier-Token/);
+  assert.match(app, /courier\/deliveries/);
+  assert.match(page, /manifest\.webmanifest/);
+  assert.match(app, /serviceWorker\.register/);
+  assert.match(app, /courier\/location/);
+});
+
 test("orders persist and apply discount totals", async () => {
   const sql = await read("sql/007_order_discounts.sql");
   const routes = await read("src/routes/orders.js");
@@ -100,6 +112,9 @@ test("order printing is available in backend and kitchen frontend", async () => 
   assert.match(routes, /orders\/:id\/print/);
   assert.match(app, /data-print-order/);
   assert.match(app, /window\.print/);
+  const worker = await read("src/print-worker.js");
+  assert.match(worker, /print_jobs/);
+  assert.match(worker, /attempts >= 3/);
 });
 
 test("cashier frontend exposes register session controls", async () => {
@@ -120,7 +135,7 @@ test("cashier frontend exposes supply and withdrawal controls", async () => {
 
 test("backend registers the required route groups", async () => {
   const server = await read("src/server.js");
-  for (const route of ["authRoutes", "catalogRoutes", "tableRoutes", "diningTabRoutes", "orderRoutes", "cashRoutes", "integrationRoutes", "inventoryRoutes", "operationsRoutes"]) assert.match(server, new RegExp(`register\\(${route}\\)`));
+  for (const route of ["authRoutes", "catalogRoutes", "tableRoutes", "diningTabRoutes", "orderRoutes", "cashRoutes", "integrationRoutes", "inventoryRoutes", "operationsRoutes", "kitchenRoutes"]) assert.match(server, new RegExp(`register\\(${route}\\)`));
 });
 
 test("dining tabs provide advanced table service controls", async () => {
@@ -141,6 +156,9 @@ test("fiscal workflow is explicit and refuses unconfigured issuance", async () =
   assert.match(server, /register\(fiscalRoutes\)/);
   assert.match(routes, /FISCAL_PROVIDER_URL/);
   assert.match(routes, /certificate credentials/);
+  assert.match(routes, /Fiscal provider must use HTTPS/);
+  assert.match(routes, /client_cert/);
+  assert.match(routes, /client_key/);
   assert.match(page, /Fiscal documents/);
 });
 
@@ -167,4 +185,28 @@ test("frontend API maps Node response envelopes", async () => {
   assert.match(client, /data\.orders \|\| \[\]/);
   assert.match(client, /data\.tables \|\| \[\]/);
   assert.match(client, /data\.movement \|\| data/);
+});
+
+test("local authentication bypass is restricted to explicit or loopback development mode", async () => {
+  const config = await read("src/config.js");
+  assert.match(config, /ALLOW_LOCAL_HEADER/);
+  assert.match(config, /isLoopback\(host\)/);
+  assert.match(config, /nodeEnv !== "production"/);
+});
+
+test("desktop update downloader enforces HTTPS, hash verification and atomic staging", async () => {
+  const updater = await readRoot("desktop/download-update.mjs");
+  assert.match(updater, /parsed\.protocol !== "https:"/);
+  assert.match(updater, /createHash\("sha256"\)/);
+  assert.match(updater, /actual !== expected/);
+  assert.match(updater, /verify\(null/);
+  assert.match(updater, /rename\(temporary, output\)/);
+});
+
+test("MariaDB hardening script restricts the local database to loopback", async () => {
+  const script = await readRoot("desktop/harden-mariadb.ps1");
+  assert.match(script, /bind-address=127\.0\.0\.1/);
+  assert.match(script, /skip-name-resolve/);
+  assert.match(script, /Copy-Item/);
+  assert.match(script, /Restart-Service/);
 });

@@ -28,6 +28,8 @@
   },
   "bundle": {
     "active": true,
+    "icon": ["icons/icon.ico"],
+    "resources": ["../backend", "../desktop"],
     "targets": ["msi", "nsis"],
     "windows": {
       "webviewInstallMode": {

@@ -6,6 +6,7 @@ import { initAppShell } from "../../../shared/ui/ui.js";
 const session = getSession();
 const board = document.getElementById("kitchenBoard");
 const statusMessage = document.getElementById("kitchenStatus");
+const stationSelect = document.getElementById("kitchenStation");
 const columns = [
   ["pending", "Pending", "confirmed"],
   ["confirmed", "Confirmed", "preparing"],
@@ -16,7 +17,8 @@ const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => 
 const orderCode = (order) => String(order.id || "").slice(-6).toUpperCase();
 
 const load = async () => {
-  const data = await apiRequest(`/businesses/${session.businessId}/orders`);
+  const stationQuery = stationSelect?.value ? `?station_id=${encodeURIComponent(stationSelect.value)}` : "";
+  const data = await apiRequest(`/businesses/${session.businessId}/orders${stationQuery}`);
   const orders = data.orders || [];
   board.innerHTML = columns.map(([status, label, next]) => {
     const items = orders.filter((order) => order.status === status).map((order) => `<article class="kitchen-ticket"><div class="kitchen-ticket__head"><strong>#${escapeHtml(orderCode(order))}</strong><span>${escapeHtml(order.table_name || "Counter")}</span></div><ul>${(order.items || []).map((item) => `<li>${escapeHtml(item.quantity)} × ${escapeHtml(item.name)}</li>`).join("")}</ul><div><button class="btn btn--primary" data-order-id="${escapeHtml(order.id)}" data-next-status="${next}" type="button">${escapeHtml(next === "completed" ? "Complete" : `Move to ${next}`)}</button><button class="btn btn--secondary" data-print-order="${escapeHtml(order.id)}" type="button">Print</button></div></article>`).join("") || '<p>No orders.</p>';
@@ -28,6 +30,7 @@ const load = async () => {
 board.addEventListener("click", async (event) => {
   const printButton = event.target.closest("[data-print-order]");
   if (printButton) {
+    await apiRequest(`/businesses/${session.businessId}/orders/${printButton.dataset.printOrder}/print-jobs`, { method: "POST", body: {} });
     const data = await apiRequest(`/businesses/${session.businessId}/orders/${printButton.dataset.printOrder}/print`);
     const ticket = data.ticket;
     const popup = window.open("", "_blank", "noopener,noreferrer,width=420,height=640");
@@ -41,4 +44,17 @@ board.addEventListener("click", async (event) => {
   catch (error) { statusMessage.textContent = error.message; button.disabled = false; }
 });
 document.getElementById("refreshKitchen").addEventListener("click", load);
-(async () => { await initAppShell({ activeNav: "kitchen" }); await load(); })();
+(async () => {
+  await initAppShell({ activeNav: "kitchen" });
+  try {
+    const stationData = await apiRequest(`/businesses/${session.businessId}/kitchen-stations`);
+    for (const station of stationData.stations || []) {
+      const option = document.createElement("option");
+      option.value = station.id;
+      option.textContent = station.name;
+      stationSelect?.append(option);
+    }
+  } catch (error) { statusMessage.textContent = error.message; }
+  stationSelect?.addEventListener("change", load);
+  await load();
+})();

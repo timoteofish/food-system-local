@@ -18,13 +18,34 @@ import customerValueRoutes from "./routes/customer-value.js";
 import reportRoutes from "./routes/reports.js";
 import backupRoutes from "./routes/backups.js";
 import fiscalRoutes from "./routes/fiscal.js";
+import deliveryRoutes from "./routes/delivery.js";
+import kitchenRoutes from "./routes/kitchen.js";
+import { audit } from "./audit.js";
 
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, trustProxy: false });
 
 await app.register(sensible);
 await app.register(cors, {
-  origin: config.corsOrigins,
-  credentials: true,
+  origin: (origin, callback) => {
+    if (!origin || config.corsOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Origin not allowed"), false);
+  },
+  credentials: false,
+});
+app.addHook("onSend", async (_request, reply) => {
+  reply.header("X-Content-Type-Options", "nosniff");
+  reply.header("X-Frame-Options", "DENY");
+  reply.header("Referrer-Policy", "no-referrer");
+  reply.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (config.nodeEnv === "production") reply.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+});
+app.addHook("onResponse", async (request, reply) => {
+  if (!request.user || request.user.local || request.auditRecorded || !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return;
+  try {
+    await audit(request, request.user, `HTTP ${request.method} ${request.routeOptions?.url || request.url}`.slice(0, 120), null, null, { status_code: reply.statusCode });
+  } catch (error) {
+    app.log.error(error, "Administrative audit write failed");
+  }
 });
 await app.register(businessesRoutes);
 await app.register(catalogRoutes);
@@ -41,6 +62,8 @@ await app.register(customerValueRoutes);
 await app.register(reportRoutes);
 await app.register(backupRoutes);
 await app.register(fiscalRoutes);
+await app.register(deliveryRoutes);
+await app.register(kitchenRoutes);
 
 app.get("/up", async () => ({
   status: "ok",

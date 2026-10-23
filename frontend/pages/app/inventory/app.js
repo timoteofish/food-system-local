@@ -13,11 +13,14 @@ const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ "&"
 const formatNumber = (value) => Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
 
 const load = async () => {
-  const [data, productData] = await Promise.all([apiRequest(`/businesses/${businessId}/inventory/items`), apiRequest(`/businesses/${businessId}/products`)]);
+  const [data, productData, supplierData] = await Promise.all([apiRequest(`/businesses/${businessId}/inventory/items`), apiRequest(`/businesses/${businessId}/products`), apiRequest(`/businesses/${businessId}/suppliers`)]);
   items = data.items;
   products = productData.products || [];
   const itemOptions = items.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} (${escapeHtml(item.unit)})</option>`).join("");
   document.getElementById("movementItem").innerHTML = itemOptions;
+  document.getElementById("purchaseItem").innerHTML = itemOptions;
+  const supplierSelect = document.getElementById("purchaseSupplier");
+  supplierSelect.innerHTML = `<option value="">No supplier</option>${(supplierData.suppliers || []).map((supplier) => `<option value="${escapeHtml(supplier.id)}">${escapeHtml(supplier.name)}</option>`).join("")}`;
   document.getElementById("recipeItem").innerHTML = itemOptions;
   document.getElementById("recipeProduct").innerHTML = products.map((product) => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>`).join("");
   rows.innerHTML = items.length ? items.map((item) => {
@@ -41,6 +44,17 @@ document.getElementById("movementForm").addEventListener("submit", async (event)
   event.preventDefault();
   const output = document.getElementById("movementMessage");
   try { await apiRequest(`/businesses/${businessId}/inventory/items/${document.getElementById("movementItem").value}/movements`, { method: "POST", body: { type: document.getElementById("movementType").value, quantity: Number(document.getElementById("movementQuantity").value), description: document.getElementById("movementDescription").value.trim() } }); output.textContent = "Movement saved."; event.target.reset(); await load(); } catch (error) { output.textContent = error.message; }
+});
+
+document.getElementById("purchaseForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const output = document.getElementById("purchaseMessage");
+  try {
+    await apiRequest(`/businesses/${businessId}/purchases`, { method: "POST", body: { supplier_id: document.getElementById("purchaseSupplier").value || null, items: [{ inventory_item_id: document.getElementById("purchaseItem").value, quantity: Number(document.getElementById("purchaseQuantity").value), unit_cost: Number(document.getElementById("purchaseUnitCost").value) }] } });
+    output.textContent = "Purchase received.";
+    event.target.reset();
+    await load();
+  } catch (error) { output.textContent = error.message; }
 });
 
 document.getElementById("recipeForm").addEventListener("submit", async (event) => {
