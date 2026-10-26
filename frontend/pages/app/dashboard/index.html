@@ -4,36 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Painel | Food System</title>
-    <script>
-      document.documentElement.dataset.sidebarReady = 'false';
-      try {
-        if (localStorage.getItem('food-system-sidebar-collapsed') === 'true') {
-          document.documentElement.classList.add('menu-sidebar-collapsed');
-        }
-      } catch {}
-    </script>
+    <script>document.documentElement.dataset.sidebarReady = "false";</script>
     <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../menu/styles.css" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="menu-shell">
       <aside class="menu-sidebar">
         <div class="menu-sidebar__brand-row">
-          <button
-            class="menu-sidebar__toggle"
-            id="menuSidebarToggle"
-            type="button"
-            aria-label="Minimizar menu"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path fill="currentColor" d="M4 7h16v2H4V7zm0 4.5h16v2H4v-2zm0 4.5h16v2H4v-2z" />
-            </svg>
-          </button>
-          <a class="menu-sidebar__brand" href="./index.html">Food System QR</a>
+          
+          <a class="menu-sidebar__brand" href="./index.html">Food System</a>
         </div>
         <nav class="menu-sidebar__nav" aria-label="Navegação principal">
           <a class="active" href="./index.html">
@@ -67,7 +51,7 @@
                 d="M6 7h12l-1 10H7L6 7zm3-3h6l1 2H8l1-2zM9 10v6h2v-6H9zm4 0v6h2v-6h-2z"
               />
             </svg>
-            <span class="menu-label">Pagamentos</span>
+            <span class="menu-label">Caixa</span>
           </a>
           <a href="../orders/index.html">
             <svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -97,34 +81,47 @@
               />
             </svg>
           </button>
-          <span class="profile-label">Ver Perfil</span>
+          <span class="profile-label">Perfil</span>
           <div class="profile-menu">
-            <a href="../user-edit/index.html">Alterar dados</a>
-            <a href="../menu/index.html">Configurar empresa</a>
-            <a href="#" data-action="close-app">Fechar aplicação</a>
+            <a href="../user-edit/index.html">Meu perfil</a>
+            <a href="../menu/index.html">Configurar cardápio</a>
+            <a href="#" data-action="close-app">Fechar aplicativo</a>
           </div>
         </div>
       </aside>
       <main class="content menu-content">
-        <div class="page-title">
+        <div class="page-title dashboard-page-title">
           <div>
-            <p class="eyebrow">Operação por QR</p>
-            <h1>Olá, <span id="welcomeName">equipe</span></h1><label class="global-language-control"><span>Idioma</span><select data-global-language aria-label="Idioma"><option value="pt">Português</option><option value="en">English</option></select></label>
+            <p class="eyebrow">Hoje</p>
+            <h1>Olá, <span id="welcomeName">equipe</span></h1>
+            <p class="dashboard-intro">Acompanhe os principais indicadores da operação</p>
           </div>
+          <a class="btn btn--primary dashboard-action" href="../orders/index.html">Abrir pedidos <span aria-hidden="true">→</span></a>
         </div>
-        <section class="grid cards-3">
-          <article class="panel stat">
-            <span>Itens no cardápio</span><strong id="activeProducts">0</strong>
+        <p id="dashboardFeedback" class="dashboard-feedback" role="alert" hidden></p>
+        <button class="btn btn--secondary dashboard-retry" id="dashboardRetry" type="button" hidden>Tentar novamente</button>
+        <section class="dashboard-stats" aria-label="Indicadores de hoje" aria-busy="true">
+          <article class="panel stat stat--featured">
+            <span>Vendas de hoje</span><strong id="ordersValueToday">—</strong>
           </article>
           <article class="panel stat">
-            <span>Pedidos hoje</span><strong id="ordersToday">0</strong>
+            <span>Pedidos</span><strong id="ordersToday">—</strong>
           </article>
           <article class="panel stat">
-            <span>Mesas ativas</span><strong id="activeTables">0</strong>
+            <span>Locais com pedidos ativos</span><strong id="activeLocations">—</strong>
           </article>
           <article class="panel stat">
-            <span>Pago hoje</span><strong id="salesToday">R$ 0,00</strong>
+            <span>Produtos ativos</span><strong id="activeProducts">—</strong>
           </article>
+        </section>
+        <section class="dashboard-lower">
+          <div class="dashboard-section-head">
+            <div><p class="eyebrow">Movimento</p><h2>Pedidos recentes</h2></div>
+            <a href="../orders/index.html">Ver todos <span aria-hidden="true">→</span></a>
+          </div>
+          <div id="recentOrders" class="recent-orders" aria-busy="true">
+            <p class="dashboard-empty" role="status">Carregando pedidos</p>
+          </div>
         </section>
       </main>
     </div>

@@ -1,3 +1,5 @@
+import { getLanguage, getLocale } from "../i18n/i18n.js";
+
 export const generateId = (prefix = "id") =>
   `${prefix}-${Math.random().toString(36).slice(2, 9)}-${Date.now().toString(36)}`;
 
@@ -6,11 +8,12 @@ export const parsePrice = (value) => {
     return value;
   }
 
-  const normalized = String(value ?? "0")
-    .replace(/R\$\s?/gi, "")
-    .trim()
-    .replace(/\./g, "")
-    .replace(",", ".");
+  let normalized = String(value ?? "0").replace(/R\$|\$/gi, "").replace(/\s/g, "").trim();
+  if (getLanguage() === "en") {
+    normalized = normalized.replace(/,/g, "");
+  } else {
+    normalized = normalized.replace(/\./g, "").replace(",", ".");
+  }
 
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -18,12 +21,54 @@ export const parsePrice = (value) => {
 
 export const formatPrice = (value, { prefix = true } = {}) => {
   const amount = parsePrice(value);
-  const formatted = amount.toFixed(2).replace(".", ",");
-  return prefix ? `R$ ${formatted}` : formatted;
+  return new Intl.NumberFormat(getLocale(), prefix
+    ? { style: "currency", currency: "BRL" }
+    : { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
 };
 
 export const formatTime = (date = new Date()) =>
-  date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  date.toLocaleTimeString(getLocale(), { hour: "2-digit", minute: "2-digit" });
+
+export const formatOrderLocation = (value) => {
+  let location = value;
+  if (typeof location === "string") {
+    const text = location.trim();
+    if (text.startsWith("{")) {
+      try {
+        location = JSON.parse(text);
+      } catch {
+        return text;
+      }
+    } else {
+      return text;
+    }
+  }
+  if (!location || typeof location !== "object" || Array.isArray(location)) return "";
+  if (location.name) return String(location.name).trim();
+  return [location.street, location.number, location.complement, location.neighborhood, location.city, location.state]
+    .filter((part) => part !== undefined && part !== null)
+    .map((part) => String(part).trim())
+    .filter(Boolean)
+    .join(", ");
+};
+
+const inventoryUnitLabels = {
+  unit: { pt: "Unidade", en: "Unit" },
+  unidade: { pt: "Unidade", en: "Unit" },
+  g: { pt: "g", en: "g" },
+  gram: { pt: "g", en: "g" },
+  grams: { pt: "g", en: "g" },
+  grama: { pt: "g", en: "g" },
+  gramas: { pt: "g", en: "g" },
+  kg: { pt: "kg", en: "kg" },
+  ml: { pt: "mL", en: "mL" },
+  l: { pt: "L", en: "L" },
+};
+
+export const formatInventoryUnit = (value) => {
+  const unit = String(value ?? "").trim();
+  return inventoryUnitLabels[unit.toLowerCase()]?.[getLanguage()] || unit;
+};
 
 export const isSameDay = (left, right = new Date()) => {
   const a = new Date(left);
@@ -61,3 +106,5 @@ export const safeImageUrl = (value = "") => {
     return "";
   }
 };
+import { getLanguage, getLocale } from "../i18n/i18n.js";
+

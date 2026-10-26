@@ -38,6 +38,7 @@ import {
   setSession,
   getBusiness,
 } from "../data/storage.js";
+import { formatOrderLocation } from "../utils/utils.js";
 import { signInWithFirebaseGoogle, signOutFirebaseSession } from "./firebase.js";
 
 // This is an installed, single-computer application. The local profile is
@@ -60,7 +61,7 @@ const ensureLocalSession = () => {
   };
   setSession(localSession);
   saveBusiness({
-    name: getBusiness()?.name || "Meu estabelecimento",
+    name: getBusiness()?.name || "Meu comércio",
     email: "local@food-system.local",
     onboardingCompleted: true,
   });
@@ -86,13 +87,13 @@ export const isUsingApi = () => apiAvailable === true;
 
 const requireBusinessId = () => {
   const businessId = getSession()?.businessId;
-  if (!businessId) throw new Error("Sessão inválida. Faça login novamente.");
+  if (!businessId) throw new Error("Sessão inválida Faça login novamente");
   return businessId;
 };
 
 export const login = async ({ email, password }) => {
   await checkApiAvailability();
-  if (!isUsingApi()) throw new Error("API indisponível. Verifique o backend antes de entrar.");
+  if (!isUsingApi()) throw new Error("API indisponível Verifique o backend antes de entrar");
 
   const data = await loginRequest(email, password);
   persistAuthSession({ user: data.user, business: data.business, token: data.token });
@@ -100,14 +101,14 @@ export const login = async ({ email, password }) => {
 };
 
 export const loginWithGoogle = async () => {
-  throw new Error("Use loginWithFirebaseGoogle para login com Google.");
+  throw new Error("Use loginWithFirebaseGoogle para login com Google");
 };
 
 export const loginWithFirebaseGoogle = async () => {
   await checkApiAvailability();
 
   if (!isUsingApi()) {
-    throw new Error("Login com Firebase exige a API ativa.");
+    throw new Error("Login com Firebase exige a API ativa");
   }
 
   const { idToken } = await signInWithFirebaseGoogle();
@@ -160,15 +161,15 @@ export const saveRegistrationStep = ({ name, email, password }) => {
 export const completeRegistration = async () => {
   const pending = getPendingRegistration();
   if (!pending?.email || !pending?.password) {
-    throw new Error("Cadastro incompleto. Volte e preencha seus dados.");
+    throw new Error("Cadastro incompleto Volte e preencha seus dados");
   }
   if (!pending?.businessName) {
-    throw new Error("Valide os dados da empresa antes de concluir o cadastro.");
+    throw new Error("Informe os dados do comércio antes de concluir o cadastro");
   }
 
   await checkApiAvailability();
 
-  if (!isUsingApi()) throw new Error("API indisponível. Não é possível cadastrar sem backend.");
+  if (!isUsingApi()) throw new Error("API indisponível Não é possível cadastrar sem backend");
 
   const data = await registerRequest(pending);
   persistAuthSession({
@@ -206,11 +207,11 @@ export const completeBusinessOnboarding = async (payload) => {
   const serviceModel = String(payload.serviceModel || "").trim();
 
   if (!businessName || !businessType || !city) {
-    throw new Error("Preencha os dados principais do negócio para continuar.");
+    throw new Error("Preencha os dados principais do comércio para continuar");
   }
 
   await checkApiAvailability();
-  if (!isUsingApi()) throw new Error("API indisponível. Não foi possível salvar o negócio.");
+  if (!isUsingApi()) throw new Error("API indisponível Não foi possível salvar o comércio");
 
   const businessId = requireBusinessId();
   await updateBusiness(businessId, {
@@ -333,7 +334,7 @@ export const removeCategoryRemote = async (name) => {
 };
 
 export const saveMenuSettingsRemote = async (settings) => {
-  if (!isUsingApi()) throw new Error("API indisponível. Não foi possível salvar o cardápio.");
+  if (!isUsingApi()) throw new Error("API indisponível Não foi possível salvar o cardápio");
 
   const businessId = requireBusinessId();
   await updateBusiness(businessId, {
@@ -393,7 +394,7 @@ export const loadOrdersRemote = async () => {
     updatedAt: order.updated_at,
     items: order.items || [],
     customerName: order.customer_name || "Cliente balcão",
-    tableName: order.restaurant_table_name || order.delivery_address || extractTableName(order.notes),
+    tableName: formatOrderLocation(order.table_name || order.restaurant_table_name || order.delivery_address) || extractTableName(order.notes),
     notes: order.notes || "",
     paymentMethod: extractPaymentMethod(order.notes),
     status: normalizeOrderStatus(order.status),
@@ -410,7 +411,7 @@ export const updateOrderStatusRemote = async (orderId, status) => {
     updatedAt: updated.updated_at,
     items: updated.items || [],
     customerName: updated.customer_name || "Cliente balcão",
-    tableName: updated.restaurant_table_name || updated.delivery_address || extractTableName(updated.notes),
+    tableName: formatOrderLocation(updated.table_name || updated.restaurant_table_name || updated.delivery_address) || extractTableName(updated.notes),
     notes: updated.notes || "",
     paymentMethod: extractPaymentMethod(updated.notes),
     status: normalizeOrderStatus(updated.status),
@@ -454,41 +455,66 @@ export const loadDashboardData = async () => {
   ]);
 
   const products = await loadProducts();
-  const activeTables = new Set(
+  const activeLocations = new Set(
     (orders || [])
       .filter((order) => ["confirmed", "pending", "preparing", "ready"].includes(String(order.status || "").toLowerCase()))
-      .map((order) => order.restaurant_table_name || order.delivery_address || extractTableName(order.notes))
-      .filter((table) => table && table !== "Mesa não informada")
-      .map((table) => table.toLowerCase())
+      .map((order) => formatOrderLocation(order.table_name || order.restaurant_table_name || order.delivery_address) || extractTableName(order.notes))
+      .filter((location) => location && location !== "Mesa não informada")
+      .map((location) => location.toLocaleLowerCase(getLocale()))
   );
 
   return {
     stats: {
       activeProducts: products.filter((item) => item.active).length,
-      salesToday: Number(statsPayload.total_revenue || 0),
-      cashBalance: Number(statsPayload.cash_balance || 0),
+      ordersValueToday: Number(statsPayload.total_revenue || 0),
       ordersToday: Number(statsPayload.total_orders || 0),
-      activeTables: activeTables.size,
+      activeLocations: activeLocations.size,
     },
-    orders: (orders || []).slice(0, 3).map((order) => ({
-      id: order.id,
-      total: order.total_amount,
-      createdAt: order.created_at,
-      items: order.items || [],
-    })),
+    orders: (orders || [])
+      .slice()
+      .sort((left, right) => new Date(right.created_at) - new Date(left.created_at))
+      .slice(0, 3)
+      .map((order) => ({
+        id: order.id,
+        orderCode: order.order_number || order.orderCode || "",
+        total: Number(order.total ?? order.total_amount ?? 0),
+        createdAt: order.created_at,
+        items: order.items || [],
+      })),
   };
 };
 
 export const loadCashierData = async () => {
   const businessId = requireBusinessId();
-  const [statsPayload, orders, cashPayload] = await Promise.all([
-    fetchTodayStats(businessId),
+  const [orders, cashPayload] = await Promise.all([
     fetchOrders(businessId),
     fetchCashMovements(businessId),
   ]);
 
-  const movements = Array.isArray(cashPayload?.movements) ? cashPayload.movements : [];
-  const summary = cashPayload?.summary || {};
+  const movements = (Array.isArray(cashPayload?.movements) ? cashPayload.movements : []).map((movement) => {
+    const originalType = String(movement.type || movement.movement_type || "entry").toLowerCase();
+    const type = originalType === "withdrawal" || originalType === "exit" ? "exit" : "entry";
+    const amount = Number(movement.amount ?? movement.value ?? 0);
+    const value = Number.isFinite(amount) ? amount : 0;
+    const fallbackLabel = originalType === "sale"
+      ? "Venda registrada"
+      : type === "exit" ? "Saída de caixa" : "Entrada de caixa";
+    const label = movement.description || movement.label || fallbackLabel;
+    return {
+      ...movement,
+      type,
+      label,
+      value,
+      createdAt: movement.created_at || movement.createdAt || "",
+    };
+  });
+  const entriesTotal = movements
+    .filter((movement) => movement.type === "entry")
+    .reduce((total, movement) => total + movement.value, 0);
+  const exitsTotal = movements
+    .filter((movement) => movement.type === "exit")
+    .reduce((total, movement) => total + movement.value, 0);
+  const reportedBalance = Number(cashPayload?.balance);
 
   return {
     orders: (orders || []).map((order) => ({
@@ -498,14 +524,14 @@ export const loadCashierData = async () => {
       paymentMethod: extractPaymentMethod(order.notes),
       paymentStatus: order.status === "completed" ? "paid" : "pending",
       customerName: order.customer_name || "Cliente",
-      tableName: order.restaurant_table_name || order.delivery_address || extractTableName(order.notes),
+      tableName: formatOrderLocation(order.table_name || order.restaurant_table_name || order.delivery_address) || extractTableName(order.notes),
       createdAt: order.created_at,
     })),
     movements,
     stats: {
-      entriesTotal: Number(summary.entries_total || 0),
-      exitsTotal: Number(summary.exits_total || 0),
-      cashBalance: Number(summary.balance ?? statsPayload.cash_balance ?? 0),
+      entriesTotal,
+      exitsTotal,
+      cashBalance: Number.isFinite(reportedBalance) ? reportedBalance : entriesTotal - exitsTotal,
     },
   };
 };
@@ -523,7 +549,7 @@ export const bootstrapApi = checkApiAvailability;
 
 export const checkForSystemUpdates = async () => {
   await checkApiAvailability();
-  if (!isUsingApi()) throw new Error("API indisponível. Não foi possível verificar atualizações.");
+  if (!isUsingApi()) throw new Error("API indisponível Não foi possível verificar atualizações");
   const businessId = requireBusinessId();
   return checkForUpdates(businessId);
 };

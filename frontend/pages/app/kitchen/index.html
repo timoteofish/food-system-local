@@ -1,30 +1,51 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kitchen | Food System</title>
+    <meta name="theme-color" content="#ffffff" />
+    <title>Cozinha | Food System</title>
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../menu/styles.css" />
+    <link rel="stylesheet" href="../shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
-    <style>
-      .kitchen-toolbar { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:18px; }
-      .kitchen-board { display:grid; grid-template-columns:repeat(4,minmax(220px,1fr)); gap:14px; overflow:auto; }
-      .kitchen-column { min-height:300px; background:rgba(127,127,127,.08); border-radius:10px; padding:12px; }
-      .kitchen-column h2 { font-size:1rem; margin:0 0 12px; }
-      .kitchen-ticket { background:var(--surface,#fff); border:1px solid rgba(127,127,127,.25); border-radius:8px; padding:12px; margin-bottom:10px; }
-      .kitchen-ticket__head { display:flex; justify-content:space-between; gap:8px; margin-bottom:8px; }
-      .kitchen-ticket ul { margin:8px 0 12px; padding-left:18px; }
-      .kitchen-ticket button { width:100%; }
-      @media (max-width:900px) { .kitchen-board { grid-template-columns:repeat(4, minmax(240px, 1fr)); } }
-    </style>
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="menu-shell">
-      <aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><button class="menu-sidebar__toggle" id="menuSidebarToggle" type="button" aria-label="Toggle menu">☰</button><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Main navigation"><a href="../dashboard/index.html">Dashboard</a><a href="../orders/index.html">Orders</a><a class="active" href="./index.html">Kitchen</a><a href="../inventory/index.html">Inventory</a><a href="../cashier/index.html">Cash</a></nav></aside>
-    <main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Production</p><h1>Kitchen display</h1></div></div><div class="kitchen-toolbar"><span id="kitchenStatus" role="status">Loading orders...</span><label>Station <select id="kitchenStation"><option value="">All stations</option></select></label><button class="btn btn--secondary" id="refreshKitchen" type="button">Refresh</button></div><section class="kitchen-board" id="kitchenBoard"></section></main>
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__brand-row">
+          
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
+        </div>
+        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+          <a href="../dashboard/index.html" aria-label="Painel"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 10.8 12 3l9 7.8V21h-6v-6H9v6H3z" /></svg><span class="menu-label">Painel</span></a>
+          <a href="../orders/index.html" aria-label="Pedidos"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 3h12v2H6zm0 4h12v2H6zm0 4h12v2H6zm0 4h8v2H6zm-2-14h2v2H4zm0 4h2v2H4zm0 4h2v2H4zm0 4h2v2H4z" /></svg><span class="menu-label">Pedidos</span></a>
+          <a class="active" href="./index.html" aria-label="Cozinha" aria-current="page"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 3a1 1 0 0 1 2 0v6H7zm4 0a1 1 0 0 1 2 0v6h-2zm4 0a1 1 0 0 1 2 0v6h-2zM5 11h14v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z" /></svg><span class="menu-label">Cozinha</span></a>
+          <a href="../inventory/index.html" aria-label="Estoque"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 2 9 5v10l-9 5-9-5V7zm0 2.3L6 7.6l6 3.3 6-3.3zM5 9.3v6.5l6 3.3v-6.5zm14 0-6 3.3v6.5l6-3.3z" /></svg><span class="menu-label">Estoque</span></a>
+          <a href="../cashier/index.html" aria-label="Caixa"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 6h14l1 14H4zm3-3h8l1 2H7zm1 6v7h2V9zm5 0v7h2V9z" /></svg><span class="menu-label">Caixa</span></a>
+        </nav>
+      </aside>
+      <main class="content menu-content">
+        <header class="page-title">
+          <div>
+            <p class="eyebrow">Produção</p>
+            <h1>Painel da cozinha</h1>
+            <p class="kitchen-intro">Acompanhe cada etapa e atualize o preparo</p>
+          </div>
+        </header>
+        <section class="kitchen-toolbar" aria-label="Controles do painel da cozinha">
+          <p id="kitchenStatus" class="kitchen-status" role="status" aria-live="polite">Atualizando pedidos</p>
+          <label for="kitchenStation">Estação
+            <select id="kitchenStation"><option value="">Todas as estações</option></select>
+          </label>
+          <button class="btn btn--secondary" id="refreshKitchen" type="button">Atualizar</button>
+        </section>
+        <section class="kitchen-board" id="kitchenBoard" aria-label="Pedidos por etapa" aria-busy="true" tabindex="0"><p class="kitchen-board__loading" role="status">Carregando pedidos</p></section>
+      </main>
     </div>
-    <script src="../../../env.js"></script><script type="module" src="./app.js"></script>
+    <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

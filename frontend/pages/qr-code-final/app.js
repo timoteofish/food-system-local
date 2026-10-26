@@ -1,3 +1,5 @@
+import "../../shared/i18n/legacy-control.js";
+import { translate } from "../../shared/i18n/i18n.js";
 import { createOrder as apiCreateOrder, fetchPublicMenu, fetchPublicMenuByTableToken } from "../../shared/api/client.js";
 import { clearCart, getCart, saveCart } from "../../shared/data/storage.js";
 import { escapeHtml, formatPrice, parsePrice, safeImageUrl } from "../../shared/utils/utils.js";
@@ -6,10 +8,10 @@ import { showToast } from "../../shared/ui/ui.js";
 let settings = {
   businessName: "",
   menuName: "",
-  primaryColor: "#0f766e",
+  primaryColor: "#b4232f",
   style: "clean",
-  gradientStart: "#0f766e",
-  gradientEnd: "#1f2a24",
+  gradientStart: "#b4232f",
+  gradientEnd: "#252221",
   gradientAngle: 140,
   menuBanner: "",
   showAllProducts: true,
@@ -20,7 +22,7 @@ let categories = [];
 let searchQuery = "";
 let selectedCategory = "Todos";
 const params = new URLSearchParams(window.location.search);
-const tableName = params.get("mesa")?.trim() || "Mesa não definida";
+const tableName = params.get("mesa")?.trim() || translate("Mesa não definida");
 const publicBusinessId = params.get("negocio")?.trim() || "";
 const tableToken = params.get("mesa_token")?.trim() || "";
 let currentTableName = tableName;
@@ -54,6 +56,8 @@ const elements = {
   customerTable: document.getElementById("customerTableDisplay"),
   paymentMethod: document.getElementById("customerPaymentMethod"),
   paymentNote: document.getElementById("customerPaymentNote"),
+  deliveryFeeRow: document.getElementById("customerDeliveryFeeRow"),
+  deliveryFeeTotal: document.getElementById("customerDeliveryFeeTotal"),
   success: document.getElementById("customerSuccess"),
 };
 
@@ -72,7 +76,7 @@ const productImage = (item) => {
 const normalizeProduct = (item) => ({
   ...item,
   id: String(item.id),
-  name: item.name || "Produto",
+  name: item.name || translate("Produto"),
   description: item.description || "",
   category: typeof item.category === "object" ? item.category?.name || "" : item.category || "",
   image: item.image || item.image_url || "",
@@ -91,16 +95,16 @@ const getOrderCode = (order) =>
     .toUpperCase();
 
 const getPaymentLabel = (method) => {
-  if (method === "credito") return "Cartão de crédito";
-  if (method === "debito") return "Cartão de débito";
-  if (method === "dinheiro_balcao") return "Balcão";
-  return "Pix";
+  if (method === "credito") return translate("Cartão de crédito");
+  if (method === "debito") return translate("Cartão de débito");
+  if (method === "dinheiro_balcao") return translate("Dinheiro no balcão");
+  return translate("Pix");
 };
 
 const applyHeroTheme = () => {
-  const accent = settings.primaryColor || "#0f766e";
+  const accent = settings.primaryColor || "#b4232f";
   const start = settings.gradientStart || accent;
-  const end = settings.gradientEnd || "#1f2a24";
+  const end = settings.gradientEnd || "#252221";
   const angle = Number(settings.gradientAngle ?? 135);
   elements.preview.dataset.style = settings.style || "clean";
   elements.preview.dataset.mood = settings.heroMood || "hero";
@@ -169,7 +173,7 @@ const renderCategories = () => {
   elements.categories.innerHTML = availableCategories
     .map(
       (category) =>
-        `<button class="chip ${selectedCategory === category ? "active" : ""}" type="button" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`
+        `<button class="chip ${selectedCategory === category ? "active" : ""}" type="button" data-category="${escapeHtml(category)}" aria-pressed="${selectedCategory === category}">${category === "Todos" ? escapeHtml(translate("all")) : escapeHtml(category)}</button>`
     )
     .join("");
 };
@@ -191,34 +195,42 @@ const renderBagPanel = () => {
                 }
                 <div class="bag-panel__item-info">
                   <span class="bag-panel__item-name">${escapeHtml(product.name)}</span>
-                  <span class="bag-panel__item-meta">${escapeHtml(product.category || "Pedido")}</span>
+                  <span class="bag-panel__item-meta">${escapeHtml(product.category || translate("Sem categoria"))}</span>
                 </div>
                 <strong class="bag-panel__item-price">${formatPrice(getProductPrice(product) * quantity)}</strong>
               </div>
               <div class="bag-panel__item-bottom">
                 <div class="bag-panel__qty">
-                  <button type="button" data-cart-action="decrease" data-id="${product.id}">-</button>
+                  <button type="button" data-cart-action="decrease" data-id="${escapeHtml(product.id)}" aria-label="${escapeHtml(translate("Remover uma unidade de "))}${escapeHtml(product.name)}">−</button>
                   <span class="qty-value">${quantity}</span>
-                  <button type="button" data-cart-action="increase" data-id="${product.id}">+</button>
+                  <button type="button" data-cart-action="increase" data-id="${escapeHtml(product.id)}" aria-label="${escapeHtml(translate("Adicionar uma unidade de "))}${escapeHtml(product.name)}">+</button>
                 </div>
-                <span>${formatPrice(getProductPrice(product))} un.</span>
+                <span>${formatPrice(getProductPrice(product))} ${translate("por unidade")}</span>
               </div>
             </div>
           `;
           }
         )
         .join("")
-    : '<div class="bag-panel__empty">Sacola vazia</div>';
+    : `<div class="bag-panel__empty">${translate("Sua sacola está vazia")}</div>`;
 
-  elements.bagTotal.textContent = formatPrice(getCartTotal());
+  const isDelivery = elements.orderType?.value === "delivery";
+  const deliveryFee = isDelivery ? Math.max(0, Number(elements.deliveryFee?.value || 0)) : 0;
+  if (elements.deliveryFeeRow) elements.deliveryFeeRow.hidden = !isDelivery;
+  if (elements.deliveryFeeTotal) elements.deliveryFeeTotal.textContent = formatPrice(deliveryFee);
+  elements.bagTotal.textContent = formatPrice(getCartTotal() + deliveryFee);
   elements.bagConfirm.disabled = entries.length === 0;
+  elements.bagConfirm.textContent = translate("Enviar pedido");
   if (elements.paymentNote) {
-    const method = elements.paymentMethod?.value || "pix";
-    elements.paymentNote.textContent =
-      method === "dinheiro_balcao"
-        ? "Para pagar em dinheiro, débito ou crédito com o balconista"
-        : "Pagamento no sistema";
+    elements.paymentNote.textContent = translate("A equipe confirmará o pagamento após receber o pedido");
   }
+};
+
+const getEmptyMenuMessage = () => {
+  if (!products.some((item) => item.active)) return translate("Este cardápio ainda não tem produtos disponíveis");
+  if (searchQuery.trim()) return translate("Nenhum produto corresponde à sua busca");
+  if (selectedCategory !== "Todos") return translate("Nenhum produto disponível na categoria “$1”").replace("$1", selectedCategory);
+  return translate("Nenhum produto disponível no momento");
 };
 
 const renderList = () => {
@@ -229,24 +241,24 @@ const renderList = () => {
           const quantity = cart[item.id] || 0;
           const action = quantity
             ? `
-              <div class="qty-controls" data-id="${item.id}">
-                <button class="qty-btn qty-decrease" data-id="${item.id}">-</button>
-                <span class="qty-value">${quantity}</span>
-                <button class="qty-btn qty-increase" data-id="${item.id}">+</button>
+              <div class="qty-controls" data-id="${escapeHtml(item.id)}">
+                <button class="qty-btn qty-decrease" type="button" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(translate("Diminuir quantidade de "))}${escapeHtml(item.name)}">−</button>
+                <span class="qty-value" aria-live="polite">${quantity}</span>
+                <button class="qty-btn qty-increase" type="button" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(translate("Aumentar quantidade de "))}${escapeHtml(item.name)}">+</button>
               </div>
             `
-            : `<button class="choose-btn" data-id="${item.id}">${productPriceHtml(item)}</button>`;
+            : `<button class="choose-btn" type="button" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(translate("Adicionar "))}${escapeHtml(item.name)} ${translate("ao pedido")}">${translate("Adicionar")}</button>`;
 
           return `
-            <article class="menu-item" data-id="${item.id}">
+            <article class="menu-item" data-id="${escapeHtml(item.id)}">
               ${productImage(item)}
               <div>
-                <strong>${escapeHtml(item.name)}</strong>
-                <p>${escapeHtml(item.description || item.category)}</p>
+                <strong data-merchant-content>${escapeHtml(item.name)}</strong>
+                <p data-merchant-content>${escapeHtml(item.description || item.category)}</p>
               </div>
               <div class="menu-action">
                 <div class="menu-action-wrapper">
-                  ${quantity ? `<span class="menu-price">${productPriceHtml(item)}</span>` : ""}
+                  <span class="menu-price">${productPriceHtml(item)}</span>
                   ${action}
                 </div>
               </div>
@@ -254,12 +266,12 @@ const renderList = () => {
           `;
         })
         .join("")
-    : '<div class="customer-empty">Nenhum produto encontrado</div>';
+    : `<div class="customer-empty" role="status">${escapeHtml(getEmptyMenuMessage())}</div>`;
 };
 
 const render = () => {
   elements.businessName.textContent = settings.businessName || "Food System";
-  elements.subtitle.textContent = settings.menuName || "Cardápio digital";
+  elements.subtitle.textContent = settings.menuName || translate("Cardápio digital");
   if (elements.customerTable) elements.customerTable.textContent = currentTableName;
 
   if (settings.menuBanner?.trim()) {
@@ -278,7 +290,7 @@ const render = () => {
 };
 
 const loadPublicMenuData = async () => {
-  if (!tableToken && !publicBusinessId) throw new Error("Cardápio sem mesa informada.");
+  if (!tableToken && !publicBusinessId) throw new Error("Não foi possível identificar o estabelecimento deste cardápio");
 
   const data = tableToken
     ? await fetchPublicMenuByTableToken(tableToken)
@@ -307,9 +319,9 @@ const loadPublicMenuData = async () => {
   }
 };
 
-const placeCustomerOrder = async ({ entries, total, paymentMethod, customerName }) => {
+const placeCustomerOrder = async ({ entries, paymentMethod, customerName }) => {
   const businessId = publicBusinessId || settings.businessId || "";
-  if (!businessId && !tableToken) throw new Error("Cardápio sem mesa informada.");
+  if (!businessId && !tableToken) throw new Error("Não foi possível identificar o estabelecimento deste cardápio");
   const tableLabel = elements.customerTable?.textContent?.trim() || currentTableName;
   const isDelivery = elements.orderType?.value === "delivery";
   const delivery = isDelivery ? {
@@ -322,7 +334,7 @@ const placeCustomerOrder = async ({ entries, total, paymentMethod, customerName 
     {
       customer_name: customerName,
       customer_phone: "0000000000",
-      notes: `${isDelivery ? "Entrega" : `Mesa: ${tableLabel}`} | Pagamento: ${getPaymentLabel(paymentMethod)}`,
+      notes: `${isDelivery ? translate("Entrega") : `${translate("Mesa: ")}${tableLabel}`} | ${translate("Pagamento: ")}${getPaymentLabel(paymentMethod)}`,
     },
     entries.map(({ product, quantity }) => ({
       product_id: product.id,
@@ -364,6 +376,7 @@ const updateCartQuantity = (id, nextQuantity) => {
 
 const addToCart = (id) => {
   if (!id) return;
+  if (elements.success) elements.success.hidden = true;
   cart[id] = (cart[id] || 0) + 1;
   persistCart();
   render();
@@ -411,20 +424,29 @@ elements.orderType?.addEventListener("change", () => {
   const delivery = elements.orderType.value === "delivery";
   elements.deliveryFields.hidden = !delivery;
   elements.customerTable.closest(".customer-table-fixed")?.toggleAttribute("hidden", delivery);
+  renderBagPanel();
 });
+elements.deliveryFee?.addEventListener("input", renderBagPanel);
 
 elements.bagConfirm?.addEventListener("click", async () => {
   const entries = getCartEntries();
   if (!entries.length) return;
 
-  const customerName = elements.customerName.value.trim() || "Cliente";
+  const isDelivery = elements.orderType?.value === "delivery";
+  if (isDelivery && (!elements.deliveryStreet.value.trim() || !elements.deliveryNumber.value.trim() || !elements.deliveryCity.value.trim())) {
+    showToast(translate("Preencha o endereço completo para a entrega"), { type: "error" });
+    return;
+  }
+
+  const customerName = elements.customerName.value.trim() || translate("Cliente");
   const paymentMethod = elements.paymentMethod.value || "pix";
   const totalBeforeClear = getCartTotal();
+  elements.bagConfirm.disabled = true;
+  elements.bagConfirm.textContent = translate("Enviando pedido");
 
   try {
     const order = await placeCustomerOrder({
       entries,
-      total: totalBeforeClear,
       paymentMethod,
       customerName,
     });
@@ -437,16 +459,19 @@ elements.bagConfirm?.addEventListener("click", async () => {
     elements.paymentMethod.value = "pix";
     const orderCode = getOrderCode(order);
     const paymentLabel = getPaymentLabel(paymentMethod);
+    const orderTypeLabel = isDelivery ? translate("Entrega") : currentTableName;
+    const orderTotal = Number(order?.total ?? totalBeforeClear + (isDelivery ? Number(elements.deliveryFee.value || 0) : 0));
     if (elements.success) {
       elements.success.hidden = false;
       elements.success.innerHTML = `
-        <strong>Pedido enviado</strong>
-        <span>Código ${escapeHtml(orderCode)} · ${escapeHtml(currentTableName)} · ${escapeHtml(formatPrice(totalBeforeClear))} · ${escapeHtml(paymentLabel)}</span>
+        <strong>${translate("Pedido enviado")}</strong>
+        <span>${translate("Código ")}${escapeHtml(orderCode)} · ${escapeHtml(orderTypeLabel)} · ${escapeHtml(formatPrice(orderTotal))} · ${escapeHtml(paymentLabel)}</span>
       `;
     }
-    showToast(`Pedido ${orderCode} enviado para confirmação`);
   } catch (error) {
-    showToast(error.message || "Nao foi possivel enviar o pedido.", { type: "error" });
+    showToast(translate(error.message || "Não foi possível enviar o pedido"), { type: "error" });
+  } finally {
+    renderBagPanel();
   }
 });
 
@@ -459,11 +484,14 @@ document.addEventListener("keydown", (event) => {
 (async () => {
   try {
     await loadPublicMenuData();
+    elements.list.setAttribute("aria-busy", "false");
   } catch (error) {
-    elements.list.innerHTML = `<p class="menu-empty">${escapeHtml(error.message || "Não foi possível carregar este cardápio.")}</p>`;
-    elements.businessName.textContent = "Cardápio indisponível";
+    elements.list.setAttribute("aria-busy", "false");
+    elements.list.innerHTML = `<p class="customer-empty" role="alert">${escapeHtml(translate(error.message || "Não foi possível carregar este cardápio."))}</p>`;
+    elements.businessName.textContent = translate("Cardápio indisponível");
     elements.subtitle.textContent = "";
     return;
   }
   render();
 })();
+

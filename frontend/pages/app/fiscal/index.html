@@ -1,1 +1,95 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fiscal | Food System</title><link rel="stylesheet" href="../../../styles/base.css"><link rel="stylesheet" href="../menu/styles.css"><link rel="stylesheet" href="../../../styles/app-responsive.css"><link rel="stylesheet" href="../../../styles/minimal-polish.css"><style>.fiscal-form{display:flex;gap:10px;flex-wrap:wrap}.fiscal-form input,.fiscal-form select{padding:9px;border:1px solid #d7dce2;border-radius:8px}.fiscal-list{display:grid;gap:10px}.fiscal-item{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid #e5e7eb;border-radius:10px;padding:12px;background:#fff}.status{font-weight:700;text-transform:uppercase;font-size:.75rem}</style></head><body><div class="menu-shell"><aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Main navigation"><a href="../dashboard/index.html">Dashboard</a><a href="../orders/index.html">Orders</a><a href="../tables/index.html">Tables</a><a class="active" href="./index.html">Fiscal</a><a href="../reports/index.html">Reports</a></nav></aside><main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Fiscal compliance</p><h1>Fiscal documents</h1></div></div><section class="panel"><form id="fiscalForm" class="fiscal-form"><select name="document_type"><option value="nfce">NFC-e</option><option value="nfe">NF-e</option><option value="receipt">Receipt</option></select><input name="order_id" placeholder="Order ID (optional)"><button class="btn btn--primary" type="submit">Create draft</button></form><p id="fiscalStatus" role="status">Issuing requires a configured fiscal provider and certificate.</p></section><section class="panel"><h2>Document queue</h2><div class="fiscal-list" id="fiscalList"></div></section></main></div><script src="../../../env.js"></script><script type="module" src="./app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fiscal | Food System</title>
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../operations.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="menu-shell">
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__brand-row">
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
+        </div>
+        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+          <a href="../dashboard/index.html">Painel</a>
+          <a href="../orders/index.html">Pedidos</a>
+          <a href="../tables/index.html">Mesas</a>
+          <a class="active" href="./index.html" aria-current="page">Fiscal</a>
+          <a href="../reports/index.html">Relatórios</a>
+        </nav>
+      </aside>
+
+      <main class="content menu-content">
+        <div class="page-title">
+          <div>
+            <p class="eyebrow">Emissão fiscal</p>
+            <h1>Documentos fiscais</h1>
+            <p class="subtitle">Crie rascunhos e acompanhe o andamento das emissões</p>
+          </div>
+        </div>
+
+        <section class="panel fiscal-configuration" aria-labelledby="fiscalConfigurationTitle">
+          <h2 id="fiscalConfigurationTitle">Acesso ao provedor</h2>
+          <p class="fiscal-configuration__help">A emissão depende da configuração do provedor fiscal no servidor Enquanto isso, você pode criar rascunhos</p>
+          <div class="fiscal-config-state" id="fiscalConfigurationState" role="status" aria-live="polite"></div>
+
+          <details class="fiscal-credentials-details">
+            <summary>Credenciais do provedor</summary>
+            <form class="fiscal-credentials-form" id="fiscalCredentialsForm">
+              <label for="fiscalApiToken">Token da API
+                <input id="fiscalApiToken" name="api_token" type="password" autocomplete="new-password" />
+              </label>
+              <label for="fiscalClientCert">Certificado do cliente
+                <textarea id="fiscalClientCert" name="client_cert" rows="4" autocomplete="off" spellcheck="false"></textarea>
+              </label>
+              <label for="fiscalClientKey">Chave privada do certificado
+                <textarea id="fiscalClientKey" name="client_key" rows="4" autocomplete="off" spellcheck="false"></textarea>
+              </label>
+              <label for="fiscalCa">Certificado da autoridade (CA), se necessário
+                <textarea id="fiscalCa" name="ca" rows="4" autocomplete="off" spellcheck="false"></textarea>
+              </label>
+              <p class="fiscal-credentials-form__help">
+                Preencha apenas o que deseja atualizar Campos vazios mantêm os dados atuais As credenciais ficam criptografadas no servidor e não são exibidas novamente</p>
+              <button class="btn btn--secondary" type="submit">Salvar credenciais</button>
+            </form>
+            <p class="operation-message" id="fiscalCredentialsMessage" role="status" aria-live="polite" hidden></p>
+          </details>
+        </section>
+
+        <section class="panel fiscal-create" aria-labelledby="fiscalCreateTitle">
+          <h2 id="fiscalCreateTitle">Novo rascunho</h2>
+          <form id="fiscalForm" class="operation-form--inline fiscal-form">
+            <label for="documentType">Tipo de documento
+              <select id="documentType" name="document_type" required>
+                <option value="nfce">NFC-e</option>
+                <option value="nfe">NF-e</option>
+                <option value="receipt">Recibo</option>
+              </select>
+            </label>
+            <label for="orderId">ID do pedido (opcional)
+              <input id="orderId" name="order_id" type="text" placeholder="ID do pedido" autocomplete="off" />
+            </label>
+            <button class="btn btn--primary" type="submit">Criar rascunho</button>
+          </form>
+          <p class="operation-message" id="fiscalMessage" role="status" aria-live="polite" hidden></p>
+        </section>
+
+        <section class="panel fiscal-queue" aria-labelledby="fiscalQueueTitle">
+          <h2 id="fiscalQueueTitle">Fila de documentos</h2>
+          <div class="operation-list fiscal-list" id="fiscalList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Carregando documentos</p></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

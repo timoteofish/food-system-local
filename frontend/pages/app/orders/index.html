@@ -4,28 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pedidos | Food System</title>
-    <script>
-      document.documentElement.dataset.sidebarReady = "false";
-      try {
-        if (localStorage.getItem("food-system-sidebar-collapsed") === "true") {
-          document.documentElement.classList.add("menu-sidebar-collapsed");
-        }
-      } catch {}
-    </script>
+    <script>document.documentElement.dataset.sidebarReady = "false";</script>
     <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../menu/styles.css" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
-
-
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="menu-shell">
       <aside class="menu-sidebar">
         <div class="menu-sidebar__brand-row">
-          <button class="menu-sidebar__toggle" id="menuSidebarToggle" type="button" aria-label="Minimizar menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 7h16v2H4V7zm0 4.5h16v2H4v-2zm0 4.5h16v2H4v-2z"/></svg></button>
+          
           <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
         </div>
         <nav class="menu-sidebar__nav" aria-label="Navegação principal">
@@ -40,46 +31,51 @@
           <button class="profile-btn" type="button" aria-label="Perfil"><svg class="profile-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z"/></svg></button>
           <span class="profile-label">Perfil</span>
           <div class="profile-menu">
-            <a href="../user-edit/index.html">Alterar dados</a>
-            <a href="../menu/index.html">Configurar empresa</a>
-            <a href="#" data-action="close-app">Fechar aplicação</a>
+            <a href="../user-edit/index.html">Meu perfil</a>
+            <a href="../menu/index.html">Configurar cardápio</a>
+            <a href="#" data-action="close-app">Fechar aplicativo</a>
           </div>
         </div>
       </aside>
       <main class="content menu-content">
         <div class="page-title orders-title">
           <div>
-            <p class="eyebrow">Pedidos</p><label class="global-language-control"><span>Idioma</span><select data-global-language aria-label="Idioma"><option value="pt">Português</option><option value="en">English</option></select></label>
-            <h1>Painel de preparo</h1>
+            <p class="eyebrow">Operação</p>
+            <h1>Pedidos em andamento</h1>
+          <p class="orders-intro">Acompanhe os pedidos e avance cada etapa do preparo</p>
           </div>
         </div>
-        <section class="orders-board" aria-label="Ordens em tempo real">
+        <section class="orders-board" aria-label="Acompanhamento de pedidos">
           <div class="orders-board__overview" id="ordersOverview">
             <article class="orders-overview-card">
-              <span>Mesas ativas</span>
-              <strong data-orders-summary="active">0</strong>
+              <span>Locais ativos</span>
+              <strong data-orders-summary="active">—</strong>
             </article>
             <article class="orders-overview-card">
               <span>Pedidos em preparo</span>
-              <strong data-orders-summary="preparing">0</strong>
+              <strong data-orders-summary="preparing">—</strong>
             </article>
-            <article class="orders-overview-card">
+            <article class="orders-overview-card orders-overview-card--ready">
               <span>Pedidos prontos</span>
-              <strong data-orders-summary="ready">0</strong>
+              <strong data-orders-summary="ready">—</strong>
             </article>
           </div>
-          <div class="orders-board__toolbar">
-            <button class="orders-filter is-active" type="button" data-order-filter="active">Todas as mesas</button>
-            <button class="orders-filter" type="button" data-order-filter="preparing">Mesas em preparo</button>
-            <button class="orders-filter" type="button" data-order-filter="ready">Mesas com pedido pronto</button>
+          <div class="orders-board__toolbar" role="group" aria-label="Filtrar pedidos por status">
+            <button class="orders-filter is-active" type="button" data-order-filter="active" aria-pressed="true" disabled>Ativos</button>
+            <button class="orders-filter" type="button" data-order-filter="preparing" aria-pressed="false" disabled>Em preparo</button>
+            <button class="orders-filter" type="button" data-order-filter="ready" aria-pressed="false" disabled>Prontos</button>
           </div>
           <div class="orders-board__heading">
             <div>
-              <h2 id="ordersHeadingTitle">Acompanhamento por mesa</h2>
-              <p class="orders-board__mobile-note">Pedidos em aberto</p>
+              <h2 id="ordersHeadingTitle">Pedidos por local</h2>
             </div>
           </div>
-          <div id="ordersList" class="orders-board__grid"></div>
+          <p id="ordersFeedback" class="orders-feedback" role="status" aria-live="polite" hidden></p>
+          <div id="ordersList" class="orders-board__grid" role="region" aria-labelledby="ordersHeadingTitle" aria-busy="true">
+            <article class="orders-empty" role="status">
+              <strong>Carregando pedidos</strong>
+            </article>
+          </div>
         </section>
       </main>
     </div>

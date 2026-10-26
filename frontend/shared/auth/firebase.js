@@ -3,11 +3,11 @@ import { API_BASE_URL } from "../api/config.js";
 let firebaseClientPromise = null;
 
 const FIREBASE_ERROR_MESSAGES = {
-  "auth/unauthorized-domain": "Login com Google indisponivel nesta origem. Tente novamente pelo endereco localhost ou contate o suporte.",
-  "auth/popup-blocked": "O navegador bloqueou a janela de login. Libere pop-ups e tente novamente.",
-  "auth/popup-closed-by-user": "O login com Google foi cancelado antes da conclusao.",
-  "auth/cancelled-popup-request": "Ja existe uma tentativa de login em andamento.",
-  "auth/network-request-failed": "Falha de rede ao iniciar o login com Google. Verifique sua conexao e tente novamente.",
+  "auth/unauthorized-domain": "O login com o Google não está disponível neste endereço Acesse pelo localhost ou entre em contato com o suporte",
+  "auth/popup-blocked": "O navegador bloqueou a janela de login Libere pop-ups e tente novamente",
+  "auth/popup-closed-by-user": "O login com o Google foi cancelado antes da conclusão",
+  "auth/cancelled-popup-request": "Já existe uma tentativa de login em andamento",
+  "auth/network-request-failed": "Falha de conexão ao iniciar o login com o Google Verifique sua internet e tente novamente",
 };
 
 const loadFirebaseModules = async () => {
@@ -27,11 +27,11 @@ const loadFirebaseRuntimeConfig = async () => {
   const payload = await response.json();
 
   if (!response.ok) {
-    throw new Error(payload.error || "Falha ao carregar configuracao do Firebase.");
+    throw new Error(payload.error || "Falha ao carregar a configuração do Firebase");
   }
 
   if (!payload.enabled) {
-    throw new Error(payload.error || "Firebase nao configurado.");
+    throw new Error(payload.error || "Firebase não configurado");
   }
 
   return payload.config;
@@ -75,7 +75,7 @@ export const signInWithFirebaseGoogle = async () => {
     const code = error?.code ? String(error.code) : "";
     const normalizedMessage =
       FIREBASE_ERROR_MESSAGES[code] ||
-      "Nao foi possivel concluir o login com Google agora. Tente novamente.";
+      "Não foi possível concluir o login com o Google Tente novamente";
 
     throw new Error(normalizedMessage);
   }

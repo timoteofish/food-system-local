@@ -1,15 +1,105 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Contacts and loyalty | Food System</title>
-  <link rel="stylesheet" href="../../../styles/base.css" /><link rel="stylesheet" href="../menu/styles.css" /><link rel="stylesheet" href="../../../styles/app-responsive.css" /><link rel="stylesheet" href="../../../styles/minimal-polish.css" />
-  <style>.contact-grid,.value-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.contact-form{display:grid;gap:10px}.contact-form input,.contact-form select{padding:10px;border:1px solid #d7dce2;border-radius:8px}.contact-list{display:grid;gap:8px;margin-top:15px}.contact-row{display:flex;justify-content:space-between;gap:8px;padding:12px;border-bottom:1px solid #e5e7eb}.value-grid{margin-top:16px}.value-grid .panel{display:grid;gap:12px}@media(max-width:800px){.contact-grid,.value-grid{grid-template-columns:1fr}}</style>
-</head>
-<body>
-  <div class="menu-shell"><aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Main navigation"><a href="../dashboard/index.html">Dashboard</a><a href="../orders/index.html">Orders</a><a href="../kitchen/index.html">Kitchen</a><a href="../inventory/index.html">Inventory</a><a class="active" href="./index.html">Contacts</a></nav></aside>
-    <main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Relationship management</p><h1>Customers, suppliers and loyalty</h1></div></div>
-      <section class="contact-grid"><article class="panel"><h2>Customers</h2><form class="contact-form" id="customerForm"><input name="name" required maxlength="160" placeholder="Customer name" /><input name="phone" maxlength="40" placeholder="Phone" /><input name="email" type="email" maxlength="190" placeholder="Email" /><button class="btn btn--primary" type="submit">Add customer</button></form><div class="contact-list" id="customerList"></div></article><article class="panel"><h2>Suppliers</h2><form class="contact-form" id="supplierForm"><input name="name" required maxlength="160" placeholder="Supplier name" /><input name="tax_id" maxlength="30" placeholder="Tax ID" /><input name="phone" maxlength="40" placeholder="Phone" /><button class="btn btn--primary" type="submit">Add supplier</button></form><div class="contact-list" id="supplierList"></div></article></section>
-      <section class="value-grid"><article class="panel"><h2>Discounts</h2><form class="contact-form" id="discountForm"><input name="name" required maxlength="120" placeholder="Discount name" /><input name="code" required maxlength="40" placeholder="Code" /><select name="type"><option value="percentage">Percentage</option><option value="fixed">Fixed amount</option></select><input name="value" type="number" min="0.01" step="0.01" required placeholder="Value" /><button class="btn btn--primary" type="submit">Create discount</button></form><div class="contact-list" id="discountList"></div></article><article class="panel"><h2>Loyalty points</h2><form class="contact-form" id="loyaltyForm"><select id="loyaltyCustomer" required><option value="">Select a customer</option></select><input name="points" type="number" min="1" step="1" required placeholder="Points" /><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn--primary" type="submit" data-loyalty-action="earn">Add points</button><button class="btn btn--secondary" type="submit" data-loyalty-action="redeem">Redeem points</button></div></form><p id="loyaltyStatus" role="status"></p></article></section>
-    </main>
-  </div><script src="../../../env.js"></script><script type="module" src="./app.js"></script>
-</body></html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cadastros e fidelidade | Food System</title>
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="menu-shell">
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__brand-row">
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
+        </div>
+        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+          <a href="../dashboard/index.html">Painel</a>
+          <a href="../orders/index.html">Pedidos</a>
+          <a href="../kitchen/index.html">Cozinha</a>
+          <a href="../inventory/index.html">Estoque</a>
+          <a class="active" href="./index.html" aria-current="page">Clientes</a>
+        </nav>
+      </aside>
+
+      <main class="content menu-content">
+        <div class="page-title">
+          <div>
+            <p class="eyebrow">Clientes e parceiros</p>
+            <h1>Cadastros e fidelidade</h1>
+            <p class="contacts-intro">Clientes, fornecedores, descontos e pontos de fidelidade em um só lugar</p>
+          </div>
+        </div>
+        <p id="contactsLoadError" class="contacts-load-error" role="alert" hidden></p>
+        <button class="btn btn--secondary contacts-load-retry" id="contactsLoadRetry" type="button" hidden>Tentar novamente</button>
+
+        <section class="contact-grid" aria-label="Cadastros">
+          <article class="panel">
+            <h2>Clientes</h2>
+            <p class="contact-panel__intro">Guarde os dados de contato dos clientes</p>
+            <form class="contact-form" id="customerForm">
+              <label class="field"><span>Nome do cliente</span><input name="name" autocomplete="name" required maxlength="160" placeholder="Ex.: Ana Souza" /></label>
+              <label class="field"><span>Telefone <span class="contact-optional">Opcional</span></span><input name="phone" type="tel" autocomplete="tel" maxlength="40" placeholder="(00) 00000-0000" /></label>
+              <label class="field"><span>E-mail <span class="contact-optional">Opcional</span></span><input name="email" type="email" autocomplete="email" maxlength="190" placeholder="nome@exemplo.com" /></label>
+              <button class="btn btn--primary" type="submit">Cadastrar cliente</button>
+            </form>
+            <div class="contact-list" id="customerList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Carregando clientes</p></div>
+          </article>
+
+          <article class="panel">
+            <h2>Fornecedores</h2>
+            <p class="contact-panel__intro">Organize os contatos usados nas compras</p>
+            <form class="contact-form" id="supplierForm">
+              <label class="field"><span>Nome do fornecedor</span><input name="name" autocomplete="organization" required maxlength="160" placeholder="Ex.: Distribuidora Central" /></label>
+              <label class="field"><span>CPF ou CNPJ <span class="contact-optional">Opcional</span></span><input name="tax_id" autocomplete="off" maxlength="30" placeholder="00.000.000/0000-00" /></label>
+              <label class="field"><span>Telefone <span class="contact-optional">Opcional</span></span><input name="phone" type="tel" autocomplete="tel" maxlength="40" placeholder="(00) 00000-0000" /></label>
+              <button class="btn btn--primary" type="submit">Cadastrar fornecedor</button>
+            </form>
+            <div class="contact-list" id="supplierList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Carregando fornecedores</p></div>
+          </article>
+        </section>
+
+        <section class="value-grid" aria-label="Descontos e fidelidade">
+          <article class="panel">
+            <h2>Descontos</h2>
+            <p class="contact-panel__intro">Defina códigos e regras de desconto</p>
+            <form class="contact-form" id="discountForm">
+              <label class="field"><span>Nome do desconto</span><input name="name" required maxlength="120" placeholder="Ex.: Boas-vindas" /></label>
+              <label class="field"><span>Código do desconto</span><input name="code" required maxlength="40" placeholder="Ex.: BEMVINDO10" /></label>
+              <label class="field"><span>Tipo de desconto</span><select name="type">
+                <option value="percentage">Percentual</option>
+                <option value="fixed">Valor fixo</option>
+              </select></label>
+              <label class="field"><span>Valor do desconto</span><input name="value" type="number" min="0.01" step="0.01" required placeholder="Ex.: 10" /></label>
+              <button class="btn btn--primary" type="submit">Criar desconto</button>
+            </form>
+            <div class="contact-list" id="discountList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Carregando descontos</p></div>
+          </article>
+
+          <article class="panel">
+            <h2>Pontos de fidelidade</h2>
+            <p class="contact-panel__intro">Adicione pontos ou registre um resgate</p>
+            <form class="contact-form" id="loyaltyForm">
+              <label class="field"><span>Cliente</span><select id="loyaltyCustomer" required>
+                <option value="">Selecione um cliente</option>
+              </select></label>
+              <label class="field"><span>Quantidade de pontos</span><input name="points" type="number" min="1" step="1" required placeholder="Ex.: 10" /></label>
+              <div class="loyalty-actions">
+                <button class="btn btn--primary" type="submit" data-loyalty-action="earn">Adicionar pontos</button>
+                <button class="btn btn--secondary" type="submit" data-loyalty-action="redeem">Resgatar pontos</button>
+              </div>
+            </form>
+            <p id="loyaltyStatus" role="status" aria-live="polite" hidden></p>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

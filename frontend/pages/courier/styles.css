@@ -1,0 +1,148 @@
+html {
+  color-scheme: light;
+  color: var(--text);
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--bg);
+}
+
+main {
+  width: min(680px, calc(100% - 28px));
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+
+h1 {
+  margin: 0 0 6px;
+  letter-spacing: -.03em;
+}
+
+p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+form,
+article {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-weight: 650;
+}
+
+input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 3px solid rgba(197, 34, 54, .28);
+  outline-offset: 2px;
+}
+
+input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--accent-glow);
+}
+
+button {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: var(--surface);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+
+button:hover {
+  background: var(--accent-dark);
+  box-shadow: var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button.secondary {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+
+button.secondary:hover {
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: .94rem;
+}
+
+.status {
+  color: var(--accent-dark);
+  font-size: .82rem;
+  font-weight: 750;
+}
+
+#message {
+  min-height: 1.5em;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .actions button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}

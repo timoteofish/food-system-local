@@ -1,3 +1,5 @@
+import { translate } from "../../../../shared/i18n/i18n.js";
+
 const panelId = "categoryUserPanel";
 const backdropId = "categoryUserBackdrop";
 
@@ -18,22 +20,23 @@ const ensurePanel = () => {
   panel.hidden = true;
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "true");
-  panel.setAttribute("aria-label", "Criar categoria");
+  panel.setAttribute("aria-label", translate("Criar categoria"));
   panel.innerHTML = `
-    <button type="button" class="category-user-panel__close" data-category-user-close aria-label="Fechar">×</button>
+    <button type="button" class="category-user-panel__close" data-category-user-close aria-label="${translate("Fechar")}">×</button>
     <div class="category-user-panel__header">
-      <p class="category-user-panel__eyebrow">Categoria</p>
-      <h3>Nova categoria</h3>
-      <p class="category-user-panel__subtitle">Disponível nos produtos</p>
+      <p class="category-user-panel__eyebrow">${translate("Categoria")}</p>
+      <h3>${translate("Nova categoria")}</h3>
+      <p class="category-user-panel__subtitle">${translate("Organize seus produtos por categoria.")}</p>
     </div>
     <div class="category-user-panel__body">
       <label class="category-user-panel__field" for="categoryUserInput">
-        <span>Nome da categoria</span>
-        <input id="categoryUserInput" type="text" placeholder="Ex: Porções" />
+        <span>${translate("Nome da categoria")}</span>
+        <input id="categoryUserInput" type="text" placeholder="${translate("Ex.: Porções")}" />
       </label>
+      <p class="category-user-panel__feedback" role="status" aria-live="polite" hidden></p>
       <div class="category-user-panel__actions">
-        <button type="button" class="btn btn--secondary" data-category-user-cancel>Cancelar</button>
-        <button type="button" class="btn btn--primary" data-category-user-save>Adicionar categoria</button>
+        <button type="button" class="btn btn--secondary" data-category-user-cancel>${translate("Cancelar")}</button>
+        <button type="button" class="btn btn--primary" data-category-user-save>${translate("Adicionar categoria")}</button>
       </div>
     </div>
   `;
@@ -51,8 +54,14 @@ export const initCategoryUserPanel = ({
   const input = panel.querySelector("#categoryUserInput");
   const closeButtons = panel.querySelectorAll("[data-category-user-close], [data-category-user-cancel]");
   const saveButton = panel.querySelector("[data-category-user-save]");
+  const feedback = panel.querySelector(".category-user-panel__feedback");
 
   const open = () => {
+    if (feedback) {
+      feedback.hidden = true;
+      feedback.textContent = "";
+      feedback.removeAttribute("data-state");
+    }
     backdrop.hidden = false;
     panel.hidden = false;
     requestAnimationFrame(() => {
@@ -75,22 +84,37 @@ export const initCategoryUserPanel = ({
     onClose?.();
   };
 
-  saveButton?.addEventListener("click", async () => {
+  const save = async () => {
+    if (saveButton?.disabled) return;
     const value = String(input?.value || "").trim();
-    if (!value) return;
-    await onCreate?.(value);
-    input.value = "";
-    close();
-  });
+    if (!value) {
+      feedback.textContent = translate("Informe o nome da categoria");
+      feedback.dataset.state = "error";
+      feedback.hidden = false;
+      input?.focus();
+      return;
+    }
+    saveButton.disabled = true;
+    feedback.hidden = true;
+    try {
+      await onCreate?.(value);
+      input.value = "";
+      close();
+    } catch {
+      feedback.textContent = translate("Não foi possível adicionar a categoria Tente novamente");
+      feedback.dataset.state = "error";
+      feedback.hidden = false;
+    } finally {
+      saveButton.disabled = false;
+    }
+  };
+
+  saveButton?.addEventListener("click", save);
 
   input?.addEventListener("keydown", async (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
-    const value = String(input.value || "").trim();
-    if (!value) return;
-    await onCreate?.(value);
-    input.value = "";
-    close();
+    await save();
   });
 
   closeButtons.forEach((button) => button.addEventListener("click", close));

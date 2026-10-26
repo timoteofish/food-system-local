@@ -6,7 +6,7 @@ const parseResponse = async (response) => {
   const data = text ? JSON.parse(text) : {};
 
   if (!response.ok) {
-    const message = data.error || data.message || "Erro na requisição.";
+    const message = data.error || data.message || "Erro na requisição";
     throw new Error(message);
   }
 
@@ -15,7 +15,7 @@ const parseResponse = async (response) => {
 
 export const apiRequest = async (path, { method = "GET", body, auth = true } = {}) => {
   if (!API_BASE_URL) {
-    throw new Error("URL da API nao configurada. Defina window.FOOD_SYSTEM_API_URL ou localStorage['food-system-api-url'].");
+    throw new Error("URL da API não configurada Defina window.FOOD_SYSTEM_API_URL ou localStorage['food-system-api-url']");
   }
 
   const headers = {

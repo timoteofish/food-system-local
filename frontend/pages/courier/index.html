@@ -5,20 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <title>Entregas | Food System</title>
-    <style>
-      :root { font-family: system-ui, sans-serif; color: #17211b; background: #f4f7f3; }
-      body { margin: 0; } main { width: min(680px, calc(100% - 28px)); margin: 0 auto; padding: 24px 0 48px; }
-      h1 { margin: 0 0 6px; } p { color: #536159; } form, article { background: #fff; border: 1px solid #d9e2da; border-radius: 14px; padding: 16px; margin-top: 16px; box-shadow: 0 5px 20px #19321a0d; }
-      label { display: block; font-weight: 650; margin-bottom: 8px; } input { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid #b9c8bb; border-radius: 8px; font: inherit; }
-      button { border: 0; border-radius: 8px; padding: 11px 14px; font: inherit; font-weight: 700; cursor: pointer; background: #13795b; color: #fff; } button.secondary { background: #e8f0ea; color: #1d4a35; }
-      .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; } .meta { color: #536159; font-size: .94rem; } .status { font-weight: 750; text-transform: capitalize; }
-      #message { min-height: 1.5em; } .hidden { display: none; }
-    </style>
+    <link rel="stylesheet" href="../../styles/base.css" />
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main>
       <h1>Minhas entregas</h1>
-      <p>Use o token fornecido pelo estabelecimento. Ele não é um login administrativo.</p>
+      <p>Informe o token fornecido pelo estabelecimento para acessar suas entregas</p>
       <form id="tokenForm">
         <label for="courierToken">Token do entregador</label>
         <input id="courierToken" type="password" autocomplete="off" required />
@@ -27,6 +20,6 @@
       <p id="message" role="status"></p>
       <section id="deliveries" aria-live="polite"></section>
     </main>
-    <script src="../../env.js"></script><script type="module" src="./app.js"></script>
+    <script src="../../env.js"></script><script type="module" src="../../shared/i18n/legacy-control.js"></script><script type="module" src="./app.js"></script>
   </body>
 </html>

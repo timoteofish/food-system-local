@@ -3,31 +3,55 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f766e" />
-    <title>Food System</title>
+    <meta name="theme-color" content="#ffffff" />
+    <title>Boas-vindas · Food System</title>
     <link rel="icon" href="./assets/favicon.png" type="image/png" />
     <link rel="stylesheet" href="./styles/base.css" />
     <link rel="stylesheet" href="./styles/app-responsive.css" />
     <link rel="stylesheet" href="./styles/minimal-polish.css" />
-
-
+    <link rel="stylesheet" href="./styles/first-run.css" />
   </head>
   <body>
-    <main class="entry-screen" aria-label="Food System">
-      <h1 class="entry-title" aria-label="Food System">
-        <span class="entry-letter">F</span>
-        <span class="entry-letter">o</span>
-        <span class="entry-letter">o</span>
-        <span class="entry-letter">d</span>
-        <span class="entry-space"></span>
-        <span class="entry-letter">S</span>
-        <span class="entry-letter">y</span>
-        <span class="entry-letter">s</span>
-        <span class="entry-letter">t</span>
-        <span class="entry-letter">e</span>
-        <span class="entry-letter">m</span>
-      </h1>
+    <main class="first-run" aria-label="Configuração inicial do Food System">
+      <section class="first-run__intro">
+        <a class="first-run__brand" href="./index.html" aria-label="Food System">
+          <span class="first-run__brand-mark">F</span><span>Food<span class="first-run__brand-light">System</span></span>
+        </a>
+        <div class="first-run__intro-copy">
+          <span class="first-run__kicker" data-copy="kicker">GESTÃO DO SEU JEITO</span>
+          <h1 data-copy="headline">Sua operação,<br />mais leve</h1>
+          <p data-copy="intro">Organize pedidos, produtos e a rotina do comércio em um só lugar</p>
+        </div>
+        <div class="first-run__foot"><span class="first-run__status-dot"></span><span data-copy="local">Seus dados ficam salvos neste dispositivo</span></div>
+      </section>
+      <section class="first-run__setup" aria-labelledby="setupTitle">
+        <div class="first-run__form-wrap">
+          <div class="first-run__step"><span aria-hidden="true">01</span><span data-copy="step">Primeiros passos</span></div>
+          <h2 id="setupTitle" data-copy="title">Configure seu comércio</h2>
+          <p class="first-run__description" data-copy="description">Informe o nome do seu comércio e escolha o idioma</p>
+          <form id="firstRunForm">
+            <label class="first-run__field" for="businessName">
+              <span data-copy="businessLabel">Nome do comércio</span>
+              <input id="businessName" name="businessName" type="text" autocomplete="organization" placeholder="Ex.: Café da Praça" maxlength="80" required />
+            </label>
+            <label class="first-run__field" for="businessLanguage">
+              <span data-copy="languageLabel">Idioma</span>
+              <span class="first-run__select-wrap">
+                <select id="businessLanguage" name="language" autocomplete="language" aria-label="Idioma">
+                  <option value="pt" lang="pt-BR" selected>Português</option>
+                  <option value="en" lang="en">English</option>
+                </select>
+                <span aria-hidden="true">⌄</span>
+              </span>
+            </label>
+            <p id="setupError" class="first-run__error" role="alert" tabindex="-1" hidden></p>
+            <button class="first-run__submit" type="submit"><span data-copy="submit">Configurar meu sistema</span><span aria-hidden="true">→</span></button>
+          </form>
+          <p class="first-run__note"><span aria-hidden="true">✳</span><span data-copy="note">Você pode alterar esses dados depois nas configurações</span></p>
+        </div>
+        <span class="first-run__version">FOOD SYSTEM <span>·</span> LOCAL</span>
+      </section>
     </main>
-    <script src="./entry/entry.js"></script>
+    <script type="module" src="./entry/entry.js"></script>
   </body>
 </html>

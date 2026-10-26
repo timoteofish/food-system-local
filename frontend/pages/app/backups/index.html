@@ -1,1 +1,49 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Backups | Food System</title><link rel="stylesheet" href="../../../styles/base.css"/><link rel="stylesheet" href="../menu/styles.css"/><link rel="stylesheet" href="../../../styles/app-responsive.css"/><link rel="stylesheet" href="../../../styles/minimal-polish.css"/></head><body><div class="menu-shell"><aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Main navigation"><a href="../dashboard/index.html">Dashboard</a><a href="../cashier/index.html">Cash</a><a class="active" href="./index.html">Backups</a></nav></aside><main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Data protection</p><h1>Backups</h1></div></div><section class="panel"><button class="btn btn--primary" id="createBackup" type="button">Create backup</button><p id="backupStatus" role="status"></p></section><section class="panel"><h2>Available backups</h2><div id="backupList"></div></section></main></div><script src="../../../env.js"></script><script type="module" src="./app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backups | Food System</title>
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+  </head>
+  <body>
+    <div class="menu-shell">
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__brand-row">
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
+        </div>
+        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+          <a href="../dashboard/index.html">Painel</a>
+          <a href="../cashier/index.html">Caixa</a>
+          <a class="active" href="./index.html" aria-current="page">Backups</a>
+        </nav>
+      </aside>
+
+      <main class="content menu-content">
+        <header class="page-title">
+          <div>
+            <p class="eyebrow">Proteção de dados</p>
+            <h1>Backups</h1>
+          </div>
+          <button class="btn btn--primary" id="createBackup" type="button">Criar backup</button>
+        </header>
+
+        <p class="backup-status" id="backupStatus" role="status" aria-live="polite" hidden></p>
+
+        <section class="panel backup-panel" aria-labelledby="backupListTitle">
+          <h2 id="backupListTitle">Backups disponíveis</h2>
+          <div class="backup-list" id="backupList" aria-live="polite">
+            <p class="operation-empty">Carregando backups</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

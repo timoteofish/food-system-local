@@ -4,27 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Equipe | Food System</title>
-    <script>
-      document.documentElement.dataset.sidebarReady = "false";
-      try {
-        if (localStorage.getItem("food-system-sidebar-collapsed") === "true") {
-          document.documentElement.classList.add("menu-sidebar-collapsed");
-        }
-      } catch {}
-    </script>
+    <script>document.documentElement.dataset.sidebarReady = "false";</script>
     <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../menu/styles.css" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
-
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="menu-shell">
       <aside class="menu-sidebar">
         <div class="menu-sidebar__brand-row">
-          <button class="menu-sidebar__toggle" id="menuSidebarToggle" type="button" aria-label="Minimizar menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 7h16v2H4V7zm0 4.5h16v2H4v-2zm0 4.5h16v2H4v-2z"/></svg></button>
+          
           <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
         </div>
         <nav class="menu-sidebar__nav" aria-label="Navegação principal">
@@ -39,47 +31,51 @@
           <button class="profile-btn" type="button" aria-label="Perfil"><svg class="profile-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z"/></svg></button>
           <span class="profile-label">Perfil</span>
           <div class="profile-menu">
-            <a href="../user-edit/index.html">Alterar dados</a>
-            <a href="../menu/index.html">Configurar empresa</a>
-            <a href="#" data-action="close-app">Fechar aplicação</a>
+            <a href="../user-edit/index.html">Meu perfil</a>
+            <a href="../menu/index.html">Configurar cardápio</a>
+            <a href="#" data-action="close-app">Fechar aplicativo</a>
           </div>
         </div>
       </aside>
       <main class="content menu-content">
         <div class="page-title">
           <div>
-            <p class="eyebrow">Acessos</p><label class="global-language-control"><span>Idioma</span><select data-global-language aria-label="Idioma"><option value="pt">Português</option><option value="en">English</option></select></label>
+            <p class="eyebrow">Acessos</p>
             <h1>Equipe</h1>
+            <p class="team-intro">Defina quem pode acessar o sistema e o que cada pessoa pode fazer</p>
           </div>
         </div>
         <section class="team-layout">
           <form class="panel team-invite" id="teamInviteForm">
-            <h2>Adicionar acesso</h2>
+            <div class="team-invite__intro">
+              <h2>Adicionar pessoa</h2>
+              <p>Para adicionar alguém, a pessoa precisa ter uma conta no Food System</p>
+            </div>
             <label class="field">
               <span>Nome</span>
-              <input id="memberName" autocomplete="name" placeholder="Nome do colaborador" required />
+              <input id="memberName" autocomplete="name" placeholder="Nome completo" required />
             </label>
             <label class="field">
               <span>E-mail</span>
               <input id="memberEmail" type="email" autocomplete="email" placeholder="email@restaurante.com" required />
             </label>
             <label class="field">
-              <span>Papel</span>
+              <span>Papel de acesso</span>
               <select id="memberRole" required>
+                <option value="staff" selected>Membro da equipe</option>
                 <option value="manager">Gerente</option>
-                <option value="cashier">Caixa</option>
-                <option value="kitchen">Cozinha</option>
-                <option value="viewer">Leitura</option>
               </select>
             </label>
-            <button class="btn btn--primary" type="submit">Adicionar pessoa</button>
+            <button class="btn btn--primary" type="submit">Adicionar à equipe</button>
           </form>
-          <section class="panel team-list">
+          <section class="panel team-list" aria-labelledby="teamListTitle">
             <div class="team-list__head">
-              <h2>Pessoas com acesso</h2>
-              <span id="teamCount">0 membros</span>
+              <h2 id="teamListTitle">Pessoas com acesso</h2>
+              <span id="teamCount">—</span>
             </div>
-            <div class="team-list__items" id="teamList"></div>
+            <div class="team-list__items" id="teamList" aria-live="polite" aria-busy="true">
+              <p class="team-empty" role="status">Carregando a equipe</p>
+            </div>
           </section>
         </section>
       </main>

@@ -1,1 +1,58 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tables and tabs | Food System</title><link rel="stylesheet" href="../../../styles/base.css"><link rel="stylesheet" href="../menu/styles.css"><link rel="stylesheet" href="../../../styles/app-responsive.css"><link rel="stylesheet" href="../../../styles/minimal-polish.css"><style>.table-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.table-card{border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:#fff}.table-card.is-open{border-color:#0f766e;box-shadow:0 0 0 2px #ccfbf1}.table-card__head{display:flex;justify-content:space-between;gap:10px}.table-card__total{font-size:1.5rem;font-weight:700;margin:14px 0}.table-actions{display:flex;gap:8px;flex-wrap:wrap}.table-actions select{min-width:120px;padding:8px;border:1px solid #d7dce2;border-radius:8px}</style></head><body><div class="menu-shell"><aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Main navigation"><a href="../dashboard/index.html">Dashboard</a><a href="../orders/index.html">Orders</a><a class="active" href="./index.html">Tables</a><a href="../kitchen/index.html">Kitchen</a><a href="../cashier/index.html">Cash</a></nav></aside><main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Table service</p><h1>Tables and tabs</h1></div></div><section class="panel"><form id="tableForm" style="display:flex;gap:8px;flex-wrap:wrap"><input name="name" required maxlength="120" placeholder="Table name"><button class="btn btn--primary" type="submit">Add table</button></form><p id="status" role="status"></p></section><section class="table-grid" id="tableGrid"></section></main></div><script src="../../../env.js"></script><script type="module" src="./app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mesas e comandas | Food System</title>
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../operations.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="menu-shell">
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__brand-row">
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
+        </div>
+        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+          <a href="../dashboard/index.html">Painel</a>
+          <a href="../orders/index.html">Pedidos</a>
+          <a class="active" href="./index.html" aria-current="page">Mesas</a>
+          <a href="../kitchen/index.html">Cozinha</a>
+          <a href="../cashier/index.html">Caixa</a>
+        </nav>
+      </aside>
+
+      <main class="content menu-content">
+        <div class="page-title">
+          <div>
+            <p class="eyebrow">Atendimento por mesa</p>
+            <h1>Mesas e comandas</h1>
+            <p class="tables-intro">Acompanhe as comandas e o atendimento de cada mesa</p>
+          </div>
+        </div>
+
+        <section class="panel table-create-panel" aria-labelledby="tableCreateTitle">
+          <h2 id="tableCreateTitle">Cadastrar mesa</h2>
+          <form id="tableForm" class="operation-form--inline">
+            <label class="table-form__field" for="tableName">
+              Nome da mesa
+              <input id="tableName" name="name" required maxlength="120" autocomplete="off" />
+            </label>
+            <button class="btn btn--primary" type="submit">Adicionar mesa</button>
+          </form>
+          <p id="status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="table-grid" id="tableGrid" aria-label="Mesas cadastradas" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Carregando mesas</p></section>
+      </main>
+    </div>
+
+    <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

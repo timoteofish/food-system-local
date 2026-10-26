@@ -2,7 +2,7 @@ import { getBusiness, getMenuSettings, getSession, saveBusiness, setSession } fr
 import { bootstrapApi, completeBusinessOnboarding, logout, requireAuth, saveMenuSettingsRemote } from "../auth/auth.js";
 import { checkForSystemUpdates } from "../auth/auth.js";
 import { escapeHtml } from "../utils/utils.js";
-import { applyLegacyTranslations, installLanguageSelector } from "../i18n/i18n.js";
+import { applyLegacyTranslations, getLanguage, setLanguage, translate } from "../i18n/i18n.js";
 
 export { requireAuth };
 
@@ -15,19 +15,75 @@ const closeApplication = () => {
   }
 };
 
-const SIDEBAR_COLLAPSE_KEY = "food-system-sidebar-collapsed";
+const APP_NAVIGATION = [
+  ["dashboard", "Painel", "M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-4.5v-6.2h-5V21H5a1 1 0 0 1-1-1v-8.8z"],
+  ["inventory", "Estoque", "m12 3 9 5v8l-9 5-9-5V8zm0 10 9-5m-9 5-9-5m9 5v8"],
+  ["orders", "Pedidos", "M7 3h8l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm7 2v3h3M8 12h8M8 16h8"],
+  ["kitchen", "Cozinha", "M4 13h16a8 8 0 0 1-16 0zm2-3a6 6 0 0 1 12 0M12 4v2"],
+  ["tables", "Mesas", "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"],
+  ["cashier", "Caixa", "M5 8h14l-1 12H6L5 8zm3 0 1-4h6l1 4M9 12v4m6-4v4"],
+  ["delivery", "Entregas", "M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
+  ["products", "Produtos", "M4 4h7v7H4zM13 4h7v4h-7zM4 13h7v7H4zM13 10h7v10h-7z"],
+  ["menu", "Cardápio", "M5 6h14M5 12h14M5 18h9"],
+  ["contacts", "Clientes", "M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1m7-9a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-7a4 4 0 0 1 0 7m2 4a4 4 0 0 1 3 4v1"],
+  ["team", "Equipe", "M16 11a4 4 0 1 0-3.5-6M8 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-7 8v-2a7 7 0 0 1 14 0v2zm15-7a5 5 0 0 1 5 5v2h-3"],
+  ["reports", "Relatórios", "M4 20V10m5 10V4m5 16v-7m5 7V7"],
+  ["fiscal", "Fiscal", "M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6"],
+  ["integrations", "Integrações", "M9 7V4m6 3V4M8 7h8v4a4 4 0 0 1-8 0zm4 8v5m-5 0h10"],
+  ["backups", "Backups", "M4 7h16v13H4zM3 4h18M9 11h6m-6 4h6"],
+];
+const APP_NAVIGATION_GROUPS = [
+  APP_NAVIGATION.slice(0, 6),
+  APP_NAVIGATION.slice(6, 11),
+  APP_NAVIGATION.slice(11),
+];
 
-const ensureGlobalLanguageControl = () => {
-  if (document.getElementById("globalLanguageSelect")) return;
-  const host = document.querySelector(".menu-content") || document.querySelector("main.content") || document.body;
-  const wrapper = document.createElement("label");
-  wrapper.className = "global-language-control";
-  wrapper.style.cssText = "display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 12px auto;font-size:.8rem;color:#667085";
-  wrapper.innerHTML = `<span>Language</span><select id="globalLanguageSelect" aria-label="Language"><option value="pt">Português</option><option value="en">English</option></select>`;
-  const select = wrapper.querySelector("select");
-  select.value = localStorage.getItem("food-system-language") || "pt";
-  select.addEventListener("change", () => { localStorage.setItem("food-system-language", select.value); window.location.reload(); });
-  host.prepend(wrapper);
+const ensureCanonicalSidebarNavigation = (activePage) => {
+  const nav = document.querySelector(".menu-sidebar__nav");
+  if (!nav) return null;
+
+  const fragment = document.createDocumentFragment();
+  APP_NAVIGATION_GROUPS.forEach((group) => {
+    const section = document.createElement("div");
+    section.className = "menu-sidebar__nav-group";
+
+    group.forEach(([page, label, path]) => {
+      const translatedLabel = translate(label);
+      const link = document.createElement("a");
+      link.href = new URL(`../../pages/app/${page}/index.html`, import.meta.url).href;
+      link.setAttribute("aria-label", translatedLabel);
+      link.title = translatedLabel;
+      if (page === activePage) {
+        link.classList.add("active");
+        link.setAttribute("aria-current", "page");
+      }
+
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      icon.setAttribute("class", "menu-icon");
+      icon.setAttribute("viewBox", "0 0 24 24");
+      icon.setAttribute("aria-hidden", "true");
+      icon.setAttribute("focusable", "false");
+      const shape = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      shape.setAttribute("d", path);
+      shape.setAttribute("fill", "none");
+      shape.setAttribute("stroke", "currentColor");
+      shape.setAttribute("stroke-width", "1.8");
+      shape.setAttribute("stroke-linecap", "round");
+      shape.setAttribute("stroke-linejoin", "round");
+      icon.append(shape);
+
+      const text = document.createElement("span");
+      text.className = "menu-label";
+      text.textContent = translatedLabel;
+      link.append(icon, text);
+      section.append(link);
+    });
+
+    fragment.append(section);
+  });
+
+  nav.replaceChildren(fragment);
+  return nav;
 };
 
 const ensureBusinessOnboarding = () => {
@@ -47,21 +103,21 @@ const ensureBusinessOnboarding = () => {
     panel.className = "business-onboarding-panel";
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-modal", "true");
-    panel.setAttribute("aria-label", "Boas-vindas ao Food System");
+    panel.setAttribute("aria-label", translate("Boas-vindas ao Food System"));
     panel.innerHTML = `
       <div class="business-onboarding-panel__hero">
         <p class="business-onboarding-panel__eyebrow">Primeiro acesso</p>
-        <h2>Vamos configurar seu negócio</h2>
-        <p>Responda algumas perguntas rápidas para preparar o sistema para sua operação.</p>
+        <h2>Vamos configurar seu comércio</h2>
+        <p>Informe os dados básicos para preparar o sistema para sua operação</p>
       </div>
       <form class="business-onboarding-panel__form" data-business-onboarding-form>
         <div class="business-onboarding-panel__grid">
           <label class="field">
-            <span>Nome do negócio</span>
+            <span>Nome do comércio</span>
             <input name="businessName" type="text" autocomplete="organization" placeholder="Ex.: Pizzaria Central" required />
           </label>
           <label class="field">
-            <span>Tipo do negócio</span>
+            <span>Tipo de negócio</span>
             <select name="businessType" required>
               <option value="">Selecione</option>
               <option value="Restaurante">Restaurante</option>
@@ -145,7 +201,7 @@ const ensureBusinessOnboarding = () => {
       submit.disabled = true;
       feedback.hidden = false;
       feedback.className = "business-onboarding-panel__feedback";
-      feedback.textContent = "Salvando";
+      feedback.textContent = translate("Salvando");
 
       try {
         await completeBusinessOnboarding(payload);
@@ -159,7 +215,7 @@ const ensureBusinessOnboarding = () => {
         window.location.reload();
       } catch (error) {
         feedback.className = "business-onboarding-panel__feedback business-onboarding-panel__feedback--error";
-        feedback.textContent = error?.message || "Nao foi possivel salvar a configuracao inicial.";
+        feedback.textContent = translate(error?.message || "Não foi possível salvar a configuração inicial");
       } finally {
         submit.disabled = false;
         form.dataset.submitting = "false";
@@ -169,14 +225,11 @@ const ensureBusinessOnboarding = () => {
 };
 
 const applySidebarInlineState = (collapsed) => {
-  const isCompactViewport = window.matchMedia("(max-width: 1023px)").matches;
-  const mobileWidth = window.matchMedia("(max-width: 479px)").matches ? "208px" : "224px";
-  const sidebar = document.querySelector(".menu-sidebar");
   const shell = document.querySelector(".menu-shell");
   const brand = document.querySelector(".menu-sidebar__brand");
   const brandRow = document.querySelector(".menu-sidebar__brand-row");
-  const toggle = document.getElementById("menuSidebarToggle");
-  const navLinks = document.querySelectorAll(".menu-sidebar__nav a");
+  const nav = document.querySelector(".menu-sidebar__nav");
+  const navLinks = nav?.querySelectorAll("a") || [];
   const labels = document.querySelectorAll(".menu-label");
   const profile = document.querySelector(".menu-sidebar__profile");
   const profileLabel = document.querySelector(".menu-sidebar__profile .profile-label");
@@ -184,16 +237,6 @@ const applySidebarInlineState = (collapsed) => {
 
   if (shell) {
     shell.dataset.sidebarState = collapsed ? "collapsed" : "expanded";
-  }
-
-  if (sidebar) {
-    sidebar.style.width = collapsed ? (isCompactViewport ? "" : "84px") : isCompactViewport ? mobileWidth : "";
-    sidebar.style.flexBasis = collapsed ? (isCompactViewport ? "" : "84px") : isCompactViewport ? mobileWidth : "";
-    sidebar.style.padding = collapsed ? (isCompactViewport ? "" : "18px 10px") : isCompactViewport ? "18px 12px" : "";
-    sidebar.style.position = isCompactViewport && !collapsed ? "fixed" : "";
-    sidebar.style.left = isCompactViewport && !collapsed ? "0" : "";
-    sidebar.style.zIndex = isCompactViewport && !collapsed ? "80" : "";
-    sidebar.style.overflowY = isCompactViewport && !collapsed ? "auto" : "";
   }
 
   if (brand) {
@@ -209,10 +252,6 @@ const applySidebarInlineState = (collapsed) => {
     brandRow.style.justifyContent = compactBrandRow ? "center" : "";
     brandRow.style.padding = compactBrandRow ? "0" : "";
     brandRow.style.gap = compactBrandRow ? "0" : "";
-  }
-
-  if (toggle) {
-    toggle.style.margin = collapsed ? "0 auto" : "";
   }
 
   navLinks.forEach((link) => {
@@ -258,25 +297,7 @@ const setSidebarCollapsedState = (collapsed) => {
 };
 
 const getStoredSidebarCollapsedState = () => {
-  if (window.matchMedia("(max-width: 1023px)").matches) return true;
-
-  const storedSidebarState = localStorage.getItem(SIDEBAR_COLLAPSE_KEY);
-  if (storedSidebarState !== null) return storedSidebarState === "true";
-  return false;
-};
-
-const ensureSidebarBackdrop = () => {
-  let backdrop = document.getElementById("menuSidebarBackdrop");
-  if (backdrop) return backdrop;
-
-  backdrop = document.createElement("button");
-  backdrop.id = "menuSidebarBackdrop";
-  backdrop.className = "menu-sidebar-backdrop";
-  backdrop.type = "button";
-  backdrop.tabIndex = -1;
-  backdrop.setAttribute("aria-label", "Fechar menu de navegação");
-  document.body.appendChild(backdrop);
-  return backdrop;
+  return window.matchMedia("(max-width: 1023px)").matches;
 };
 
 export const initProfileMenu = () => {
@@ -290,13 +311,10 @@ export const initProfileMenu = () => {
   let business = getBusiness();
   let displayName = session?.name || business.name || "Usuário";
   const clientCategory = "Aplicação local";
-  const createdAt = session?.createdAt || business.createdAt || new Date().toISOString();
-  const createdAtText = new Date(createdAt).toLocaleDateString("pt-BR");
   let clientEmail = session?.email || business.email || "";
   const clientPhone = business.phone || session?.phone || "";
   const clientAvatar = session?.avatar || business.avatar || "";
   const displayPlan = clientCategory;
-  const supportEmail = clientEmail || business.email || "suporte@foodsystem.com";
   let backdrop = document.getElementById("userEditBackdrop");
   let panel = document.getElementById("userEditPanel");
 
@@ -312,15 +330,16 @@ export const initProfileMenu = () => {
     panel.hidden = true;
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-modal", "true");
-    panel.setAttribute("aria-label", "Configurações do usuário");
+    panel.setAttribute("aria-label", translate("Configurações do usuário"));
     panel.innerHTML = `
       <div class="user-edit-panel__hero">
         <button type="button" class="user-edit-panel__close" data-user-edit-close aria-label="Fechar painel">×</button>
         <div class="user-edit-panel__hero-user">
-          <div class="user-edit-panel__avatar" aria-hidden="true">${displayName.slice(0, 1).toUpperCase()}</div>
+          <div class="user-edit-panel__avatar" aria-hidden="true">${escapeHtml(displayName.slice(0, 1).toUpperCase())}</div>
           <div class="user-edit-panel__hero-copy">
-            <strong>${displayName}</strong>
-            <span>${displayPlan}</span>
+            <strong data-merchant-content>${escapeHtml(displayName)}</strong>
+            <span>${escapeHtml(displayPlan)}</span>
+            <small class="user-edit-panel__hero-email" data-merchant-content ${clientEmail ? "" : "hidden"}>${escapeHtml(clientEmail)}</small>
           </div>
         </div>
       </div>
@@ -328,28 +347,29 @@ export const initProfileMenu = () => {
         <div class="user-edit-panel__views">
           <section class="user-edit-panel__view is-current" data-profile-view="home">
             <div class="user-edit-panel__actions-stack">
-              <button class="user-edit-panel__action" type="button" data-profile-open="settings">Configurações</button>
-              <button class="user-edit-panel__action" type="button" data-profile-open="updates">Atualizações do sistema</button>
-              <button class="user-edit-panel__action" type="button" data-profile-open="support">Suporte</button>
-              <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-action="close-app">Fechar aplicação</button>
+              <div class="user-edit-panel__home-intro"><span>SUA CONTA</span><h2>Perfil e aplicativo</h2><p>Gerencie seus dados, atualizações e suporte</p></div>
+              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="settings"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"/></svg></span><span><strong>Configurações da conta</strong><small>Atualize seu perfil e os dados do comércio</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
+              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="updates"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4.7 9A7.5 7.5 0 0 1 18 6l2 2M4 17v-5h5m10.3 3A7.5 7.5 0 0 1 6 18l-2-2"/></svg></span><span><strong>Atualizações do sistema</strong><small>Verifique a versão instalada</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
+              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="support"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4v.01M9.6 9a2.4 2.4 0 1 1 4.35 1.42c-.95 1.05-1.95 1.26-1.95 2.83"/></svg></span><span><strong>Fale com o suporte</strong><small>Envie uma mensagem para nossa equipe</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
+              <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-action="close-app">Fechar aplicativo</button>
             </div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="settings" hidden>
             <div class="user-edit-panel__page-head">
               <span>Central da conta</span>
-              <strong>Ajustes rápidos do perfil</strong>
+              <strong>Dados do perfil</strong>
             </div>
             <div class="user-edit-panel__page-shell">
               <section class="user-edit-panel__settings-shell">
                 <aside class="user-edit-panel__settings-side">
                   <div class="user-edit-panel__settings-avatar">
                     <div class="user-edit-panel__settings-avatar-frame">
-                      <img class="user-edit-panel__settings-avatar-image" alt="Foto do usuário" ${clientAvatar ? `src="${clientAvatar}"` : "hidden"} />
+                      <img class="user-edit-panel__settings-avatar-image" alt="Foto do usuário" ${clientAvatar ? `src="${escapeHtml(clientAvatar)}"` : "hidden"} />
                       <span class="user-edit-panel__settings-avatar-placeholder" ${clientAvatar ? "hidden" : ""}>${displayName.slice(0, 1).toUpperCase()}</span>
                     </div>
                     <div class="user-edit-panel__settings-avatar-copy">
                       <strong>Imagem do perfil</strong>
-                      <small>Mantenha a identidade da conta ajustável sem sair desta janela.</small>
+                      <small>Atualize sua foto e os dados da conta</small>
                     </div>
                     <input class="user-edit-panel__file-input" type="file" accept="image/*" hidden />
                     <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar>Alterar foto</button>
@@ -366,33 +386,46 @@ export const initProfileMenu = () => {
                 <form class="user-edit-panel__settings-form" data-settings-form>
                   <section class="user-edit-panel__settings-block">
                     <div class="user-edit-panel__settings-block-head">
-                      <span>Identidade</span>
-                      <strong>Dados principais da conta</strong>
+                      <span>Conta</span>
+                      <strong>Dados principais</strong>
                     </div>
                     <div class="user-edit-panel__settings-grid">
                       <label class="field">
                         <span>Nome</span>
-                        <input name="name" type="text" value="${displayName}" autocomplete="name" />
+                        <input name="name" type="text" value="${escapeHtml(displayName)}" autocomplete="name" />
                       </label>
                       <label class="field">
-                        <span>Nome do negócio</span>
-                        <input name="businessName" type="text" value="${business.name || displayName}" autocomplete="organization" />
+                        <span>Nome do comércio</span>
+                        <input name="businessName" type="text" value="${escapeHtml(business.name || displayName)}" autocomplete="organization" />
                       </label>
                       <label class="field">
                         <span>Telefone</span>
-                        <input name="phone" type="tel" value="${clientPhone}" autocomplete="tel" placeholder="(00) 00000-0000" />
+                        <input name="phone" type="tel" value="${escapeHtml(clientPhone)}" autocomplete="tel" placeholder="(00) 00000-0000" />
                       </label>
                     </div>
                   </section>
                   <section class="user-edit-panel__settings-block">
                     <div class="user-edit-panel__settings-block-head">
-                      <span>Acesso</span>
-                      <strong>E-mail de cadastro protegido</strong>
+                      <span>Contato</span>
+                      <strong>E-mail da conta</strong>
                     </div>
                     <label class="field">
                       <span>E-mail</span>
-                      <input name="email" type="email" value="${clientEmail}" autocomplete="email" readonly />
-                      <small class="user-edit-panel__field-note">O e-mail do cadastro fica bloqueado aqui. Alterações futuras exigirão validação da conta.</small>
+                      <input name="email" type="email" value="${escapeHtml(clientEmail)}" autocomplete="email" readonly />
+                      <small class="user-edit-panel__field-note">Para alterar o e-mail, entre em contato com o suporte</small>
+                    </label>
+                  </section>
+                  <section class="user-edit-panel__settings-block">
+                    <div class="user-edit-panel__settings-block-head">
+                      <span>Preferências</span>
+                      <strong>Idioma</strong>
+                    </div>
+                    <label class="field">
+                      <span>Idioma</span>
+                      <select data-global-language aria-label="Language">
+                        <option value="en">English</option>
+                        <option value="pt">Português</option>
+                      </select>
                     </label>
                   </section>
                   <p class="user-edit-panel__feedback" data-settings-feedback hidden></p>
@@ -406,13 +439,13 @@ export const initProfileMenu = () => {
           </section>
           <section class="user-edit-panel__view" data-profile-view="updates" hidden>
             <div class="user-edit-panel__page-head">
-              <span>Central de assinatura</span>
-              <strong>Área de planos</strong>
+              <span>Sistema</span>
+              <strong>Atualizações</strong>
             </div>
             <div class="user-edit-panel__page-shell">
-              <div class="user-edit-panel__plan-catalog" data-update-panel>
+              <div class="user-edit-panel__update-panel" data-update-panel>
                 <strong>Atualizações do sistema</strong>
-                <p data-update-current>Verificação ainda não executada.</p>
+                <p data-update-current>Verifique se há uma nova versão disponível</p>
                 <p data-update-notes></p>
                 <button class="user-edit-panel__action" type="button" data-update-check>Verificar agora</button>
                 <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-update-later hidden>Lembrar depois</button>
@@ -426,25 +459,15 @@ export const initProfileMenu = () => {
           </section>
           <section class="user-edit-panel__view" data-profile-view="support" hidden>
             <div class="user-edit-panel__page-head">
-              <span>Suporte centralizado</span>
-              <strong>Fale com o suporte</strong>
+              <span>Ajuda e suporte</span>
+              <strong>Suporte remoto</strong>
             </div>
             <div class="user-edit-panel__page-shell">
-              <form class="user-edit-panel__support-form" data-support-form>
-                <label class="field field--support-message">
-                  <span>Mensagem</span>
-                  <textarea name="message" rows="6" placeholder="Descreva o que aconteceu, em qual tela ocorreu e qual comportamento você esperava."></textarea>
-                </label>
-                <label class="user-edit-panel__support-upload">
-                  <strong>Anexar captura de tela</strong>
-                  <small>PNG, JPG ou WEBP para ajudar na análise do problema.</small>
-                  <input name="attachment" type="file" accept="image/*" />
-                  <span class="user-edit-panel__support-upload-button">Browse</span>
-                  <p class="user-edit-panel__support-upload-status" data-support-file-status>No file selected</p>
-                </label>
-                <p class="user-edit-panel__feedback" data-support-feedback hidden></p>
-                <button class="user-edit-panel__action" type="submit" data-support-submit>Enviar mensagem</button>
-              </form>
+              <div class="user-edit-panel__support-card">
+                <p>O suporte é feito remotamente pela equipe responsável pelo sistema</p>
+                <p>Entre em contato com a equipe que instalou o Food System para combinar o atendimento Se necessário, tenha o AnyDesk disponível no computador do comércio</p>
+                <p>Antes do atendimento, descreva o que aconteceu, em qual tela e o que você esperava que acontecesse</p>
+              </div>
               <div class="user-edit-panel__actions-stack">
                 <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Voltar</button>
               </div>
@@ -483,13 +506,13 @@ export const initProfileMenu = () => {
       <path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z"/>
     </svg>
   `;
-  button.setAttribute("aria-label", `Perfil de ${displayName}`);
+  button.setAttribute("aria-label", translate(`Perfil de ${displayName}`));
 
   let label = profile.querySelector(".profile-label");
   if (!label) {
     label = document.createElement("span");
     label.className = "profile-label";
-    label.textContent = "Ver Perfil";
+    label.textContent = translate("Perfil");
     profile.appendChild(label);
   }
   label.setAttribute("role", "button");
@@ -499,121 +522,22 @@ export const initProfileMenu = () => {
 
   const heroAvatar = () => panel.querySelector(".user-edit-panel__avatar");
   const heroName = () => panel.querySelector(".user-edit-panel__hero-copy strong");
+  const heroEmail = () => panel.querySelector(".user-edit-panel__hero-email");
   const settingsForm = panel.querySelector("[data-settings-form]");
   const settingsFeedback = panel.querySelector("[data-settings-feedback]");
   const settingsAvatarButton = panel.querySelector("[data-settings-avatar]");
   const settingsAvatarInput = panel.querySelector(".user-edit-panel__file-input");
   const settingsAvatarImage = panel.querySelector(".user-edit-panel__settings-avatar-image");
   const settingsAvatarPlaceholder = panel.querySelector(".user-edit-panel__settings-avatar-placeholder");
-  const planCatalog = panel.querySelector("[data-plan-catalog]");
-  const planFeedback = panel.querySelector("[data-plan-feedback]");
-  const supportForm = panel.querySelector("[data-support-form]");
-  const supportFeedback = panel.querySelector("[data-support-feedback]");
-  const supportFileInput = supportForm?.querySelector("input[name='attachment']");
-  const supportFileStatus = panel.querySelector("[data-support-file-status]");
-  let pendingAvatar = clientAvatar || "";
-  let availablePlans = [];
-
-  const humanPlanLabel = (slug) => {
-    const normalized = String(slug || "").trim().toLowerCase();
-    return slug || "Aplicação local";
-  };
-
-  const formatDate = (value) =>
-    new Date(value).toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
+  const languageSelect = panel.querySelector("[data-global-language]");
+  if (languageSelect) {
+    languageSelect.value = getLanguage();
+    languageSelect.addEventListener("change", () => {
+      setLanguage(languageSelect.value);
+      window.location.reload();
     });
-
-  const addDays = (baseDate, days) => {
-    const next = new Date(baseDate);
-    next.setDate(next.getDate() + days);
-    return next;
-  };
-
-  const getPlanCycle = () => {
-    const currentSession = getSession() || session || {};
-    const anchor = currentSession.planChangedAt || currentSession.loggedAt || createdAt;
-    const startedAt = new Date(anchor);
-    const isCurrentFree = String(currentSession.plan || clientCategory || "").toLowerCase() === "gratis";
-    const nextBillingAt = isCurrentFree ? null : addDays(startedAt, 30);
-    const nextRenewalAt = isCurrentFree ? addDays(startedAt, 7) : addDays(startedAt, 30);
-    return {
-      startedAt,
-      nextBillingAt,
-      nextRenewalAt,
-      paymentMethod: currentSession.planPaymentMethod || (isCurrentFree ? "Sem cobrança" : "Pix recorrente"),
-    };
-  };
-
-  const renderPlanPanel = async () => {
-    if (!planCatalog) return;
-
-    const cycle = getPlanCycle();
-    const currentPlanSlug = String(getSession()?.plan || session?.plan || clientCategory || "").toLowerCase();
-    const nextChargeText = cycle.nextBillingAt ? formatDate(cycle.nextBillingAt) : "Sem cobrança programada";
-
-    if (!availablePlans.length) {
-      planCatalog.innerHTML = `
-        <div class="user-edit-panel__plan-state">
-          <strong>Carregando planos</strong>
-          <small>Assinatura</small>
-        </div>
-      `;
-      try {
-        availablePlans = [];
-      } catch {
-        availablePlans = [];
-      }
-    }
-
-    if (!availablePlans.length) {
-      planCatalog.innerHTML = `
-        <div class="user-edit-panel__plan-state">
-          <strong>Não foi possível carregar os planos.</strong>
-          <small>Tente novamente em instantes.</small>
-        </div>
-      `;
-      return;
-    }
-
-    planCatalog.innerHTML = availablePlans
-      .map((plan) => {
-        const current = plan.slug === currentPlanSlug;
-        const priceText = "Aplicação local";
-        const actionLabel = current ? "Instalado" : "Disponível";
-        const billingNote = current
-          ? `
-            <div class="user-edit-panel__plan-reminder">
-              <span>Próxima cobrança</span>
-              <strong>${nextChargeText}</strong>
-              <small>${cycle.nextBillingAt ? `Método previsto: ${cycle.paymentMethod}` : "Nenhum valor será cobrado enquanto o plano gratuito estiver ativo."}</small>
-            </div>
-          `
-          : "";
-        return `
-          <article class="user-edit-panel__plan-option ${current ? "is-current" : ""}">
-            <div class="user-edit-panel__plan-option-head">
-              <div>
-                <span>${escapeHtml(plan.label || plan.name)}</span>
-                <strong>${escapeHtml(priceText)}</strong>
-              </div>
-              ${current ? '<em>Ativo</em>' : ""}
-            </div>
-            <p>${escapeHtml(plan.description || "Plano disponível para sua operação.")}</p>
-            ${billingNote}
-            <ul>
-              ${(plan.features || []).slice(0, 4).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}
-            </ul>
-            <button class="user-edit-panel__action ${current ? "user-edit-panel__action--ghost" : ""}" type="button" data-plan-change="${escapeHtml(plan.slug)}" ${current ? "disabled" : ""}>
-              ${escapeHtml(actionLabel)}
-            </button>
-          </article>
-        `;
-      })
-      .join("");
-  };
+  }
+  let pendingAvatar = clientAvatar || "";
 
   const syncPanelIdentity = ({ name, email, phone, businessName, avatar }) => {
     displayName = name || businessName || "Usuário";
@@ -639,8 +563,13 @@ export const initProfileMenu = () => {
     if (heroAvatarElement) heroAvatarElement.textContent = displayName.slice(0, 1).toUpperCase();
     const heroNameElement = heroName();
     if (heroNameElement) heroNameElement.textContent = displayName;
-    button.setAttribute("aria-label", `Perfil de ${displayName}`);
-    if (label) label.textContent = "Ver Perfil";
+    const heroEmailElement = heroEmail();
+    if (heroEmailElement) {
+      heroEmailElement.textContent = clientEmail;
+      heroEmailElement.hidden = !clientEmail;
+    }
+    button.setAttribute("aria-label", translate(`Perfil de ${displayName}`));
+    if (label) label.textContent = translate("Perfil");
 
     if (settingsAvatarImage) {
       if (avatar) {
@@ -695,14 +624,14 @@ export const initProfileMenu = () => {
     const businessName = String(formData.get("businessName") || "").trim() || name;
 
     if (!name || !email) {
-      settingsFeedback.textContent = "Preencha nome e e-mail para salvar.";
+      settingsFeedback.textContent = translate("Preencha nome e e-mail para salvar");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
       settingsFeedback.hidden = false;
       return;
     }
 
     submitButton.disabled = true;
-    settingsFeedback.textContent = "Salvando";
+    settingsFeedback.textContent = translate("Salvando");
     settingsFeedback.className = "user-edit-panel__feedback";
     settingsFeedback.hidden = false;
 
@@ -734,10 +663,10 @@ export const initProfileMenu = () => {
       });
 
       syncPanelIdentity({ name, email, phone, businessName, avatar: pendingAvatar });
-      settingsFeedback.textContent = "Configurações atualizadas nesta janela.";
+      settingsFeedback.textContent = translate("Configurações salvas");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--success";
     } catch (error) {
-      settingsFeedback.textContent = error?.message || "Não foi possível salvar as configurações.";
+      settingsFeedback.textContent = translate(error?.message || "Não foi possível salvar as configurações");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
     } finally {
       settingsFeedback.hidden = false;
@@ -745,47 +674,7 @@ export const initProfileMenu = () => {
     }
   });
 
-  supportForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const submitButton = supportForm.querySelector("[data-support-submit]");
-    const formData = new FormData(supportForm);
-    const message = String(formData.get("message") || "").trim();
-    const attachment = formData.get("attachment");
-
-    if (!message) {
-      supportFeedback.textContent = "Descreva o problema antes de enviar.";
-      supportFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
-      supportFeedback.hidden = false;
-      return;
-    }
-
-    submitButton.disabled = true;
-    supportFeedback.textContent = "Enviando";
-    supportFeedback.className = "user-edit-panel__feedback";
-    supportFeedback.hidden = false;
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const hasAttachment = attachment instanceof File && attachment.size > 0;
-      supportFeedback.textContent = hasAttachment
-        ? "Mensagem enviada com imagem"
-        : "Mensagem enviada";
-      supportFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--success";
-      supportForm.reset();
-    } catch (error) {
-      supportFeedback.textContent = error?.message || "Não foi possível enviar a mensagem agora.";
-      supportFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
-    } finally {
-      supportFeedback.hidden = false;
-      submitButton.disabled = false;
-    }
-  });
-
-  supportFileInput?.addEventListener("change", () => {
-    const file = supportFileInput.files?.[0];
-    if (!supportFileStatus) return;
-    supportFileStatus.textContent = file?.name || "No file selected";
-  });
+  applyLegacyTranslations(panel);
 
   const updateCurrent = panel.querySelector("[data-update-current]");
   const updateNotes = panel.querySelector("[data-update-notes]");
@@ -797,28 +686,28 @@ export const initProfileMenu = () => {
   const checkSystemUpdate = async () => {
     if (!updateFeedback) return;
     updateFeedback.hidden = false;
-    updateFeedback.textContent = "Verificando atualizações...";
+    updateFeedback.textContent = translate("Verificando atualizações");
     try {
       const result = await checkForSystemUpdates();
-      updateCurrent.textContent = `Versão instalada: ${result.current_version}. Versão disponível: ${result.available_version}.`;
-      updateNotes.textContent = result.notes || "O sistema já está atualizado.";
+      updateCurrent.textContent = translate(`Versão instalada: ${result.current_version} Versão disponível: ${result.available_version}`);
+      updateNotes.textContent = translate(result.notes || "O sistema já está atualizado");
       updateLater.hidden = !result.update_available;
       const safeUpdateUrl = typeof result.download_url === "string" && /^https:\/\//i.test(result.download_url) ? result.download_url : "";
       updateNow.hidden = !result.update_available || !safeUpdateUrl;
       updateNow.href = safeUpdateUrl || "#";
       updateNow.rel = "noopener noreferrer";
       updateFeedback.textContent = result.update_available
-        ? result.download_url ? "Atualização disponível. Escolha quando instalar." : "Há uma atualização registrada, mas o pacote ainda não foi disponibilizado."
-        : "O sistema já está atualizado.";
+        ? result.download_url ? translate("Atualização disponível Escolha quando instalar") : translate("Há uma atualização registrada, mas o pacote ainda não foi disponibilizado")
+        : translate("O sistema já está atualizado");
     } catch (error) {
-      updateFeedback.textContent = error?.message || "Não foi possível verificar atualizações.";
+      updateFeedback.textContent = translate(error?.message || "Não foi possível verificar atualizações");
     }
   };
 
   updateCheck?.addEventListener("click", checkSystemUpdate);
   updateLater?.addEventListener("click", () => {
     if (updateFeedback) {
-      updateFeedback.textContent = "Tudo bem. Você poderá verificar novamente quando quiser.";
+      updateFeedback.textContent = translate("Tudo bem Você poderá verificar novamente quando quiser");
       updateFeedback.hidden = false;
     }
   });
@@ -839,7 +728,7 @@ export const initProfileMenu = () => {
     if (!target || !profile.contains(target)) return;
     event.preventDefault();
     event.stopPropagation();
-    switchProfileView("home");
+    switchProfileView("settings");
     openPanel();
   };
 
@@ -879,14 +768,14 @@ export const initProfileMenu = () => {
 
   label.addEventListener("click", (event) => {
     event.preventDefault();
-    switchProfileView("home");
+    switchProfileView("settings");
     openPanel();
   });
 
   label.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      switchProfileView("home");
+      switchProfileView("settings");
       openPanel();
     }
   });
@@ -933,59 +822,36 @@ export const initUserEditPanel = () => {
   });
 };
 
+const ensureProfileTrigger = () => {
+  const sidebar = document.querySelector(".menu-sidebar");
+  if (!sidebar || sidebar.querySelector(".profile")) return;
+
+  const profile = document.createElement("div");
+  profile.className = "profile menu-sidebar__profile";
+  profile.innerHTML = `
+    <button class="profile-btn" type="button" aria-label="${escapeHtml(translate("profile"))}">
+      <svg class="profile-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z"/>
+      </svg>
+    </button>
+    <span class="profile-label">${escapeHtml(translate("profile"))}</span>
+  `;
+  sidebar.append(profile);
+};
+
 export const initAppShell = async ({ activeNav } = {}) => {
   requireAuth();
 
-  ensureGlobalLanguageControl();
-
+  ensureCanonicalSidebarNavigation(activeNav);
+  ensureProfileTrigger();
   setSidebarCollapsedState(getStoredSidebarCollapsedState());
-  const sidebarBackdrop = ensureSidebarBackdrop();
-
-  const syncSidebarDrawer = () => {
-    const isCompactViewport = window.matchMedia("(max-width: 1023px)").matches;
-    const isCollapsed = document.body.classList.contains("menu-sidebar-collapsed");
-    const isDrawerOpen = isCompactViewport && !isCollapsed;
-    document.body.classList.toggle("menu-sidebar-drawer-open", isDrawerOpen);
-    sidebarBackdrop.hidden = !isDrawerOpen;
-  };
-  syncSidebarDrawer();
-
-  sidebarBackdrop.addEventListener("click", () => {
-    setSidebarCollapsedState(true);
-    syncSidebarDrawer();
-  });
 
   if (window.__foodSystemSidebarResizeBound !== true) {
     window.__foodSystemSidebarResizeBound = true;
-    window.addEventListener("resize", () => {
-      setSidebarCollapsedState(getStoredSidebarCollapsedState());
-      syncSidebarDrawer();
-    });
-  }
-
-  const menuSidebarToggle = document.getElementById("menuSidebarToggle");
-  if (menuSidebarToggle && menuSidebarToggle.dataset.sidebarBound !== "true") {
-    menuSidebarToggle.dataset.sidebarBound = "true";
-    menuSidebarToggle.addEventListener("click", () => {
-      const collapsed = !document.body.classList.contains("menu-sidebar-collapsed");
-      setSidebarCollapsedState(collapsed);
-      localStorage.setItem(SIDEBAR_COLLAPSE_KEY, String(collapsed));
-      syncSidebarDrawer();
-    });
-  }
-
-  if (document.body.dataset.sidebarEscapeBound !== "true") {
-    document.body.dataset.sidebarEscapeBound = "true";
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && document.body.classList.contains("menu-sidebar-drawer-open")) {
-        setSidebarCollapsedState(true);
-        syncSidebarDrawer();
-      }
-    });
+    window.addEventListener("resize", () => setSidebarCollapsedState(getStoredSidebarCollapsedState()));
   }
 
   await bootstrapApi();
-  installLanguageSelector(document);
   applyLegacyTranslations(document);
   document.querySelectorAll("[data-action='close-app']").forEach((button) => {
     if (button.dataset.closeAppBound === "true") return;
@@ -1002,12 +868,18 @@ export const initAppShell = async ({ activeNav } = {}) => {
 
   document.querySelectorAll(".app-nav a").forEach((link) => {
     const href = link.getAttribute("href") || "";
-    link.classList.toggle("active", href.includes(`/${activeNav}/`));
+    const isActive = href.includes(`/${activeNav}/`);
+    link.classList.toggle("active", isActive);
+    if (isActive) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
   });
 
   document.querySelectorAll(".menu-sidebar__nav a").forEach((link) => {
     const href = link.getAttribute("href") || "";
-    link.classList.toggle("active", href.includes(`/${activeNav}/`) || href.includes(`${activeNav}/index.html`));
+    const isActive = href.includes(`/${activeNav}/`) || href.includes(`${activeNav}/index.html`);
+    link.classList.toggle("active", isActive);
+    if (isActive) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
   });
 };
 

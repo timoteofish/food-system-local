@@ -4,28 +4,29 @@
 .calendar-id-panel[hidden]{display:none !important}
 
 body.calendar-id-open{overflow:hidden}
-.calendar-id-backdrop{display:block;position:fixed;inset:0;z-index:120;border:0;background:rgba(31,42,36,.46);backdrop-filter:blur(3px);opacity:0;transition:opacity .18s ease}
+.calendar-id-backdrop{display:block;position:fixed;inset:0;z-index:120;border:0;background:rgba(25,25,25,.36);backdrop-filter:blur(2px);opacity:0;transition:opacity .18s ease}
 .calendar-id-backdrop.is-open{opacity:1}
-.calendar-id-panel{display:block;position:fixed;z-index:125;right:8px;bottom:8px;left:calc(var(--app-rail) + 8px);padding:0 16px 16px;border:1px solid var(--line);border-radius:20px;background:#fff;box-shadow:0 24px 56px rgba(31,42,36,.26);transform:translateY(110%);transition:transform .2s ease}
+.calendar-id-panel{display:block;position:fixed;z-index:125;right:8px;bottom:8px;left:calc(var(--app-rail) + 8px);padding:0 16px 16px;border:1px solid var(--line);border-radius:var(--radius-panel);background:var(--surface);box-shadow:var(--shadow-raised);transform:translateY(110%);transition:transform .2s ease}
 .calendar-id-panel.is-open{transform:translateY(0)}
-.calendar-id-panel__handle{width:42px;height:4px;margin:10px auto 4px;border-radius:99px;background:#b8c9c0}
+.calendar-id-panel__handle{width:42px;height:4px;margin:10px auto 4px;border-radius:99px;background:var(--line)}
 .calendar-id-panel__header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 0 14px;border-bottom:1px solid var(--line)}
 .calendar-id-panel__header p{margin:0 0 4px;color:var(--muted);font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
 .calendar-id-panel__header h2{margin:0;font-size:1.12rem}
-.calendar-id-panel__close{width:38px;height:38px;border:0;border-radius:12px;background:#f6f7f4;color:var(--text);font-size:1.6rem;line-height:1}
+.calendar-id-panel__close{width:38px;height:38px;border:0;border-radius:12px;background:var(--surface-soft);color:var(--text);font-size:1.6rem;line-height:1}
 .calendar-id-panel__month-nav{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:8px;padding:16px 0 10px;text-align:center}
 .calendar-id-panel__month-nav strong{font-size:.92rem;text-transform:capitalize}
-.calendar-id-panel__month-nav button{width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--accent);font-size:1.5rem;line-height:1}
+.calendar-id-panel__month-nav button{width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--accent);font-size:1.5rem;line-height:1}
 .calendar-id-panel__weekdays,.calendar-id-panel__days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 .calendar-id-panel__weekdays{margin-bottom:5px;text-align:center;color:var(--muted);font-size:.7rem;font-weight:800}
 .calendar-id-panel__day,.calendar-id-panel__empty{aspect-ratio:1;min-height:34px}
-.calendar-id-panel__day{border:0;border-radius:10px;background:#f6f7f4;color:var(--text);font-size:.82rem;font-weight:700}
+.calendar-id-panel__day{border:0;border-radius:10px;background:var(--surface-soft);color:var(--text);font-size:.82rem;font-weight:700}
 .calendar-id-panel__day.is-today{box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent)}
-.calendar-id-panel__day.is-selected{background:var(--accent);color:#fff;box-shadow:none}
+.calendar-id-panel__day.is-selected{background:var(--accent);color:var(--surface);box-shadow:none}
+.calendar-id-panel__day:disabled{background:transparent;color:var(--muted);cursor:not-allowed;opacity:.42}
 .calendar-id-panel__actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:16px}
 .calendar-id-panel__actions .btn{min-width:0;min-height:42px;padding-inline:8px;font-size:.82rem}
 
 @media(max-width:380px){
-  .calendar-id-panel{right:6px;bottom:6px;left:calc(var(--app-rail) + 6px);padding:0 12px 12px;border-radius:16px}
+  .calendar-id-panel{right:6px;bottom:6px;left:calc(var(--app-rail) + 6px);padding:0 12px 12px;border-radius:var(--radius-panel)}
   .calendar-id-panel__day,.calendar-id-panel__empty{min-height:30px}
 }

@@ -1,8 +1,8 @@
 .category-user-backdrop{
   position:fixed;
   inset:0;
-  background:rgba(31,42,36,.45);
-  backdrop-filter:blur(6px);
+  background:rgba(25,25,25,.36);
+  backdrop-filter:blur(2px);
   z-index:60;
   opacity:0;
   transition:opacity .2s ease;
@@ -18,10 +18,10 @@
   left:50%;
   transform:translate(-50%,-50%) scale(.98);
   width:min(92vw, 460px);
-  background:#fff;
-  border:1px solid rgba(223,231,220,.95);
-  border-radius:24px;
-  box-shadow:0 30px 80px -30px rgba(31,42,36,.45);
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-panel);
+  box-shadow:var(--shadow-raised);
   z-index:61;
   padding:24px;
   opacity:0;
@@ -78,6 +78,8 @@
   display:grid;
   gap:16px;
 }
+.category-user-panel__feedback{margin:0;color:var(--danger);font-size:.84rem;line-height:1.45}
+.category-user-panel__feedback[hidden]{display:none}
 
 .category-user-panel__field{
   display:grid;
@@ -92,7 +94,7 @@
   width:100%;
   padding:14px 16px;
   border:1px solid var(--line);
-  border-radius:18px;
+  border-radius:var(--radius-control);
   font-size:1rem;
 }
 
@@ -109,7 +111,7 @@
     max-height:calc(100dvh - 24px);
     overflow:auto;
     padding:20px;
-    border-radius:20px;
+    border-radius:var(--radius-panel);
   }
 
   .category-user-panel__header h3{
@@ -126,6 +128,6 @@
   .category-user-panel{
     width:calc(100vw - 16px);
     padding:16px;
-    border-radius:16px;
+    border-radius:var(--radius-panel);
   }
 }

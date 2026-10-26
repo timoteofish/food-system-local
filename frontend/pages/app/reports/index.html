@@ -1,1 +1,82 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Reports | Food System</title><link rel="stylesheet" href="../../../styles/base.css"/><link rel="stylesheet" href="../menu/styles.css"/><link rel="stylesheet" href="../../../styles/app-responsive.css"/><link rel="stylesheet" href="../../../styles/minimal-polish.css"/><style>.report-controls{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.report-controls label{display:grid;gap:6px}.report-controls input{padding:9px;border:1px solid #d7dce2;border-radius:8px}.report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.report-value{font-size:1.5rem;font-weight:700}.report-table{width:100%;border-collapse:collapse}.report-table th,.report-table td{text-align:left;padding:10px;border-bottom:1px solid #e5e7eb}@media(max-width:800px){.report-grid{grid-template-columns:1fr}}</style></head><body><div class="menu-shell"><aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Main navigation"><a href="../dashboard/index.html">Dashboard</a><a href="../orders/index.html">Orders</a><a href="../kitchen/index.html">Kitchen</a><a href="../inventory/index.html">Inventory</a><a class="active" href="./index.html">Reports</a></nav></aside><main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Business intelligence</p><h1>Reports</h1></div></div><section class="panel"><div class="report-controls"><label>From<input type="date" id="fromDate"/></label><label>To<input type="date" id="toDate"/></label><button class="btn btn--primary" id="loadReport" type="button">Load report</button></div></section><section class="report-grid"><article class="panel"><span>Orders</span><div class="report-value" id="orderTotal">0</div></article><article class="panel"><span>Revenue</span><div class="report-value" id="revenueTotal">R$ 0,00</div></article><article class="panel"><span>Average ticket</span><div class="report-value" id="averageTicket">R$ 0,00</div></article></section><section class="panel"><h2>Top products</h2><table class="report-table"><thead><tr><th>Product</th><th>Quantity</th><th>Revenue</th></tr></thead><tbody id="productRows"></tbody></table></section><section class="panel"><h2>Critical stock</h2><div id="criticalStock"></div></section></main></div><script src="../../../env.js"></script><script type="module" src="./app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Relatórios | Food System</title>
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../operations.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="menu-shell">
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__brand-row">
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
+        </div>
+        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+          <a href="../dashboard/index.html">Painel</a>
+          <a href="../orders/index.html">Pedidos</a>
+          <a href="../kitchen/index.html">Cozinha</a>
+          <a href="../inventory/index.html">Estoque</a>
+          <a class="active" href="./index.html" aria-current="page">Relatórios</a>
+        </nav>
+      </aside>
+
+      <main class="content menu-content">
+        <div class="page-title">
+          <div>
+            <p class="eyebrow">Indicadores do negócio</p>
+            <h1>Relatórios</h1>
+          </div>
+        </div>
+
+        <form id="reportForm" class="panel report-filter-panel" aria-label="Período do relatório">
+          <div class="report-controls">
+            <label for="fromDate">Data inicial<input type="date" id="fromDate" required /></label>
+            <label for="toDate">Data final<input type="date" id="toDate" required /></label>
+            <button class="btn btn--primary" id="loadReport" type="submit">Atualizar relatório</button>
+          </div>
+          <p id="reportFeedback" class="operation-feedback report-feedback" role="status" aria-live="polite" hidden></p>
+        </form>
+
+        <section class="operation-grid report-grid" id="reportMetrics" aria-label="Indicadores do período" aria-busy="true">
+          <article class="panel"><span>Pedidos</span><strong class="report-value" id="orderTotal">—</strong></article>
+          <article class="panel"><span>Faturamento</span><strong class="report-value" id="revenueTotal">—</strong></article>
+          <article class="panel"><span>Valor médio por pedido</span><strong class="report-value" id="averageTicket">—</strong></article>
+          <article class="panel"><span>Custo dos produtos</span><strong class="report-value" id="cogsTotal">—</strong></article>
+          <article class="panel"><span>Lucro bruto</span><strong class="report-value" id="grossProfit">—</strong></article>
+          <article class="panel"><span>Margem bruta</span><strong class="report-value" id="grossMargin">—</strong></article>
+        </section>
+
+        <section class="panel report-section">
+          <h2>Produtos mais vendidos</h2>
+          <div class="report-table-wrap">
+            <table class="report-table">
+              <thead>
+                <tr><th scope="col">Produto</th><th scope="col">Quantidade</th><th scope="col">Faturamento</th></tr>
+              </thead>
+              <tbody id="productRows" aria-live="polite" aria-busy="true"><tr><td colspan="3" class="report-empty" role="status">Carregando relatório</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel report-section">
+          <div class="report-section-heading">
+            <h2>Estoque crítico</h2>
+            <span>Posição atual</span>
+          </div>
+          <div id="criticalStock" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Carregando relatório</p></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

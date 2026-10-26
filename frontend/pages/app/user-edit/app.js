@@ -1,6 +1,7 @@
 import "../../../shared/i18n/legacy-control.js";
 import { checkForSystemUpdates } from "../../../shared/auth/auth.js";
 import { getSession } from "../../../shared/data/storage.js";
+import { translate } from "../../../shared/i18n/i18n.js";
 
 const session = getSession() || {};
 const avatarInput = document.getElementById("userAvatarInput");
@@ -56,16 +57,32 @@ document.querySelectorAll("[data-action='close-app']").forEach((button) => {
 checkUpdateButton?.addEventListener("click", async () => {
   checkUpdateButton.disabled = true;
   updateFeedback.hidden = false;
-  updateFeedback.textContent = "Verificando atualizações...";
+  updateFeedback.dataset.state = "loading";
+  updateFeedback.textContent = translate("Verificando atualizações");
   try {
     const result = await checkForSystemUpdates();
-    updateFeedback.textContent = result.update_available
+    const safeUpdateUrl = typeof result.download_url === "string" && /^https:\/\//i.test(result.download_url)
       ? result.download_url
-        ? `Versão ${result.available_version} disponível. Abra o link para atualizar quando quiser.`
-        : `A versão ${result.available_version} está registrada, mas o pacote ainda não foi publicado.`
-      : `Você já está usando a versão ${result.current_version}.`;
+      : "";
+    updateFeedback.dataset.state = result.update_available ? "available" : "success";
+    if (result.update_available && safeUpdateUrl) {
+      const message = document.createTextNode(
+        `${translate(`Versão ${result.available_version} disponível. Abra o link para atualizar quando quiser.`)} `
+      );
+      const link = document.createElement("a");
+      link.href = safeUpdateUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = translate("Baixar atualização");
+      updateFeedback.replaceChildren(message, link);
+    } else {
+      updateFeedback.textContent = result.update_available
+        ? translate(`A versão ${result.available_version} está registrada, mas o pacote ainda não foi publicado`)
+        : translate(`Você já está usando a versão ${result.current_version}`);
+    }
   } catch (error) {
-    updateFeedback.textContent = error?.message || "Não foi possível verificar atualizações.";
+    updateFeedback.dataset.state = "error";
+    updateFeedback.textContent = translate("Não foi possível verificar atualizações");
   } finally {
     checkUpdateButton.disabled = false;
   }

@@ -3,47 +3,120 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
     <title>Estoque | Food System</title>
+    <script>document.documentElement.dataset.sidebarReady = "false";</script>
     <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../menu/styles.css" />
+    <link rel="stylesheet" href="../shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
-    <style>
-      .inventory-form { display:grid; grid-template-columns:2fr 1fr 1fr 1fr auto; gap:12px; align-items:end; }
-      .inventory-form label { display:grid; gap:6px; font-size:.85rem; }
-      .inventory-form input,.inventory-form select { min-height:42px; padding:8px 10px; border:1px solid var(--border,#d7dce2); border-radius:8px; background:var(--surface,#fff); }
-      .inventory-table { width:100%; border-collapse:collapse; }
-      .inventory-table th,.inventory-table td { text-align:left; padding:13px 10px; border-bottom:1px solid var(--border,#e5e7eb); }
-      .inventory-table th { font-size:.8rem; text-transform:uppercase; color:#697386; }
-      .inventory-warning { color:#b45309; font-weight:700; }
-      @media (max-width:800px) { .inventory-form { grid-template-columns:1fr 1fr; } .inventory-form label:first-child { grid-column:1/-1; } .inventory-form button { grid-column:1/-1; } .inventory-table { min-width:650px; } .inventory-table-wrap { overflow:auto; } }
-    </style>
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="menu-shell">
       <aside class="menu-sidebar">
-        <div class="menu-sidebar__brand-row"><button class="menu-sidebar__toggle" id="menuSidebarToggle" type="button" aria-label="Minimizar menu">☰</button><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div>
+        <div class="menu-sidebar__brand-row">
+          
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
+        </div>
         <nav class="menu-sidebar__nav" aria-label="Navegação principal">
-          <a href="../dashboard/index.html">Painel</a><a href="../products/index.html">Produtos</a><a href="../menu/index.html">Cardápio</a><a href="../cashier/index.html">Caixa</a><a href="../orders/index.html">Pedidos</a><a class="active" href="./index.html">Estoque</a><a href="../team/index.html">Equipe</a>
+          <a href="../dashboard/index.html" aria-label="Painel"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 11 12 3l9 8v10h-7v-6h-4v6H3z" /></svg><span class="menu-label">Painel</span></a>
+          <a href="../products/index.html" aria-label="Produtos"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h7v7H4zm9 0h7v4h-7zM4 13h7v7H4zm9 4h7v3h-7zm0-8h7v5h-7z" /></svg><span class="menu-label">Produtos</span></a>
+          <a href="../menu/index.html" aria-label="Cardápio"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z" /></svg><span class="menu-label">Cardápio</span></a>
+          <a href="../cashier/index.html" aria-label="Caixa"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 7h12l-1 10H7zm3-3h6l1 2H8zm0 6v6h2v-6zm4 0v6h2v-6z" /></svg><span class="menu-label">Caixa</span></a>
+          <a href="../orders/index.html" aria-label="Pedidos"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 3h12v2H6zm0 4h12v2H6zm0 4h12v2H6zm0 4h8v2H6zm-2-12h2v2H4zm0 4h2v2H4zm0 4h2v2H4z" /></svg><span class="menu-label">Pedidos</span></a>
+          <a class="active" href="./index.html" aria-label="Estoque" aria-current="page"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 2 9 5v10l-9 5-9-5V7zm0 2.3L6 7.6l6 3.3 6-3.3zM5 9.3v6.5l6 3.3v-6.5zm14 0-6 3.3v6.5l6-3.3z" /></svg><span class="menu-label">Estoque</span></a>
+          <a href="../team/index.html" aria-label="Equipe"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm8-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20v-2c0-3 3-5 7-5s7 2 7 5v2zm14-7c3 0 6 1.5 6 4v3h-4v-2c0-2-1-3.5-2-5z" /></svg><span class="menu-label">Equipe</span></a>
         </nav>
-        <div class="profile menu-sidebar__profile"><button class="profile-btn" type="button" aria-label="Perfil">◉</button><span class="profile-label">Perfil</span></div>
+        <div class="profile menu-sidebar__profile">
+          <button class="profile-btn" type="button" aria-label="Perfil">
+            <svg class="profile-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z" />
+            </svg>
+          </button>
+          <span class="profile-label">Perfil</span>
+        </div>
       </aside>
       <main class="content menu-content">
-        <div class="page-title"><div><p class="eyebrow" data-i18n="operations">Operations management</p><h1 data-i18n="inventory">Inventory</h1></div><label><span data-i18n="language">Language</span><select id="languageSelect"><option value="pt" data-i18n="portuguese">Portuguese</option><option value="en" data-i18n="english">English</option></select></label></div>
-        <section class="panel"><h2 data-i18n="newIngredient">New ingredient</h2><form class="inventory-form" id="inventoryForm">
-          <label><span data-i18n="name">Name</span><input id="itemName" required maxlength="160" placeholder="Example: Beef" /></label>
-          <label><span data-i18n="unit">Unit</span><select id="itemUnit"><option value="unit">Unit</option><option value="g">Grams</option><option value="kg">Kilograms</option><option value="ml">Milliliters</option><option value="l">Liters</option></select></label>
-          <label><span data-i18n="quantity">Quantity</span><input id="itemQuantity" type="number" min="0" step="0.001" value="0" /></label>
-          <label><span data-i18n="minimumStock">Minimum stock</span><input id="itemMinimum" type="number" min="0" step="0.001" value="0" /></label>
-          <button class="btn btn--primary" type="submit" data-i18n="register">Register</button>
-        </form><p id="inventoryMessage" role="status"></p></section>
-        <section class="panel"><h2>Stock movement</h2><form class="inventory-form" id="movementForm"><label>Ingredient<select id="movementItem"></select></label><label>Type<select id="movementType"><option value="purchase">Purchase</option><option value="adjustment">Adjustment</option><option value="loss">Loss</option></select></label><label>Quantity<input id="movementQuantity" type="number" min="0.001" step="0.001" required /></label><label>Description<input id="movementDescription" maxlength="255" /></label><button class="btn btn--primary" type="submit">Save movement</button></form><p id="movementMessage" role="status"></p></section>
-        <section class="panel"><h2>Receive purchase</h2><form class="inventory-form" id="purchaseForm"><label>Supplier<select id="purchaseSupplier"><option value="">No supplier</option></select></label><label>Ingredient<select id="purchaseItem"></select></label><label>Quantity<input id="purchaseQuantity" type="number" min="0.001" step="0.001" required /></label><label>Unit cost<input id="purchaseUnitCost" type="number" min="0" step="0.0001" required /></label><button class="btn btn--primary" type="submit">Receive purchase</button></form><p id="purchaseMessage" role="status"></p></section>
-        <section class="panel"><h2>Product recipe</h2><form class="inventory-form" id="recipeForm"><label>Product<select id="recipeProduct"></select></label><label>Ingredient<select id="recipeItem"></select></label><label>Quantity<input id="recipeQuantity" type="number" min="0.001" step="0.001" required /></label><button class="btn btn--primary" type="submit">Save recipe</button></form><p id="recipeMessage" role="status"></p></section>
-        <section class="panel"><h2 data-i18n="registeredItems">Registered ingredients</h2><div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th data-i18n="name">Name</th><th data-i18n="unit">Unit</th><th data-i18n="current">Current</th><th data-i18n="minimum">Minimum</th><th data-i18n="status">Status</th></tr></thead><tbody id="inventoryRows"></tbody></table></div></section>
+        <header class="page-title inventory-title">
+          <div>
+            <p class="eyebrow">Operação</p>
+            <h1>Estoque</h1>
+            <p class="inventory-intro">Gerencie saldos, compras e fichas técnicas</p>
+          </div>
+        </header>
+        <p id="inventoryLoadMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+        <button class="btn btn--secondary inventory-load-retry" id="inventoryLoadRetry" type="button" hidden>Tentar novamente</button>
+
+        <section class="inventory-workspace" aria-label="Ações de estoque">
+          <article class="panel inventory-panel">
+            <div class="inventory-panel__heading"><h2>Novo insumo</h2><p>Defina a quantidade inicial e o nível mínimo</p></div>
+            <form class="inventory-form" id="inventoryForm">
+              <label for="itemName"><span>Nome do insumo</span><input id="itemName" required maxlength="160" placeholder="Ex.: Carne bovina" /></label>
+              <label for="itemUnit"><span>Unidade</span><select id="itemUnit"><option value="unit">Unidade</option><option value="g">Gramas</option><option value="kg">Quilogramas</option><option value="ml">Mililitros</option><option value="l">Litros</option></select></label>
+              <label for="itemQuantity"><span>Quantidade inicial</span><input id="itemQuantity" type="number" min="0" step="0.001" value="0" inputmode="decimal" /></label>
+              <label for="itemMinimum"><span>Estoque mínimo</span><input id="itemMinimum" type="number" min="0" step="0.001" value="0" inputmode="decimal" /></label>
+              <button class="btn btn--primary" type="submit">Cadastrar insumo</button>
+            </form>
+            <p id="inventoryMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+          </article>
+
+          <article class="panel inventory-panel">
+            <div class="inventory-panel__heading"><h2>Ajuste ou perda</h2><p>Corrija a quantidade disponível ou registre uma perda</p></div>
+            <form class="inventory-form" id="movementForm">
+              <label for="movementItem"><span>Insumo</span><select id="movementItem" disabled><option value="">Carregando insumos</option></select></label>
+              <label for="movementType"><span>Tipo de movimentação</span><select id="movementType"><option value="adjustment">Ajuste</option><option value="loss">Perda</option></select></label>
+              <label id="movementDirectionField" for="movementDirection" hidden><span>Direção do ajuste</span><select id="movementDirection"><option value="1">Adicionar ao estoque</option><option value="-1">Retirar do estoque</option></select></label>
+              <label for="movementQuantity"><span>Quantidade</span><input id="movementQuantity" type="number" min="0.001" step="0.001" required inputmode="decimal" /></label>
+              <label for="movementDescription"><span>Descrição <span class="inventory-optional">Opcional</span></span><input id="movementDescription" maxlength="255" placeholder="Ex.: Contagem semanal" /></label>
+              <button class="btn btn--primary" id="movementSubmit" type="submit" disabled>Registrar movimentação</button>
+            </form>
+            <p id="movementMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+          </article>
+
+          <article class="panel inventory-panel">
+            <div class="inventory-panel__heading"><h2>Registrar compra</h2><p>Atualize o saldo e o custo médio</p></div>
+            <form class="inventory-form" id="purchaseForm">
+              <label for="purchaseSupplier"><span>Fornecedor <span class="inventory-optional">Opcional</span></span><select id="purchaseSupplier" disabled><option value="">Carregando fornecedores</option></select></label>
+              <label for="purchaseItem"><span>Insumo</span><select id="purchaseItem" disabled><option value="">Carregando insumos</option></select></label>
+              <label for="purchaseQuantity"><span>Quantidade</span><input id="purchaseQuantity" type="number" min="0.001" step="0.001" required inputmode="decimal" /></label>
+              <label for="purchaseUnitCost"><span>Custo por unidade</span><input id="purchaseUnitCost" type="number" min="0" step="0.0001" required inputmode="decimal" /></label>
+              <button class="btn btn--primary" id="purchaseSubmit" type="submit" disabled>Salvar compra</button>
+            </form>
+            <p id="purchaseMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+          </article>
+
+          <article class="panel inventory-panel">
+            <div class="inventory-panel__heading"><h2>Ficha técnica</h2><p>Informe os insumos e as quantidades de cada produto</p></div>
+            <p class="inventory-note" role="note">Ao salvar, esta ficha substitui a anterior Inclua todos os insumos antes de continuar</p>
+            <form class="inventory-form inventory-recipe-form" id="recipeForm">
+              <label for="recipeProduct"><span>Produto</span><select id="recipeProduct" disabled><option value="">Carregando produtos</option></select></label>
+              <div class="inventory-recipe-form__add-row">
+                <label for="recipeItem"><span>Insumo</span><select id="recipeItem" disabled><option value="">Carregando insumos</option></select></label>
+                <label for="recipeQuantity"><span>Quantidade por produto</span><input id="recipeQuantity" type="number" min="0.001" step="0.001" inputmode="decimal" /></label>
+                <button class="btn btn--secondary" id="addRecipeIngredient" type="button" disabled>Adicionar insumo</button>
+              </div>
+              <ul class="inventory-recipe-list" id="recipeIngredients" aria-label="Insumos da ficha técnica" aria-live="polite"></ul>
+              <button class="btn btn--primary" id="recipeSubmit" type="submit" disabled>Salvar ficha técnica</button>
+            </form>
+            <p id="recipeMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+          </article>
+        </section>
+
+        <section class="panel inventory-list-panel">
+          <div class="inventory-list-panel__heading"><div><p class="eyebrow">Saldo atual</p><h2>Insumos cadastrados</h2></div><span id="inventoryCount" class="inventory-count">—</span></div>
+          <div class="inventory-table-wrap">
+            <table class="inventory-table" aria-label="Lista de insumos">
+              <thead><tr><th>Insumo</th><th>Unidade</th><th>Quantidade atual</th><th>Estoque mínimo</th><th>Situação</th></tr></thead>
+              <tbody id="inventoryRows" aria-busy="true"><tr><td class="inventory-empty" colspan="5" role="status">Carregando insumos</td></tr></tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </div>
-    <script src="../../../env.js"></script><script type="module" src="./app.js"></script>
+    <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

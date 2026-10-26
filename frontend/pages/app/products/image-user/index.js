@@ -1,3 +1,5 @@
+import { translate } from "../../../../shared/i18n/i18n.js";
+
 const panelId = "imageUserPanel";
 const backdropId = "imageUserBackdrop";
 
@@ -25,37 +27,37 @@ const ensurePanel = () => {
   panel.hidden = true;
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "true");
-  panel.setAttribute("aria-label", "Editar imagem do produto");
+  panel.setAttribute("aria-label", translate("Editar imagem do produto"));
   panel.innerHTML = `
-    <button type="button" class="image-user-panel__close" data-image-user-close aria-label="Fechar">×</button>
+    <button type="button" class="image-user-panel__close" data-image-user-close aria-label="${translate("Fechar")}">×</button>
     <div class="image-user-panel__header">
-      <p class="image-user-panel__eyebrow">Imagem</p>
-      <h3>Imagem do produto</h3>
-      <p class="image-user-panel__subtitle">Ajuste o enquadramento</p>
+      <p class="image-user-panel__eyebrow">${translate("Imagem")}</p>
+      <h3>${translate("Imagem do produto")}</h3>
+      <p class="image-user-panel__subtitle">${translate("Ajuste o enquadramento")}</p>
     </div>
     <div class="image-user-panel__body">
       <div class="image-user-panel__stage">
         <div class="image-user-panel__canvas" data-image-user-canvas>
-          <img class="image-user-panel__image" data-image-user-image alt="Pré-visualização da imagem" draggable="false" />
+          <img class="image-user-panel__image" data-image-user-image alt="${translate("Pré-visualização da imagem")}" draggable="false" />
           <div class="image-user-panel__empty" data-image-user-empty>
-            Selecione uma imagem
+            ${translate("Selecione uma imagem")}
           </div>
         </div>
       </div>
       <div class="image-user-panel__controls">
         <label class="image-user-panel__field">
-          <span>Imagem</span>
+          <span>${translate("Imagem")}</span>
           <input type="file" accept="image/*" data-image-user-file />
         </label>
         <label class="image-user-panel__field">
-          <span>Zoom</span>
+          <span>${translate("Zoom")}</span>
           <input type="range" min="0.5" max="2" step="0.01" value="1" data-image-user-zoom />
         </label>
-        <div class="image-user-panel__hint">Arraste para reposicionar</div>
+        <div class="image-user-panel__hint">${translate("Arraste para reposicionar")}</div>
       </div>
       <div class="image-user-panel__actions">
-        <button type="button" class="btn btn--secondary" data-image-user-cancel>Cancelar</button>
-        <button type="button" class="btn btn--primary" data-image-user-save>Aplicar imagem</button>
+        <button type="button" class="btn btn--secondary" data-image-user-cancel>${translate("Cancelar")}</button>
+        <button type="button" class="btn btn--primary" data-image-user-save>${translate("Aplicar imagem")}</button>
       </div>
     </div>
   `;

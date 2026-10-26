@@ -1,1 +1,72 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Entregas | Food System</title><link rel="stylesheet" href="../../../styles/base.css"><link rel="stylesheet" href="../menu/styles.css"><link rel="stylesheet" href="../../../styles/app-responsive.css"><link rel="stylesheet" href="../../../styles/minimal-polish.css"><style>.delivery-grid{display:grid;grid-template-columns:1fr 2fr;gap:16px}.delivery-form{display:grid;gap:10px}.delivery-form input,.delivery-form select{padding:10px;border:1px solid #d7dce2;border-radius:8px}.delivery-list{display:grid;gap:10px}.delivery-card{border:1px solid #e5e7eb;border-radius:10px;padding:14px;background:#fff;display:grid;gap:8px}.delivery-card__head{display:flex;justify-content:space-between;gap:10px}.delivery-card__meta{color:#697386;font-size:.9rem}.delivery-actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:800px){.delivery-grid{grid-template-columns:1fr}}</style></head><body><div class="menu-shell"><aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Navegação principal"><a href="../dashboard/index.html">Painel</a><a href="../orders/index.html">Pedidos</a><a class="active" href="./index.html">Entregas</a><a href="../inventory/index.html">Estoque</a><a href="../cashier/index.html">Caixa</a></nav></aside><main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Logística</p><h1>Entregadores e entregas</h1></div></div><div class="delivery-grid"><section class="panel"><h2>Novo entregador</h2><form class="delivery-form" id="courierForm"><label>Nome<input id="courierName" required maxlength="160"></label><label>Telefone<input id="courierPhone" maxlength="40"></label><button class="btn btn--primary" type="submit">Cadastrar</button></form><p id="courierMessage" role="status"></p><h2>Entregadores</h2><div id="courierList"></div></section><section class="panel"><h2>Fila de entregas</h2><div class="delivery-list" id="deliveryList"></div><p id="deliveryMessage" role="status"></p></section></div></main></div><script src="../../../env.js"></script><script type="module" src="./app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Entregas | Food System</title>
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../operations.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="menu-shell">
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__brand-row">
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
+        </div>
+        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+          <a href="../dashboard/index.html">Painel</a>
+          <a href="../orders/index.html">Pedidos</a>
+          <a class="active" href="./index.html" aria-current="page">Entregas</a>
+          <a href="../inventory/index.html">Estoque</a>
+          <a href="../cashier/index.html">Caixa</a>
+        </nav>
+      </aside>
+
+      <main class="content menu-content">
+        <div class="page-title">
+          <div>
+            <p class="eyebrow">Entregas</p>
+            <h1>Gestão de entregas</h1>
+            <p class="delivery-intro">Cadastre entregadores e acompanhe o andamento das entregas</p>
+          </div>
+        </div>
+        <p class="delivery-load-error" id="deliveryLoadError" role="alert" hidden></p>
+        <button class="btn btn--secondary delivery-load-retry" id="deliveryLoadRetry" type="button" hidden>Tentar novamente</button>
+
+        <div class="operation-grid delivery-grid">
+          <section class="panel delivery-couriers" aria-labelledby="courierHeading">
+            <h2 id="courierHeading">Cadastrar entregador</h2>
+            <form class="operation-form" id="courierForm">
+              <label for="courierName">Nome
+                <input id="courierName" name="name" autocomplete="name" required maxlength="160" />
+              </label>
+              <label for="courierPhone"><span>Telefone <span class="delivery-optional">Opcional</span></span>
+                <input id="courierPhone" name="phone" type="tel" autocomplete="tel" maxlength="40" />
+              </label>
+              <button class="btn btn--primary" type="submit">Adicionar entregador</button>
+            </form>
+            <p class="operation-message" id="courierMessage" role="status" aria-live="polite"></p>
+
+            <h2 class="delivery-couriers__list-title">Entregadores cadastrados</h2>
+            <div class="courier-list" id="courierList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Carregando entregadores</p></div>
+          </section>
+
+          <section class="panel delivery-queue" aria-labelledby="deliveryHeading">
+            <h2 id="deliveryHeading">Fila de entregas</h2>
+            <div class="operation-list delivery-list" id="deliveryList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Carregando entregas</p></div>
+            <p class="operation-message" id="deliveryMessage" role="status" aria-live="polite"></p>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

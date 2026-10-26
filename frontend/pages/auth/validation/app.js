@@ -47,7 +47,7 @@ photoInput.addEventListener("change", () => {
   if (!file) return;
 
   if (!file.type.startsWith("image/")) {
-    showFeedback("Escolha um arquivo de imagem.");
+    showFeedback("Escolha um arquivo de imagem");
     photoInput.value = "";
     return;
   }
@@ -66,7 +66,7 @@ form.addEventListener("submit", async (event) => {
 
   const businessName = businessNameInput.value.trim();
   if (!businessName) {
-    showFeedback("Informe o nome da empresa para continuar.");
+    showFeedback("Informe o nome do comércio para continuar");
     businessNameInput.focus();
     return;
   }
@@ -82,6 +82,6 @@ form.addEventListener("submit", async (event) => {
     await completeRegistration();
     window.location.href = "../../app/dashboard/index.html";
   } catch (error) {
-    showFeedback(error?.message || "Não foi possível concluir o cadastro.");
+    showFeedback(error?.message || "Não foi possível concluir o cadastro");
   }
 });

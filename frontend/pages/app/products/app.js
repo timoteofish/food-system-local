@@ -10,8 +10,10 @@ import { initAppShell } from "../../../shared/ui/ui.js";
 import { initCategoryUserPanel } from "./category-user/index.js";
 import { initImageUserPanel } from "./image-user/index.js";
 import { initProductDetailsPanel } from "./id-product/index.js";
+import { translate } from "../../../shared/i18n/i18n.js";
 
 let products = [];
+let productsLoadFailed = false;
 
 const list = document.getElementById("productList");
 const mobileList = document.getElementById("mobileProductList");
@@ -20,12 +22,16 @@ const imageInput = document.getElementById("productImage");
 const previewImg = document.getElementById("previewImg");
 const imagePickerTitle = document.getElementById("imagePickerTitle");
 const openImageUserPanelButton = document.getElementById("openImageUserPanel");
+const imagePreview = document.getElementById("imagePreview");
 const priceInput = document.getElementById("productPrice");
 const searchInput = document.getElementById("productSearch");
 const categorySelect = document.getElementById("productCategory");
 const productCategoryButton = document.getElementById("productCategoryButton");
 const categoryDropdown = document.getElementById("categoryDropdown");
 const categoryList = document.getElementById("categoryList");
+const productFeedback = document.getElementById("productFeedback");
+const productCount = document.getElementById("productCount");
+const productsRetry = document.getElementById("productsRetry");
 
 let searchQuery = "";
 let productImage = "";
@@ -36,23 +42,22 @@ const ensureImageActions = () => {
   const actions = document.createElement("div");
   actions.className = "image-actions image-actions--overlay";
   actions.innerHTML = `
-    <button type="button" class="image-actions__item" data-image-action="edit">Editar imagem</button>
-    <button type="button" class="image-actions__item" data-image-action="replace">Trocar foto</button>
-    <button type="button" class="image-actions__item image-actions__item--danger" data-image-action="remove">Remover foto</button>
+    <button type="button" class="image-actions__item" data-image-action="edit">${translate("Editar imagem")}</button>
+    <button type="button" class="image-actions__item" data-image-action="replace">${translate("Trocar foto")}</button>
+    <button type="button" class="image-actions__item image-actions__item--danger" data-image-action="remove">${translate("Remover foto")}</button>
   `;
-  openImageUserPanelButton?.append(actions);
+  imagePreview?.append(actions);
   imageActions = actions;
   return actions;
 };
 
 const syncCategorySelect = () => {
-  const categories = categoryNames;
-  categorySelect.innerHTML = categories.map((item) => `<option>${escapeHtml(item)}</option>`).join("");
-  if (!categories.includes(categorySelect.value)) {
-    categorySelect.value = categories[0] || "Hamburgueres";
-  }
+  categorySelect.innerHTML = categoryNames.length
+    ? categoryNames.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("")
+    : `<option value="">${translate("Selecione uma categoria")}</option>`;
+  if (!categoryNames.includes(categorySelect.value)) categorySelect.value = categoryNames[0] || "";
   if (productCategoryButton) {
-    productCategoryButton.textContent = `${categorySelect.value} ▾`;
+    productCategoryButton.textContent = categorySelect.value || translate("Escolher categoria");
   }
 };
 
@@ -68,11 +73,27 @@ const buildCategoryList = () => {
 
 const closeDropdown = () => {
   if (categoryDropdown) categoryDropdown.hidden = true;
+  productCategoryButton?.setAttribute("aria-expanded", "false");
 };
 
 const openDropdown = () => {
   buildCategoryList();
   if (categoryDropdown) categoryDropdown.hidden = false;
+  productCategoryButton?.setAttribute("aria-expanded", "true");
+};
+
+const showProductFeedback = (message, state = "error") => {
+  if (!productFeedback) return;
+  productFeedback.textContent = message;
+  productFeedback.dataset.state = state;
+  productFeedback.hidden = false;
+};
+
+const clearProductFeedback = () => {
+  if (!productFeedback) return;
+  productFeedback.hidden = true;
+  productFeedback.textContent = "";
+  productFeedback.removeAttribute("data-state");
 };
 
 const categoryUserPanel = initCategoryUserPanel({
@@ -81,9 +102,11 @@ const categoryUserPanel = initCategoryUserPanel({
     syncCategorySelect();
     categorySelect.value = value;
     if (productCategoryButton) {
-      productCategoryButton.textContent = `${value} ▾`;
+      productCategoryButton.textContent = value;
     }
     buildCategoryList();
+    clearProductFeedback();
+    productsRetry.hidden = true;
   },
 });
 
@@ -95,9 +118,13 @@ const imageUserPanel = initImageUserPanel({
       previewImg.hidden = !result;
     }
     if (imagePickerTitle) {
-      imagePickerTitle.textContent = result ? "Foto pronta" : "Adicionar imagem";
+      imagePickerTitle.textContent = translate(result ? "Foto pronta" : "Adicionar imagem");
       imagePickerTitle.hidden = Boolean(result);
     }
+    openImageUserPanelButton?.setAttribute(
+      "aria-label",
+      translate(result ? "Editar imagem do produto" : "Adicionar imagem ao produto")
+    );
     if (!result && imageActions) {
       imageActions.remove();
       imageActions = null;
@@ -113,9 +140,10 @@ const clearProductImage = () => {
     previewImg.hidden = true;
   }
   if (imagePickerTitle) {
-    imagePickerTitle.textContent = "Adicionar imagem";
+    imagePickerTitle.textContent = translate("Adicionar imagem");
     imagePickerTitle.hidden = false;
   }
+  openImageUserPanelButton?.setAttribute("aria-label", translate("Adicionar imagem ao produto"));
   if (imageActions) {
     imageActions.remove();
     imageActions = null;
@@ -142,13 +170,7 @@ const renderImage = (item) => {
 const updateProductStatus = async (id) => {
   const index = products.findIndex((item) => item.id === id);
   if (index === -1) return null;
-
-  try {
-    products[index] = await toggleProductStatus(products[index]);
-  } catch {
-    products[index] = { ...products[index], active: !products[index].active };
-  }
-
+  products[index] = await toggleProductStatus(products[index]);
   return products[index];
 };
 
@@ -157,60 +179,104 @@ const render = () => {
   const visible = query
     ? products.filter(
         (item) =>
-      item.name?.toLowerCase().includes(query) ||
-      item.description?.toLowerCase().includes(query) ||
-      item.category?.toLowerCase().includes(query) ||
-      item.id?.toLowerCase().includes(query)
+          String(item.name || "").toLowerCase().includes(query) ||
+          String(item.description || "").toLowerCase().includes(query) ||
+          String(item.category || "").toLowerCase().includes(query) ||
+          String(item.id || "").toLowerCase().includes(query)
       )
     : products;
 
-  list.innerHTML = visible
-    .map(
-      (item) => `
+  if (productCount) {
+    const total = products.length;
+    if (productsLoadFailed) {
+      productCount.textContent = translate("Lista indisponível");
+    } else if (query) {
+      productCount.textContent = translate("$1 de $2 produtos encontrados")
+        .replace("$1", String(visible.length))
+        .replace("$2", String(total));
+    } else {
+      productCount.textContent = `${total} ${translate(total === 1 ? "produto" : "produtos")}`;
+    }
+  }
+
+  const productRows = visible.map((item) => {
+    const productName = escapeHtml(item.name || translate("Produto sem nome"));
+    const statusLabel = translate(item.active ? "Ativo" : "Inativo");
+    const statusAction = translate(item.active ? "Desativar produto" : "Ativar produto");
+    return `
       <tr data-id="${escapeHtml(item.id)}">
         <td>${renderImage(item)}</td>
-        <td><strong>${escapeHtml(item.name)}</strong><br><span>${escapeHtml(item.description || "")}</span></td>
+        <td><strong>${productName}</strong><br /><span>${escapeHtml(item.description || "")}</span></td>
         <td>${escapeHtml(item.id || "")}</td>
-        <td>${escapeHtml(item.category)}</td>
+        <td>${escapeHtml(item.category || "")}</td>
         <td>${escapeHtml(formatPrice(item.price))}</td>
         <td>
-          <button class="status-btn ${item.active ? "status-btn--active" : "status-btn--inactive"}" data-id="${escapeHtml(item.id)}" aria-pressed="${item.active}">${item.active ? "Ativo" : "Inativo"}</button>
+          <button
+            class="status-btn ${item.active ? "status-btn--active" : "status-btn--inactive"}"
+            type="button"
+            data-id="${escapeHtml(item.id)}"
+            aria-pressed="${item.active}"
+            aria-label="${statusAction}: ${productName}"
+          >${statusLabel}</button>
         </td>
       </tr>
-    `
-    )
-    .join("");
+    `;
+  }).join("");
+
+  if (productsLoadFailed) {
+    list.setAttribute("aria-busy", "false");
+    list.innerHTML = `<tr><td class="products-table-empty" colspan="6">${translate("A lista de produtos está indisponível.")}</td></tr>`;
+  } else if (visible.length) {
+    list.setAttribute("aria-busy", "false");
+    list.innerHTML = productRows;
+  } else {
+    list.setAttribute("aria-busy", "false");
+    const message = translate(query ? "Nenhum produto corresponde à busca" : "Nenhum produto cadastrado");
+    list.innerHTML = `<tr><td class="products-table-empty" colspan="6">${message}</td></tr>`;
+  }
 
   if (mobileList) {
-    mobileList.innerHTML = visible.length
-      ? visible
-          .map(
-            (item) => `
-              <button class="mobile-product-list__item" type="button" data-product-detail="${escapeHtml(item.id)}">
-                <span>${escapeHtml(item.name || "Produto sem nome")}</span>
-                <b class="mobile-product-list__arrow" aria-hidden="true">›</b>
-              </button>
-            `
-          )
-          .join("")
-      : '<p class="mobile-product-list__empty">Nenhum produto encontrado</p>';
+    if (productsLoadFailed) {
+      mobileList.innerHTML = `<p class="mobile-product-list__empty">${translate("A lista de produtos está indisponível.")}</p>`;
+    } else if (visible.length) {
+      mobileList.innerHTML = visible.map((item) => `
+        <button class="mobile-product-list__item" type="button" data-product-detail="${escapeHtml(item.id)}">
+          <span>${escapeHtml(item.name || translate("Produto sem nome"))}</span>
+          <b class="mobile-product-list__arrow" aria-hidden="true">›</b>
+        </button>
+      `).join("");
+    } else {
+      mobileList.innerHTML = `<p class="mobile-product-list__empty">${translate(query ? "Nenhum produto corresponde à busca" : "Nenhum produto cadastrado")}</p>`;
+    }
   }
 };
 
 const productDetailsPanel = initProductDetailsPanel({
   onToggleStatus: async (id) => {
-    const updated = await updateProductStatus(id);
-    render();
-    return updated;
+    try {
+      const updated = await updateProductStatus(id);
+      clearProductFeedback();
+      render();
+      return updated;
+    } catch {
+      showProductFeedback(translate("Não foi possível atualizar o status Tente novamente"));
+      return null;
+    }
   },
 });
 
 list.addEventListener("click", async (event) => {
   const button = event.target.closest(".status-btn");
   if (!button) return;
-
-  await updateProductStatus(button.dataset.id);
-  render();
+  button.disabled = true;
+  try {
+    await updateProductStatus(button.dataset.id);
+    clearProductFeedback();
+    render();
+  } catch {
+    button.disabled = false;
+    showProductFeedback(translate("Não foi possível atualizar o status Tente novamente"));
+  }
 });
 
 mobileList?.addEventListener("click", (event) => {
@@ -222,11 +288,24 @@ mobileList?.addEventListener("click", (event) => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const name = document.getElementById("productName").value.trim();
+  if (!name) {
+    document.getElementById("productName").focus();
+    showProductFeedback(translate("Informe o nome do produto"));
+    return;
+  }
+  if (!categorySelect.value) {
+    showProductFeedback(translate("Escolha uma categoria ou adicione uma nova"));
+    productCategoryButton.focus();
+    return;
+  }
+  const submitButton = form.querySelector('[type="submit"]');
+  submitButton.disabled = true;
 
   try {
     const saved = await saveProduct({
       id: generateId("prod"),
-      name: document.getElementById("productName").value.trim() || "Novo produto",
+      name,
       category: categorySelect.value,
       price: formatPrice(parsePrice(priceInput.value), { prefix: false }),
       description: document.getElementById("productDescription").value.trim(),
@@ -234,9 +313,12 @@ form.addEventListener("submit", async (event) => {
       active: true,
     });
     products.unshift(saved);
-  } catch (error) {
-    alert(error.message || "Não foi possível salvar o produto.");
+    showProductFeedback(translate("Produto adicionado"), "success");
+  } catch {
+    showProductFeedback(translate("Não foi possível adicionar o produto Verifique a conexão e tente novamente"));
     return;
+  } finally {
+    submitButton.disabled = false;
   }
   form.reset();
   clearProductImage();
@@ -247,28 +329,21 @@ form.addEventListener("submit", async (event) => {
 openImageUserPanelButton?.addEventListener("click", () => {
   if (productImage) {
     const actions = ensureImageActions();
-    actions.hidden = false;
+    actions.hidden = !actions.hidden;
     return;
   }
   imageUserPanel.open(productImage || "");
 });
 
-openImageUserPanelButton?.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-  event.preventDefault();
-  openImageUserPanelButton.click();
-});
-
 document.addEventListener("click", (event) => {
-  const insideImageArea =
-    openImageUserPanelButton?.contains(event.target) || imageActions?.contains(event.target);
+  const insideImageArea = imagePreview?.contains(event.target);
   if (!insideImageArea && imageActions) {
     imageActions.remove();
     imageActions = null;
   }
 });
 
-openImageUserPanelButton?.addEventListener("click", (event) => {
+imagePreview?.addEventListener("click", (event) => {
   const action = event.target.closest("[data-image-action]")?.dataset.imageAction;
   if (action && imageActions) {
     event.stopPropagation();
@@ -299,7 +374,7 @@ categoryList?.addEventListener("click", (event) => {
   const button = event.target.closest(".category-item");
   if (!button) return;
   categorySelect.value = button.dataset.value;
-  productCategoryButton.textContent = `${button.dataset.value} ▾`;
+  productCategoryButton.textContent = button.dataset.value;
   buildCategoryList();
   closeDropdown();
 });
@@ -321,12 +396,64 @@ searchInput?.addEventListener("input", (event) => {
 });
 
 let categoryNames = [];
+let appShellReady = false;
+let productsLoading = false;
 
-(async () => {
-  await initAppShell({ activeNav: "products" });
-  products = await loadProducts();
-  categoryNames = await loadCategories();
-  syncCategorySelect();
-  buildCategoryList();
-  render();
-})();
+productsRetry?.addEventListener("click", () => void initializeProducts());
+
+const initializeProducts = async () => {
+  if (productsLoading) return;
+  productsLoading = true;
+  productsRetry.hidden = true;
+  productsRetry.disabled = true;
+  searchInput.disabled = true;
+  const submitButton = form.querySelector('[type="submit"]');
+  submitButton.disabled = true;
+  clearProductFeedback();
+  list.setAttribute("aria-busy", "true");
+  if (!products.length) {
+    list.innerHTML = `<tr><td class="products-table-empty" colspan="6" role="status">${translate("Carregando produtos")}</td></tr>`;
+    mobileList.innerHTML = `<p class="mobile-product-list__empty" role="status">${translate("Carregando produtos")}</p>`;
+  }
+  let appShellFailed = false;
+  try {
+    if (!appShellReady) {
+      try {
+        await initAppShell({ activeNav: "products" });
+      } catch (error) {
+        appShellFailed = true;
+        throw error;
+      }
+      appShellReady = true;
+    }
+    products = await loadProducts();
+    productsLoadFailed = false;
+  } catch {
+    products = [];
+    productsLoadFailed = true;
+    render();
+    showProductFeedback(translate(appShellFailed
+      ? "Não foi possível abrir a página de produtos"
+      : "Não foi possível carregar os produtos Verifique a conexão e tente novamente"));
+    productsRetry.hidden = false;
+  }
+  if (!productsLoadFailed) {
+    submitButton.disabled = false;
+    searchInput.disabled = false;
+    try {
+      categoryNames = await loadCategories();
+      productsRetry.hidden = true;
+    } catch {
+      categoryNames = [];
+      showProductFeedback(translate("Não foi possível carregar as categorias Você ainda pode adicionar uma categoria nova"));
+      productsRetry.hidden = false;
+    }
+    syncCategorySelect();
+    buildCategoryList();
+    render();
+  }
+  productsLoading = false;
+  productsRetry.disabled = false;
+};
+
+void initializeProducts();

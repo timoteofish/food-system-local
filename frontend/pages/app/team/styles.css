@@ -1,19 +1,36 @@
 .team-layout{
   display:grid;
-  grid-template-columns:minmax(280px,360px) minmax(0,1fr);
-  gap:18px;
+  grid-template-columns:minmax(280px,340px) minmax(0,1fr);
+  gap:20px;
   align-items:start;
 }
 .team-invite,
 .team-list{
-  padding:18px;
+  padding:20px;
   display:grid;
-  gap:14px;
+  gap:16px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface);
+  box-shadow:0 8px 24px -22px rgba(30,14,17,.28);
 }
+.team-invite{border-top:2px solid var(--accent)}
+.team-invite__intro{
+  display:grid;
+  gap:6px;
+}
+.team-invite__intro p,
+.team-intro{
+  margin:0;
+  color:var(--muted);
+  line-height:1.55;
+}
+.team-intro{margin-top:7px}
 .team-invite h2,
 .team-list__head h2{
   margin:0;
   font-size:1.12rem;
+  letter-spacing:-.025em;
 }
 .team-list__head{
   display:flex;
@@ -22,23 +39,40 @@
   gap:12px;
 }
 .team-list__head span{
-  color:var(--muted);
+  display:inline-flex;
+  min-height:28px;
+  align-items:center;
+  padding:0 10px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--accent-soft);
+  color:var(--accent-dark);
+  font-variant-numeric:tabular-nums;
   font-weight:700;
-  font-size:.9rem;
+  font-size:.8rem;
 }
+.team-list__head span:empty{display:none}
+.team-list__head span{white-space:nowrap}
 .team-list__items{
   display:grid;
   gap:10px;
 }
 .team-member{
   display:grid;
-  grid-template-columns:minmax(0,1fr) 150px 130px auto;
+  grid-template-columns:minmax(150px,1fr) minmax(135px,165px) max-content auto;
   gap:12px;
   align-items:center;
-  padding:14px;
+  padding:14px 16px;
   border:1px solid var(--line);
-  border-radius:8px;
-  background:#fff;
+  border-radius:var(--radius-control);
+  background:var(--surface);
+  box-shadow:0 1px 2px rgba(20,20,20,.025);
+  transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+}
+.team-member:hover{
+  border-color:color-mix(in srgb,var(--accent) 24%,var(--line));
+  box-shadow:0 8px 20px -18px rgba(158,27,45,.5);
+  transform:translateY(-1px);
 }
 .team-member__identity{
   display:grid;
@@ -61,13 +95,18 @@
   border-radius:8px;
 }
 .team-member__status{
-  font-weight:800;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  font-size:.72rem;
+  justify-self:start;
+  padding:5px 9px;
+  border-radius:999px;
+  background:var(--accent-soft);
+  color:var(--accent-dark);
+  font-weight:700;
+  font-size:.76rem;
 }
-.team-member__status.is-active{color:var(--success)}
-.team-member__status.is-inactive{color:var(--danger)}
+.team-member__status.is-active{color:var(--accent-dark)}
+.team-member__status.is-inactive,
+.team-member__status.is-unknown{background:var(--surface-soft);color:var(--muted)}
+.team-member__status.is-pending{border:1px solid var(--line);background:var(--surface);color:var(--muted)}
 .team-member__actions{
   display:flex;
   justify-content:flex-end;
@@ -75,14 +114,35 @@
 }
 .team-empty{
   padding:24px;
+  border:1px dashed var(--line);
+  border-radius:12px;
+  background:var(--surface);
   text-align:center;
   color:var(--muted);
 }
+.team-empty p{margin:0 0 12px}
+.team-empty[role="alert"]{border:1px solid color-mix(in srgb,var(--danger) 18%,var(--line));border-radius:var(--radius-control);background:color-mix(in srgb,var(--danger) 4%,white)}
 @media(max-width:900px){
   .team-layout{grid-template-columns:1fr}
-  .team-member{grid-template-columns:1fr}
+  .team-member{grid-template-columns:minmax(0,1fr) minmax(150px,200px) max-content;}
+  .team-member__identity{grid-column:1 / -1}
   .team-member__identity strong,
   .team-member__identity span{white-space:normal}
   .team-member__actions{justify-content:stretch}
   .team-member__actions .btn{width:100%}
+}
+
+@media(max-width:560px){
+  .team-invite,.team-list{padding:16px;border-radius:14px}
+  .team-member{grid-template-columns:1fr;gap:10px;padding:14px}
+  .team-member__identity{grid-column:auto}
+  .team-member__role{min-height:42px}
+  .team-member__status{justify-self:start}
+  .team-list__head{align-items:flex-start}
+  .team-member:hover{transform:none}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .team-member{transition:none}
+  .team-member:hover{transform:none}
 }

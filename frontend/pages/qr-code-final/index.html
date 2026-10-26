@@ -6,12 +6,10 @@
     <title>Cardápio | Food System</title>
     <link rel="icon" href="../../assets/favicon.png" type="image/png" />
     <link rel="stylesheet" href="../../styles/base.css" />
-    <link rel="stylesheet" href="../app/menu/styles.css" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./menu.css" />
     <link rel="stylesheet" href="../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../styles/minimal-polish.css" />
-
-
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="customer-menu-page">
     <main class="customer-menu-shell">
@@ -26,13 +24,13 @@
           <div class="category-row" id="customerCategories"></div>
           <div class="menu-search">
             <svg class="menu-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-5.34C15.39 5.59 12.3 3 8.7 3S2 5.59 2 8.39 4.09 13.78 7.69 13.78c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM7.69 12.28C5.1 12.28 3 10.28 3 8.39S5.1 4.5 7.69 4.5 12.38 6.5 12.38 8.39 10.28 12.28 7.69 12.28z"/></svg>
-            <input id="customerMenuSearch" type="search" placeholder="Pesquisar produto" />
-            <button class="menu-bag" id="customerMenuBag" type="button" aria-live="polite" title="Itens no carrinho" aria-label="Abrir sacola de compras">
+            <input id="customerMenuSearch" type="search" placeholder="Buscar no cardápio" />
+            <button class="menu-bag" id="customerMenuBag" type="button" aria-live="polite" title="Itens na sacola" aria-label="Abrir sacola">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6 2l1 2h10l1-2H6zm13 4H5l-1 14a2 2 0 002 2h12a2 2 0 002-2L19 6zM9 10a1 1 0 112 0v4a1 1 0 11-2 0v-4zm4 0a1 1 0 112 0v4a1 1 0 11-2 0v-4z"/></svg>
               <span id="customerMenuBagCount">0</span>
             </button>
           </div>
-          <div class="menu-list" id="customerMenuList"></div>
+          <div class="menu-list" id="customerMenuList" aria-busy="true"><div class="customer-empty" role="status">Carregando cardápio</div></div>
           <div class="bag-panel-backdrop" id="customerBagBackdrop" hidden></div>
           <aside class="bag-panel panel customer-bag-panel" id="customerBagPanel" aria-hidden="true" role="dialog" aria-label="Sacola do pedido" hidden>
             <div class="bag-panel__header">
@@ -45,12 +43,12 @@
             <div class="bag-panel__items" id="customerBagItems"></div>
             <div class="bag-panel__footer">
               <label class="field" for="customerNameInput">
-                <span>Seu nome</span>
-                <input id="customerNameInput" type="text" placeholder="Ex: Maria" />
+                <span>Seu nome (opcional)</span>
+                <input id="customerNameInput" type="text" placeholder="Ex.: Maria" />
               </label>
               <label class="field" for="customerOrderType">
                 <span>Tipo do pedido</span>
-                <select id="customerOrderType"><option value="table">Mesa/balcão</option><option value="delivery">Entrega</option></select>
+                <select id="customerOrderType"><option value="table">Mesa ou balcão</option><option value="delivery">Entrega</option></select>
               </label>
               <div id="customerDeliveryFields" hidden>
                 <label class="field" for="deliveryStreet"><span>Rua</span><input id="deliveryStreet" type="text" autocomplete="street-address" /></label>
@@ -72,11 +70,12 @@
                 </select>
               </label>
               <div class="customer-payment-note" id="customerPaymentNote"></div>
+              <div class="customer-delivery-fee" id="customerDeliveryFeeRow" hidden><span>Taxa de entrega</span><strong id="customerDeliveryFeeTotal">R$ 0,00</strong></div>
               <div class="bag-panel__total">
                 <span>Total</span>
                 <strong id="customerBagTotal">R$ 0,00</strong>
               </div>
-              <button class="btn btn--primary" id="customerBagConfirm" type="button">Pagar e enviar pedido</button>
+              <button class="btn btn--primary" id="customerBagConfirm" type="button">Enviar pedido</button>
             </div>
           </aside>
           <section class="customer-success" id="customerSuccess" hidden aria-live="polite"></section>
@@ -85,6 +84,7 @@
     </main>
 
     <script src="../../env.js"></script>
+    <script type="module" src="../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

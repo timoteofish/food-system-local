@@ -3,7 +3,7 @@
   "short_name": "Entregas",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f4f7f3",
-  "theme_color": "#13795b",
+  "background_color": "#f7f7f6",
+  "theme_color": "#b4232f",
   "lang": "pt-BR"
 }

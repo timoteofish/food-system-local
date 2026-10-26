@@ -3,23 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login | Food System</title>
+    <title>Entrar | Food System</title>
     <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
-
-
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="login-page">
-    <div class="bg-blob bg-blob--1"></div>
-    <div class="bg-blob bg-blob--2"></div>
     <main class="shell">
       <section class="login-panel">
         <div class="auth-copy">
           <p class="eyebrow">Food System</p>
           <h1>Entrar</h1>
+          <p class="subtitle">Acesse o painel do seu comércio</p>
         </div>
         <form class="auth-form" id="loginForm">
           <div class="field">
@@ -34,7 +31,7 @@
             <label><input type="checkbox" id="lembrar" /> Lembrar-me</label>
             <a href="../forgot-password/index.html" class="forgot-link">Esqueceu a senha?</a>
           </div>
-          <p id="loginFeedback" class="form-feedback form-feedback--error" hidden></p>
+          <p id="loginFeedback" class="form-feedback form-feedback--error" role="alert" aria-live="polite" hidden></p>
           <button class="btn btn--primary" type="submit">Entrar no painel</button>
           <div class="social-row">
             <div class="divider">ou</div>
@@ -48,6 +45,7 @@
       </section>
     </main>
     <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

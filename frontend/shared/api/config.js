@@ -1,5 +1,13 @@
 const normalizeApiUrl = (value) => String(value || "").trim().replace(/\/+$/, "");
 
+const getStoredApiUrl = () => {
+  try {
+    return localStorage.getItem("food-system-api-url") || "";
+  } catch {
+    return "";
+  }
+};
+
 const resolveDefaultApiUrl = () => {
   const hostname = window.location.hostname;
   const isLocal = ["localhost", "127.0.0.1", ""].includes(hostname);
@@ -9,7 +17,7 @@ const resolveDefaultApiUrl = () => {
 
 export const API_BASE_URL =
   normalizeApiUrl(window.FOOD_SYSTEM_API_URL) ||
-  normalizeApiUrl(localStorage.getItem("food-system-api-url")) ||
+  normalizeApiUrl(getStoredApiUrl()) ||
   resolveDefaultApiUrl();
 
 export const isApiEnabled = () => Boolean(API_BASE_URL);

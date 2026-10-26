@@ -4,32 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cardápio | Food System</title>
-    <script>
-      document.documentElement.dataset.sidebarReady = "false";
-      try {
-        if (localStorage.getItem("food-system-sidebar-collapsed") === "true") {
-          document.documentElement.classList.add("menu-sidebar-collapsed");
-        }
-      } catch {}
-    </script>
+    <script>document.documentElement.dataset.sidebarReady = "false";</script>
     <link rel="icon" href="../../../assets/favicon.png" type="image/png" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="../shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
-
-
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="menu-shell">
       <aside class="menu-sidebar">
         <div class="menu-sidebar__brand-row">
-          <button class="menu-sidebar__toggle" id="menuSidebarToggle" type="button" aria-label="Minimizar menu">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path fill="currentColor" d="M4 7h16v2H4V7zm0 4.5h16v2H4v-2zm0 4.5h16v2H4v-2z"/>
-            </svg>
-          </button>
-          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System QR</a>
+          
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
         </div>
         <nav class="menu-sidebar__nav" aria-label="Navegação principal">
           <a href="../dashboard/index.html">
@@ -54,7 +42,7 @@
             <svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path fill="currentColor" d="M6 7h12l-1 10H7L6 7zm3-3h6l1 2H8l1-2zM9 10v6h2v-6H9zm4 0v6h2v-6h-2z"/>
             </svg>
-            <span class="menu-label">Pagamentos</span>
+            <span class="menu-label">Caixa</span>
           </a>
           <a href="../orders/index.html">
             <svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -72,22 +60,33 @@
         <div class="profile menu-sidebar__profile">
           <button class="profile-btn" type="button" aria-label="Perfil">F</button>
           <div class="profile-menu">
-            <a href="../user-edit/index.html">Alterar dados</a>
-            <a href="./index.html">Configurar empresa</a>
-            <a href="#" data-action="close-app">Fechar aplicação</a>
+            <a href="../user-edit/index.html">Meu perfil</a>
+            <a href="./index.html">Configurar cardápio</a>
+            <a href="#" data-action="close-app">Fechar aplicativo</a>
           </div>
         </div>
       </aside>
       <main class="content menu-content">
         <div class="page-title">
-          <div><p class="eyebrow">Mesas com QR</p><h1>Configurar cardápio e QR</h1></div><label class="global-language-control"><span>Idioma</span><select data-global-language aria-label="Idioma"><option value="pt">Português</option><option value="en">English</option></select></label>
+          <div>
+            <p class="eyebrow">Personalização</p>
+            <h1>Cardápio e QR Codes</h1>
+            <p class="menu-page-intro">Personalize o cardápio e gere QR Codes por mesa</p>
+          </div>
         </div>
+        <p id="menuLoadMessage" class="menu-load-message" role="alert" hidden></p>
+        <button class="btn btn--secondary menu-load-retry" id="menuLoadRetry" type="button" hidden>Tentar novamente</button>
         <section class="menu-builder">
           <aside class="panel menu-config">
-            <h2>Publicação rápida</h2>
-            <div class="field"><label for="businessName">Nome que aparece no QR</label><input id="businessName" placeholder="Ex: Sabor da Serra" /></div>
-            <div class="field"><label for="menuName">Chamada do cardápio</label><input id="menuName" placeholder="Ex: Peca pela mesa, sem baixar app" /></div>
-            <div class="field"><label for="menuBanner">Aviso curto para o cliente</label><textarea id="menuBanner" rows="3" placeholder="Ex: Pedido direto para a equipe"></textarea></div>
+            <div class="menu-config__intro">
+              <h2>Conteúdo e apresentação</h2>
+              <p>As alterações aparecem na prévia e são salvas automaticamente</p>
+            </div>
+            <p id="menuSaveStatus" class="menu-save-status" role="status" aria-live="polite" hidden></p>
+            <button class="btn btn--secondary menu-save-retry" id="menuSaveRetry" type="button" hidden>Salvar novamente</button>
+            <div class="field"><label for="businessName">Nome do comércio</label><input id="businessName" placeholder="Ex.: Sabor da Serra" /></div>
+            <div class="field"><label for="menuName">Título do cardápio</label><input id="menuName" placeholder="Ex.: Cardápio do Café" /></div>
+            <div class="field"><label for="menuBanner">Aviso curto para o cliente</label><textarea id="menuBanner" rows="3" placeholder="Ex.: Pedidos disponíveis até as 22h"></textarea></div>
             <div class="field"><label for="primaryColor">Cor da marca</label><input id="primaryColor" type="color" /></div>
             <input id="gradientStart" type="hidden" />
             <input id="gradientEnd" type="hidden" />
@@ -106,18 +105,19 @@
               </div>
               <div class="category-list category-list--menu" id="categoryList"></div>
             </div>
-            <div class="table-shortcuts" aria-label="Mesas rápidas">
-              <strong>Mesas rápidas</strong>
+            <div class="table-shortcuts" aria-label="Atalhos de mesa">
+              <div><strong>Atalhos de mesa</strong><p>Selecione uma mesa para gerar o QR Code</p></div>
               <div id="tableShortcutList"></div>
             </div>
           </aside>
           <section class="preview-area">
             <div class="browser-window">
-              <div class="browser-bar"><span></span><span></span><span></span><strong>Cardápio</strong></div>
+              <div class="browser-bar"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span><strong>Prévia para o cliente</strong></div>
               <div class="menu-preview" id="menuPreview">
                 <header class="preview-header">
                   <p id="previewBusiness"></p>
                   <h2 id="previewTitle"></h2>
+                  <p class="preview-banner" id="previewBanner" hidden></p>
                 </header>
                 <div class="category-row" id="previewCategories"></div>
                 <div class="menu-search">
@@ -133,15 +133,15 @@
                   <p class="eyebrow">QR Code</p>
                   <h3>QR por mesa</h3>
                 </div>
-                <button class="btn btn--secondary menu-qr__button" id="generateQrCode" type="button">Atualizar QR Code</button>
+                <button class="btn btn--secondary menu-qr__button" id="generateQrCode" type="button">Gerar QR Code</button>
               </div>
               <div class="qr-code-panel__body">
                 <label class="field" for="qrCodeTable">
                   <span>Mesa deste QR Code</span>
-                  <input id="qrCodeTable" type="text" placeholder="Ex: Mesa 07" />
+                  <input id="qrCodeTable" type="text" placeholder="Ex.: Mesa 07" />
                 </label>
                 <img id="qrCodeImage" alt="QR Code do cardápio" />
-                <p>Use um QR por mesa</p>
+                <p>Use um QR Code diferente para cada mesa</p>
                 <div class="qr-code-panel__link-row">
                   <input id="qrCodeLink" type="text" readonly />
                   <button class="qr-code-copy-btn" id="copyQrCodeLink" type="button" aria-label="Copiar link do cardápio" title="Copiar link">
@@ -155,7 +155,7 @@
                   <button class="btn btn--secondary" id="downloadQrJpeg" type="button">Baixar JPEG</button>
                   <button class="btn btn--secondary" id="downloadQrPdf" type="button">Baixar PDF</button>
                 </div>
-                <button class="btn btn--primary" id="qrCodeOpenPage" type="button">Abrir página final</button>
+                <button class="btn btn--primary" id="qrCodeOpenPage" type="button">Abrir prévia do cardápio</button>
               </div>
             </section>
           </section>

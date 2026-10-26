@@ -10,9 +10,9 @@ const KEYS = {
 const defaultMenuSettings = {
   businessName: "",
   menuName: "",
-  primaryColor: "#0f766e",
-  gradientStart: "#0f766e",
-  gradientEnd: "#1f2a24",
+  primaryColor: "#c52236",
+  gradientStart: "#c52236",
+  gradientEnd: "#191919",
   gradientAngle: 140,
   style: "clean",
   heroMood: "minimal",
@@ -25,8 +25,8 @@ const defaultMenuSettings = {
 
 const legacyMenuText = {
   businessName: "Sabor da Serra",
-  menuName: "Peca pela mesa, sem baixar app",
-  menuBanner: "Escaneou, escolheu, pagou. Seu pedido vai direto para a equipe.",
+  menuName: "Peça à mesa sem instalar o aplicativo",
+  menuBanner: "Aponte a câmera, escolha seus itens e envie o pedido direto para a equipe",
 };
 
 const defaultBusiness = {

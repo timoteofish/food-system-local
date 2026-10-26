@@ -33,7 +33,24 @@ export default async function fiscalRoutes(app) {
   app.get("/api/v1/businesses/:businessId/fiscal/documents", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
     const [rows] = await pool.query("SELECT * FROM fiscal_documents WHERE business_id = ? ORDER BY created_at DESC", [request.params.businessId]);
-    return { documents: rows.map(fiscalView) };
+    const [credentials] = await pool.query(
+      "SELECT id FROM secure_secrets WHERE business_id = ? AND secret_name = 'fiscal:provider' LIMIT 1",
+      [request.params.businessId],
+    );
+    let providerConfigured = false;
+    try {
+      providerConfigured = new URL(String(process.env.FISCAL_PROVIDER_URL || "")).protocol === "https:";
+    } catch {
+      providerConfigured = false;
+    }
+    return {
+      documents: rows.map(fiscalView),
+      configuration: {
+        providerConfigured,
+        secureStorageAvailable: hasSecretKey(),
+        credentialsStored: credentials.length > 0,
+      },
+    };
   });
 
   app.post("/api/v1/businesses/:businessId/fiscal/documents", async (request, reply) => {
@@ -56,13 +73,35 @@ export default async function fiscalRoutes(app) {
     const user = await requireRole(request, reply);
     if (!user) return;
     if (!hasSecretKey()) return reply.code(503).send({ error: "FOOD_SYSTEM_SECRET_KEY is not configured" });
-    const credentials = request.body?.credentials;
-    if (!credentials || typeof credentials !== "object" || Array.isArray(credentials)) return reply.badRequest("Fiscal credentials are required");
+    const submitted = request.body?.credentials;
+    if (!submitted || typeof submitted !== "object" || Array.isArray(submitted)) return reply.badRequest("Fiscal credentials are required");
+    const allowedFields = new Set(["api_token", "client_cert", "client_key", "ca"]);
+    const updates = {};
+    for (const [field, value] of Object.entries(submitted)) {
+      if (!allowedFields.has(field) || typeof value !== "string") return reply.badRequest("Invalid fiscal credential field");
+      if (value.trim()) updates[field] = value.trim();
+    }
+    if (!Object.keys(updates).length) return reply.badRequest("Enter at least one fiscal credential");
+
+    const [existing] = await pool.query(
+      "SELECT encrypted_value FROM secure_secrets WHERE business_id = ? AND secret_name = 'fiscal:provider' LIMIT 1",
+      [request.params.businessId],
+    );
+    let current = {};
+    if (existing.length) {
+      try {
+        current = JSON.parse(decryptSecret(existing[0].encrypted_value));
+        if (!current || typeof current !== "object" || Array.isArray(current)) current = {};
+      } catch {
+        return reply.code(503).send({ error: "Existing fiscal credentials could not be read" });
+      }
+    }
+    const credentials = { ...current, ...updates };
     await pool.query(
       "INSERT INTO secure_secrets (id, business_id, secret_name, encrypted_value) VALUES (?, ?, 'fiscal:provider', ?) ON DUPLICATE KEY UPDATE encrypted_value = VALUES(encrypted_value), updated_at = CURRENT_TIMESTAMP",
       [randomUUID(), request.params.businessId, encryptSecret(JSON.stringify(credentials))],
     );
-    await audit(request, user, "fiscal.credentials_updated", "fiscal", request.params.businessId, { fields: Object.keys(credentials) });
+    await audit(request, user, "fiscal.credentials_updated", "fiscal", request.params.businessId, { fields: Object.keys(updates) });
     return { stored: true };
   });
 

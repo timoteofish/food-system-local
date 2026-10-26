@@ -1,1 +1,91 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Integrações | Food System</title><link rel="stylesheet" href="../../../styles/base.css"><link rel="stylesheet" href="../menu/styles.css"><link rel="stylesheet" href="../../../styles/app-responsive.css"><link rel="stylesheet" href="../../../styles/minimal-polish.css"><style>.integration-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.integration-form{display:grid;gap:10px}.integration-form input,.integration-form select{padding:10px;border:1px solid #d7dce2;border-radius:8px}.integration-list{display:grid;gap:10px}.integration-card{border:1px solid #e5e7eb;border-radius:10px;padding:14px;display:grid;gap:8px;background:#fff}.integration-actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:800px){.integration-grid{grid-template-columns:1fr}}</style></head><body><div class="menu-shell"><aside class="menu-sidebar"><div class="menu-sidebar__brand-row"><a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a></div><nav class="menu-sidebar__nav" aria-label="Navegação principal"><a href="../dashboard/index.html">Painel</a><a class="active" href="./index.html">Integrações</a><a href="../delivery/index.html">Entregas</a><a href="../fiscal/index.html">Fiscal</a><a href="../team/index.html">Equipe</a></nav></aside><main class="content menu-content"><div class="page-title"><div><p class="eyebrow">Conectividade</p><h1>Integrações</h1></div></div><div class="integration-grid"><section class="panel"><h2>Nova integração</h2><form class="integration-form" id="integrationForm"><label>Provedor<select id="integrationProvider"><option value="ifood">iFood</option><option value="99food">99Food</option><option value="keeta">Keeta</option><option value="delivery_logistics">Logística</option><option value="payment">Pagamento</option></select></label><label>Nome<input id="integrationName" required maxlength="120"></label><label>URL HTTPS de teste<input id="integrationTestUrl" type="url" placeholder="https://api.exemplo.com/health" required></label><label>Token da API<input id="integrationToken" type="password" autocomplete="new-password"></label><button class="btn btn--primary" type="submit">Salvar integração</button></form><p id="integrationMessage" role="status"></p></section><section class="panel"><h2>Conexões</h2><div class="integration-list" id="integrationList"></div></section></div></main></div><script src="../../../env.js"></script><script type="module" src="./app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Integrações | Food System</title>
+    <link rel="stylesheet" href="../../../styles/base.css" />
+    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/app-responsive.css" />
+    <link rel="stylesheet" href="../operations.css" />
+    <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="menu-shell">
+      <aside class="menu-sidebar">
+        <div class="menu-sidebar__brand-row">
+          <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
+        </div>
+        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+          <a href="../dashboard/index.html">Painel</a>
+          <a class="active" href="./index.html" aria-current="page">Integrações</a>
+          <a href="../delivery/index.html">Entregas</a>
+          <a href="../fiscal/index.html">Fiscal</a>
+          <a href="../team/index.html">Equipe</a>
+        </nav>
+      </aside>
+
+      <main class="content menu-content">
+        <div class="page-title">
+          <div>
+            <p class="eyebrow">Conectividade</p>
+            <h1>Integrações</h1>
+            <p class="subtitle">Cadastre provedores e valide a conexão</p>
+          </div>
+        </div>
+
+        <div class="operation-grid integration-grid">
+          <section class="panel integration-create" aria-labelledby="integrationFormTitle">
+            <h2 id="integrationFormTitle">Nova integração</h2>
+            <form class="operation-form integration-form" id="integrationForm">
+              <label for="integrationProvider">Provedor
+                <select id="integrationProvider" required>
+                  <option value="ifood">iFood</option>
+                  <option value="99food">99Food</option>
+                  <option value="keeta">Keeta</option>
+                  <option value="delivery_logistics">Logística</option>
+                  <option value="payment">Pagamento</option>
+                </select>
+              </label>
+              <label for="integrationName">Nome da integração
+                <input id="integrationName" required maxlength="120" autocomplete="off" />
+              </label>
+              <label for="integrationTestUrl">URL HTTPS para teste
+                <input
+                  id="integrationTestUrl"
+                  type="url"
+                  pattern="https://.+"
+                  placeholder="https://api.exemplo.com/health"
+                  title="Informe uma URL que comece com https://"
+                  required
+                />
+              </label>
+              <label for="integrationToken">Token da API
+                <input
+                  id="integrationToken"
+                  type="password"
+                  autocomplete="new-password"
+                  aria-describedby="integrationTokenHelp"
+                />
+              </label>
+            <small class="integration-form__help" id="integrationTokenHelp">O token é opcional Adicione agora ou depois, na lista de conexões Ele é criptografado no servidor e não volta a ser exibido</small>
+              <button class="btn btn--primary" type="submit">Salvar integração</button>
+            </form>
+            <p class="operation-message" id="integrationMessage" role="status" aria-live="polite" hidden></p>
+          </section>
+
+          <section class="panel integration-connections" aria-labelledby="connectionsTitle">
+            <h2 id="connectionsTitle">Conexões cadastradas</h2>
+            <p class="integration-connections__help">Os tokens são criptografados no servidor e não são exibidos nesta lista</p>
+            <div class="operation-list integration-list" id="integrationList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Carregando conexões</p></div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="../../../env.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

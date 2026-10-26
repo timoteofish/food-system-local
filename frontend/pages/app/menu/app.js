@@ -12,6 +12,7 @@ import {
   getSession,
 } from "../../../shared/data/storage.js";
 import { escapeHtml, formatPrice, parsePrice, safeImageUrl } from "../../../shared/utils/utils.js";
+import { getLanguage, translate } from "../../../shared/i18n/i18n.js";
 import { initAppShell, showToast } from "../../../shared/ui/ui.js";
 
 let settings = getMenuSettings();
@@ -19,9 +20,12 @@ let products = [];
 let categoryNames = [];
 let restaurantTables = [];
 let menuSearchQuery = "";
-let selectedTheme = "default";
 let saveSettingsTimer = null;
 let menuLoadFailed = false;
+let menuLoading = false;
+let appShellInitialized = false;
+let saveSequence = 0;
+let pendingSettings = null;
 
 const fields = {
   businessName: document.getElementById("businessName"),
@@ -42,15 +46,9 @@ const preview = {
   wrapper: document.getElementById("menuPreview"),
   business: document.getElementById("previewBusiness"),
   title: document.getElementById("previewTitle"),
+  banner: document.getElementById("previewBanner"),
   categories: document.getElementById("previewCategories"),
   list: document.getElementById("menuList"),
-};
-
-const themeMap = {
-  default: { label: "Food QR", accent: "#0f766e", gradientStart: "#0f766e", gradientEnd: "#1f2a24", gradientAngle: 140 },
-  sunset: { label: "Sunset Grill", accent: "#b45309", gradientStart: "#b45309", gradientEnd: "#7c2d12", gradientAngle: 135 },
-  forest: { label: "Fresh Market", accent: "#15803d", gradientStart: "#15803d", gradientEnd: "#14532d", gradientAngle: 135 },
-  midnight: { label: "Midnight", accent: "#1f2a24", gradientStart: "#1f2a24", gradientEnd: "#315047", gradientAngle: 135 },
 };
 
 const menuSearchInput = document.getElementById("menuSearch");
@@ -65,6 +63,56 @@ const downloadQrJpeg = document.getElementById("downloadQrJpeg");
 const downloadQrPdf = document.getElementById("downloadQrPdf");
 const tableShortcutList = document.getElementById("tableShortcutList");
 const browserBar = document.querySelector(".browser-bar");
+const menuLoadMessage = document.getElementById("menuLoadMessage");
+const menuLoadRetry = document.getElementById("menuLoadRetry");
+const menuSaveStatus = document.getElementById("menuSaveStatus");
+const menuSaveRetry = document.getElementById("menuSaveRetry");
+
+const setMenuEditorDisabled = (disabled) => {
+  Object.values(fields).forEach((field) => {
+    if (field && "disabled" in field) field.disabled = disabled;
+  });
+  fields.categoryList?.querySelectorAll("input").forEach((input) => {
+    input.disabled = disabled || fields.showAllProducts.checked;
+  });
+  [menuSearchInput, qrCodeTable, generateQrCodeButton, copyQrCodeLink, qrCodeOpenPage, downloadQrPng, downloadQrJpeg, downloadQrPdf]
+    .forEach((control) => {
+      if (control) control.disabled = disabled;
+    });
+  tableShortcutList?.querySelectorAll("button").forEach((button) => {
+    button.disabled = disabled;
+  });
+  menuSaveRetry.disabled = disabled;
+};
+
+const setMenuSaveStatus = (message, state = "") => {
+  menuSaveStatus.textContent = message;
+  menuSaveStatus.hidden = !message;
+  if (state) menuSaveStatus.dataset.state = state;
+  else menuSaveStatus.removeAttribute("data-state");
+};
+
+const persistMenuSettings = async (sequence) => {
+  if (!pendingSettings) return;
+  menuSaveRetry.disabled = true;
+  try {
+    await saveMenuSettingsRemote({
+      ...pendingSettings,
+      selectedCategories: [...pendingSettings.selectedCategories],
+    });
+    if (sequence === saveSequence) {
+      setMenuSaveStatus(translate("Alterações salvas"), "success");
+      menuSaveRetry.hidden = true;
+    }
+  } catch {
+    if (sequence === saveSequence) {
+      setMenuSaveStatus(translate("Não foi possível salvar as alterações do cardápio"), "error");
+      menuSaveRetry.hidden = false;
+    }
+  } finally {
+    if (sequence === saveSequence) menuSaveRetry.disabled = false;
+  }
+};
 
 const monthlyOrderLimitByPlan = {
   gratis: 20,
@@ -75,10 +123,16 @@ const getOrderCapacity = () => {
   const limit = monthlyOrderLimitByPlan[plan] || Infinity;
 
   if (!Number.isFinite(limit)) {
-    return { state: "ok", label: "Pedidos sem limite mensal" };
+    return {
+      state: "ok",
+      label: getLanguage() === "en" ? "No monthly order limit" : "Pedidos sem limite mensal",
+    };
   }
 
-  return { state: "ok", label: `Limite mensal: ${limit} pedidos` };
+  return {
+    state: "ok",
+    label: getLanguage() === "en" ? `Monthly limit: ${limit} orders` : `Limite mensal: ${limit} pedidos`,
+  };
 };
 
 const syncOrderCapacityDots = () => {
@@ -86,7 +140,7 @@ const syncOrderCapacityDots = () => {
   const capacity = getOrderCapacity();
   browserBar.dataset.orderCapacity = capacity.state;
   browserBar.title = capacity.label;
-  browserBar.setAttribute("aria-label", `Cardápio: ${capacity.label}`);
+  browserBar.setAttribute("aria-label", translate(`Cardápio: ${capacity.label}`));
 };
 
 const productImage = (item) => {
@@ -122,7 +176,7 @@ const syncCategoryField = () => {
     .map(
       (category) => `
         <label class="category-check ${selected.includes(category) ? "is-active" : ""}">
-          <input type="checkbox" value="${category}" ${selected.includes(category) ? "checked" : ""} />
+          <input type="checkbox" value="${escapeHtml(category)}" ${selected.includes(category) ? "checked" : ""} />
           <span>${escapeHtml(category)}</span>
         </label>
       `
@@ -134,8 +188,8 @@ const syncCategoryField = () => {
 };
 
 const applyPreviewGradient = () => {
-  const start = fields.gradientStart?.value || settings.gradientStart || settings.primaryColor || "#0f766e";
-  const end = fields.gradientEnd?.value || settings.gradientEnd || "#1f2a24";
+  const start = fields.gradientStart?.value || settings.gradientStart || settings.primaryColor || "#c52236";
+  const end = fields.gradientEnd?.value || settings.gradientEnd || "#191919";
   const angle = Number(fields.gradientAngle?.value ?? settings.gradientAngle ?? 140);
   preview.wrapper.style.setProperty("--menu-gradient", `linear-gradient(${angle}deg, ${start}, ${end})`);
   preview.wrapper.style.setProperty("--menu-gradient-start", start);
@@ -205,18 +259,23 @@ const renderMenuLoadError = (message) => {
   products = [];
   categoryNames = [];
   syncCategoryField();
+  setMenuEditorDisabled(true);
+  menuLoadMessage.textContent = message;
+  menuLoadMessage.hidden = false;
+  menuLoadRetry.hidden = false;
   applyPreviewGradient();
   preview.business.textContent = settings.businessName || "Food System";
-  preview.title.textContent = settings.menuName || "Cardápio";
+  preview.title.textContent = settings.menuName || translate("Cardápio");
+  preview.banner.textContent = settings.menuBanner || "";
+  preview.banner.hidden = !settings.menuBanner?.trim();
   preview.categories.innerHTML = "";
-  preview.list.innerHTML = `<div class="menu-preview-empty">${escapeHtml(message)}</div>`;
-  renderQrCode().catch(() => {});
+  preview.list.innerHTML = `<div class="menu-preview-empty">${translate("Não foi possível carregar os produtos e as categorias.")}</div>`;
   syncOrderCapacityDots();
 };
 
 const loadQrImageForCanvas = async () => {
   if (!qrCodeImage?.src) {
-    throw new Error("QR Code ainda não foi gerado.");
+    throw new Error("QR Code ainda não foi gerado");
   }
 
   const image = new Image();
@@ -225,7 +284,7 @@ const loadQrImageForCanvas = async () => {
 
   await new Promise((resolve, reject) => {
     image.onload = resolve;
-    image.onerror = () => reject(new Error("Não foi possível carregar o QR Code para download."));
+    image.onerror = () => reject(new Error("Não foi possível carregar o QR Code para download"));
     image.src = qrCodeImage.src;
   });
 
@@ -248,14 +307,14 @@ const buildQrCanvas = async (mimeType = "image/png") => {
 
   context.drawImage(image, padding, padding, size, size);
 
-  context.fillStyle = "#1f2a24";
+  context.fillStyle = "#191919";
   context.font = "700 26px Inter, sans-serif";
   context.textAlign = "center";
   context.fillText(settings.businessName || "Food System", canvas.width / 2, finalSize + 38);
 
-  context.fillStyle = "#68746d";
+  context.fillStyle = "#686868";
   context.font = "500 18px Inter, sans-serif";
-  context.fillText("Escaneie para abrir o cardápio", canvas.width / 2, finalSize + 68);
+  context.fillText(translate("Escaneie para abrir o cardápio"), canvas.width / 2, finalSize + 68);
 
   return {
     canvas,
@@ -331,13 +390,15 @@ const render = () => {
   preview.wrapper.dataset.density =
     densityValue < 34 ? "spacious" : densityValue > 66 ? "compact" : "balanced";
   preview.business.textContent = settings.businessName || "Food System";
-  preview.title.textContent = settings.menuName || "Cardápio digital";
+  preview.title.textContent = settings.menuName || translate("Cardápio digital");
+  preview.banner.textContent = settings.menuBanner?.trim() || "";
+  preview.banner.hidden = !settings.menuBanner?.trim();
   applyPreviewGradient();
 
   preview.categories.innerHTML = getCategoryOptions()
     .map(
       (category) =>
-        `<button class="chip ${(settings.showAllProducts || (settings.selectedCategories || []).includes(category) || category === "Todos") ? "active" : ""}" type="button" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`
+        `<button class="chip ${(settings.showAllProducts || (settings.selectedCategories || []).includes(category) || category === "Todos") ? "active" : ""}" type="button" data-category="${escapeHtml(category)}">${category === "Todos" ? escapeHtml(translate("all")) : escapeHtml(category)}</button>`
     )
     .join("");
 
@@ -346,28 +407,29 @@ const render = () => {
     ? visibleProducts
         .map((item) => {
           return `
-        <article class="menu-item" data-id="${item.id}">
+        <article class="menu-item" data-id="${escapeHtml(item.id)}">
             ${productImage(item)}
             <div>
-            <strong>${escapeHtml(item.name)}</strong>
-            <p>${escapeHtml(item.description || item.category)}</p>
+            <strong data-merchant-content>${escapeHtml(item.name)}</strong>
+            <p data-merchant-content>${escapeHtml(item.description || item.category)}</p>
           </div>
           <div class="menu-action">
             <div class="menu-action-wrapper">
-              <button class="choose-btn" type="button">${productPriceHtml(item)}</button>
+              <span class="menu-price">${productPriceHtml(item)}</span>
+              <span class="choose-btn" aria-hidden="true">${translate("Adicionar")}</span>
             </div>
           </div>
         </article>
       `;
         })
         .join("")
-    : '<div class="menu-preview-empty">Nenhum produto ativo no cardápio.</div>';
+    : `<div class="menu-preview-empty">${translate("Nenhum produto ativo no cardápio")}</div>`;
 
   syncOrderCapacityDots();
 };
 
 const syncFromFields = () => {
-  if (menuLoadFailed) return;
+  if (menuLoadFailed || menuLoading) return;
 
   const selectedCategories = Array.from(
     fields.categoryList?.querySelectorAll('input[type="checkbox"]:checked') || []
@@ -387,12 +449,12 @@ const syncFromFields = () => {
     selectedCategories,
   };
   render();
+  pendingSettings = { ...settings, selectedCategories: [...selectedCategories] };
+  const sequence = ++saveSequence;
+  setMenuSaveStatus(translate("Salvando alterações"), "saving");
+  menuSaveRetry.hidden = true;
   window.clearTimeout(saveSettingsTimer);
-  saveSettingsTimer = window.setTimeout(() => {
-    saveMenuSettingsRemote(settings).catch(() => {
-      showToast("Nao foi possivel salvar as alteracoes do cardapio.", { type: "error" });
-    });
-  }, 450);
+  saveSettingsTimer = window.setTimeout(() => void persistMenuSettings(sequence), 450);
 };
 
 Object.entries(fields).forEach(([key, field]) => {
@@ -412,14 +474,22 @@ Object.entries(fields).forEach(([key, field]) => {
                 ? settings.menuBanner || ""
               : key === "gradientAngle"
                 ? settings.gradientAngle ?? 135
-                : key === "gradientStart"
-                  ? settings.gradientStart || settings.primaryColor || "#0f766e"
+                  : key === "gradientStart"
+                    ? settings.gradientStart || settings.primaryColor || "#c52236"
                   : key === "gradientEnd"
-                    ? settings.gradientEnd || "#1f2a24"
+                    ? settings.gradientEnd || "#191919"
               : settings[key] || "";
   }
   field.addEventListener("input", syncFromFields);
   field.addEventListener("change", syncFromFields);
+});
+
+menuSaveRetry.addEventListener("click", () => {
+  window.clearTimeout(saveSettingsTimer);
+  const sequence = ++saveSequence;
+  setMenuSaveStatus(translate("Salvando alterações"), "saving");
+  menuSaveRetry.hidden = true;
+  void persistMenuSettings(sequence);
 });
 
 tableShortcutList?.replaceChildren(
@@ -432,8 +502,8 @@ tableShortcutList?.replaceChildren(
     button.addEventListener("click", () => {
       if (qrCodeTable) qrCodeTable.value = `Mesa ${tableNumber}`;
       renderQrCode()
-        .then(() => showToast(`QR da mesa ${tableNumber} pronto.`))
-        .catch((error) => showToast(error.message || "Não foi possível criar o QR da mesa.", { type: "error" }));
+        .then(() => showToast(translate(`QR da mesa ${tableNumber} pronto`)))
+        .catch((error) => showToast(translate(error.message || "Não foi possível criar o QR da mesa"), { type: "error" }));
     });
     return button;
   })
@@ -445,21 +515,6 @@ fields.showAllProducts?.addEventListener("change", () => {
 });
 
 fields.categoryList?.addEventListener("change", syncFromFields);
-
-document.querySelectorAll(".menu-theme-card").forEach((button) => {
-  button.addEventListener("click", () => {
-    selectedTheme = button.dataset.theme || "default";
-    const theme = themeMap[selectedTheme] || themeMap.default;
-    fields.primaryColor.value = theme.accent;
-    if (fields.gradientStart) fields.gradientStart.value = theme.gradientStart;
-    if (fields.gradientEnd) fields.gradientEnd.value = theme.gradientEnd;
-    if (fields.gradientAngle) fields.gradientAngle.value = String(theme.gradientAngle);
-    document.querySelectorAll(".menu-theme-card").forEach((item) => {
-      item.classList.toggle("is-active", item === button);
-    });
-    syncFromFields();
-  });
-});
 
 menuSearchInput?.addEventListener("input", (event) => {
   menuSearchQuery = event.target.value || "";
@@ -489,8 +544,8 @@ preview.categories.addEventListener("click", (event) => {
 
 generateQrCodeButton?.addEventListener("click", () => {
   renderQrCode()
-    .then(() => showToast("QR Code atualizado."))
-    .catch((error) => showToast(error.message || "Não foi possível atualizar o QR Code.", { type: "error" }));
+    .then(() => showToast(translate("QR Code gerado")))
+    .catch((error) => showToast(translate(error.message || "Não foi possível atualizar o QR Code"), { type: "error" }));
 });
 
 qrCodeTable?.addEventListener("change", () => {
@@ -500,71 +555,84 @@ qrCodeTable?.addEventListener("change", () => {
 qrCodeOpenPage?.addEventListener("click", () => {
   renderQrCode()
     .then(() => window.open(getCustomerMenuUrl(), "_blank", "noopener,noreferrer"))
-    .catch((error) => showToast(error.message || "Não foi possível abrir a página.", { type: "error" }));
+    .catch((error) => showToast(translate(error.message || "Não foi possível abrir a página"), { type: "error" }));
 });
 copyQrCodeLink?.addEventListener("click", async () => {
   try {
     await renderQrCode();
     const value = qrCodeLink?.value || getCustomerMenuUrl();
     await navigator.clipboard.writeText(value);
-    showToast("Link copiado.");
+    showToast(translate("Link copiado"));
   } catch {
     qrCodeLink?.focus();
     qrCodeLink?.select();
-    showToast("Copie o link manualmente.", { type: "error" });
+    showToast(translate("Copie o link manualmente"), { type: "error" });
   }
 });
 downloadQrPng?.addEventListener("click", async () => {
   try {
     await downloadQrAsImage("png");
   } catch (error) {
-    showToast(error.message || "Não foi possível baixar o QR em PNG.", { type: "error" });
+      showToast(translate(error.message || "Não foi possível baixar o QR em PNG"), { type: "error" });
   }
 });
 downloadQrJpeg?.addEventListener("click", async () => {
   try {
     await downloadQrAsImage("jpeg");
   } catch (error) {
-    showToast(error.message || "Não foi possível baixar o QR em JPEG.", { type: "error" });
+      showToast(translate(error.message || "Não foi possível baixar o QR em JPEG"), { type: "error" });
   }
 });
 downloadQrPdf?.addEventListener("click", async () => {
   try {
     await downloadQrAsPdf();
   } catch (error) {
-    showToast(error.message || "Não foi possível baixar o QR em PDF.", { type: "error" });
+      showToast(translate(error.message || "Não foi possível baixar o QR em PDF"), { type: "error" });
   }
 });
 
-(async () => {
+const initializeMenu = async () => {
+  if (menuLoading) return false;
+  menuLoading = true;
+  menuLoadRetry.hidden = true;
+  menuLoadRetry.disabled = true;
+  menuLoadMessage.hidden = true;
+  setMenuEditorDisabled(true);
   try {
-    await initAppShell({ activeNav: "menu" });
+    if (!appShellInitialized) {
+      await initAppShell({ activeNav: "menu" });
+      appShellInitialized = true;
+    }
     products = (await loadProducts()).map(normalizeProduct);
     categoryNames = await loadCategories();
     restaurantTables = await loadRestaurantTablesRemote();
   } catch (error) {
-    renderMenuLoadError(error.message || "Não foi possível carregar o cardápio pela API.");
-    showToast(error.message || "Não foi possível carregar o cardápio.", { type: "error" });
-    return;
+    renderMenuLoadError(translate(error.message || "Não foi possível carregar o cardápio pela API"));
+    return false;
+  } finally {
+    menuLoading = false;
+    menuLoadRetry.disabled = false;
   }
 
+  menuLoadFailed = false;
   if (!Array.isArray(settings.selectedCategories)) {
     settings.selectedCategories = [];
   }
   if (typeof settings.showAllProducts !== "boolean") {
     settings.showAllProducts = true;
   }
-  if (fields.gradientStart && !settings.gradientStart) settings.gradientStart = settings.primaryColor || "#0f766e";
-  if (fields.gradientEnd && !settings.gradientEnd) settings.gradientEnd = "#1f2a24";
+  if (fields.gradientStart && !settings.gradientStart) settings.gradientStart = settings.primaryColor || "#c52236";
+  if (fields.gradientEnd && !settings.gradientEnd) settings.gradientEnd = "#191919";
   if (fields.gradientAngle && settings.gradientAngle == null) settings.gradientAngle = 140;
   if (fields.gradientStart) fields.gradientStart.value = settings.gradientStart;
   if (fields.gradientEnd) fields.gradientEnd.value = settings.gradientEnd;
   if (fields.gradientAngle) fields.gradientAngle.value = String(settings.gradientAngle);
   syncCategoryField();
-  selectedTheme = Object.entries(themeMap).find(([, theme]) => theme.accent === settings.primaryColor)?.[0] || "default";
-  document.querySelectorAll(".menu-theme-card").forEach((item) => {
-    item.classList.toggle("is-active", item.dataset.theme === selectedTheme);
-  });
+  setMenuEditorDisabled(false);
   render();
   renderQrCode().catch(() => {});
-})();
+  return true;
+};
+
+menuLoadRetry.addEventListener("click", () => void initializeMenu());
+void initializeMenu();
