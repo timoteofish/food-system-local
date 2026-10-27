@@ -1,9 +1,18 @@
-import { getBusiness, getMenuSettings, getSession, saveBusiness, saveMenuSettings } from "../shared/data/storage.js";
+import { getBusiness, getMenuSettings, saveBusiness, saveMenuSettings } from "../shared/data/storage.js";
 
 const SETUP_KEY = "food-system-initial-setup-complete";
 const DEFAULT_TARGET = "/frontend/pages/app/dashboard/index.html";
 const params = new URLSearchParams(window.location.search);
-const target = params.get("next") || DEFAULT_TARGET;
+const requestedTarget = params.get("next") || DEFAULT_TARGET;
+const targetUrl = (() => {
+  try {
+    const candidate = new URL(requestedTarget, window.location.href);
+    if (candidate.origin === window.location.origin && /\/pages\/app\/[a-z-]+\/index\.html$/.test(candidate.pathname)) return candidate;
+  } catch {
+    // Fall back to the local dashboard when the continuation URL is malformed.
+  }
+  return new URL(DEFAULT_TARGET, window.location.href);
+})();
 const form = document.getElementById("firstRunForm");
 const businessInput = document.getElementById("businessName");
 const languageInput = document.getElementById("businessLanguage");
@@ -11,24 +20,24 @@ const error = document.getElementById("setupError");
 
 const translations = {
   pt: {
-    kicker: "GESTÃO DO SEU JEITO", headline: "Sua operação,<br /><span>mais leve</span>",
-    intro: "Pedidos, produtos e rotina organizados em um só lugar",
-    local: "Seus dados ficam salvos neste dispositivo", step: "Primeiros passos", title: "Configure seu comércio",
-    description: "Informe o nome do seu comércio e escolha o idioma", businessLabel: "Nome do comércio", languageLabel: "Idioma",
-    submit: "Configurar meu sistema",
-    note: "Você pode alterar esses dados depois nas configurações",
+    headline: "Organize seu<br />restaurante",
+    intro: "Pedidos, cardápio e operação em um só lugar",
+    title: "Configure seu negócio",
+    description: "Informe o nome do seu negócio e escolha o idioma", businessLabel: "Nome do negócio", languageLabel: "Idioma",
+    submit: "Continuar",
+    note: "Você poderá alterar essas informações nas configurações",
     languageOptions: { pt: "Português", en: "Inglês" },
-    placeholder: "Ex.: Café da Praça", error: "Não foi possível salvar a configuração Confira se o armazenamento local está disponível",
+    placeholder: "Ex.: Café da Praça", error: "Não foi possível salvar as informações, tente novamente",
   },
   en: {
-    kicker: "RUN YOUR BUSINESS YOUR WAY", headline: "A lighter way<br /><span>to run your business</span>",
-    intro: "Orders, products and daily operations, all in one place",
-    local: "Your details are saved on this device", step: "Getting started", title: "Set up your business",
-    description: "Enter your business name and select a language", businessLabel: "Business name", languageLabel: "Language",
-    submit: "Set up my system",
-    note: "You can change these details later in settings",
+    headline: "Organize your<br />restaurant",
+    intro: "Orders, menu and operations in one place",
+    title: "Set up your business",
+    description: "Enter your business name and choose a language", businessLabel: "Business name", languageLabel: "Language",
+    submit: "Continue",
+    note: "You can change this information later in settings",
     languageOptions: { pt: "Portuguese", en: "English" },
-    placeholder: "e.g Market Street Café", error: "Could not save your setup Check that local storage is available",
+    placeholder: "e.g. Market Street Café", error: "Could not save your information, please try again",
   },
 };
 
@@ -75,7 +84,7 @@ try {
 }
 
 if (hasExistingSetup) {
-  window.location.replace(new URL(target, window.location.href).href);
+  window.location.replace(targetUrl.href);
 } else {
   applyLanguage(language);
 
@@ -103,7 +112,7 @@ if (hasExistingSetup) {
       saveMenuSettings({ ...getMenuSettings(), businessName: name });
       localStorage.setItem("food-system-language", language);
       localStorage.setItem(SETUP_KEY, "true");
-      window.location.assign(new URL(target, window.location.href).href);
+      window.location.assign(targetUrl.href);
     } catch {
       error.textContent = (translations[language] || translations.en).error;
       error.hidden = false;

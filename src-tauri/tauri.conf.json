@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Food System Local",
+  "productName": "Food System",
   "version": "0.1.0",
   "identifier": "com.foodsystem.local",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Food System Local",
+        "title": "Food System",
         "width": 1366,
         "height": 820,
         "minWidth": 1024,

@@ -3,6 +3,7 @@ import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
 import { audit } from "../audit.js";
 import { decryptSecret, encryptSecret, hasSecretKey } from "../security.js";
+import { requestPublicHttps } from "../outbound-request.js";
 
 const providers = new Set(["ifood", "99food", "keeta", "delivery_logistics", "payment"]);
 const connectionStatuses = new Set(["disconnected", "pending", "connected", "error", "disabled"]);
@@ -88,23 +89,24 @@ export default async function integrationRoutes(app) {
   app.post("/api/v1/businesses/:businessId/integrations/:id/test", async (request, reply) => {
     const user = await requireRole(request, reply);
     if (!user) return;
-    if (!hasSecretKey()) return reply.code(503).send({ error: "FOOD_SYSTEM_SECRET_KEY is not configured" });
     const [connections] = await pool.query("SELECT id, provider, settings FROM integration_connections WHERE id = ? AND business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
     if (!connections.length) return reply.notFound("Integration not found");
     let settings;
     try { settings = typeof connections[0].settings === "string" ? JSON.parse(connections[0].settings) : connections[0].settings || {}; } catch { return reply.code(500).send({ error: "Integration settings are invalid" }); }
-    if (!settings.test_url || !/^https:\/\//i.test(settings.test_url)) return reply.badRequest("Integration test_url must use HTTPS");
-    const [secrets] = await pool.query("SELECT encrypted_value FROM secure_secrets WHERE business_id = ? AND secret_name = ? LIMIT 1", [request.params.businessId, `integration:${request.params.id}`]);
-    if (!secrets.length) return reply.code(503).send({ error: "Integration credentials are not configured" });
-    let credentials;
-    try { credentials = JSON.parse(decryptSecret(secrets[0].encrypted_value)); } catch { return reply.code(503).send({ error: "Integration credentials are invalid" }); }
-    const headers = { Accept: "application/json" };
-    if (credentials.api_token) headers.Authorization = `Bearer ${credentials.api_token}`;
+    let testUrl;
     try {
-      const response = await fetch(settings.test_url, { headers, signal: AbortSignal.timeout(10000) });
-      await pool.query("UPDATE integration_connections SET status = ?, last_error = ?, last_synced_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ?", [response.ok ? "connected" : "error", response.ok ? null : `HTTP ${response.status}`, request.params.id, request.params.businessId]);
-      await audit(request, user, "integration.tested", "integration", request.params.id, { provider: connections[0].provider, http_status: response.status, success: response.ok });
-      return { connected: response.ok, status: response.status, provider: connections[0].provider };
+      if (typeof settings.test_url !== "string" || !settings.test_url.trim()) throw new Error("Invalid test URL");
+      testUrl = new URL(settings.test_url);
+    } catch { return reply.badRequest("Integration test_url must be a valid public HTTPS URL"); }
+    if (testUrl.protocol !== "https:" || testUrl.username || testUrl.password || (testUrl.port && testUrl.port !== "443")) {
+      return reply.badRequest("Integration test_url must be a public HTTPS URL on port 443");
+    }
+    try {
+      const status = await requestPublicHttps(testUrl);
+      const connected = status >= 200 && status < 300;
+      await pool.query("UPDATE integration_connections SET status = ?, last_error = ?, last_synced_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ?", [connected ? "connected" : "error", connected ? null : `HTTP ${status}`, request.params.id, request.params.businessId]);
+      await audit(request, user, "integration.tested", "integration", request.params.id, { provider: connections[0].provider, http_status: status, success: connected });
+      return { connected, status, provider: connections[0].provider };
     } catch {
       await pool.query("UPDATE integration_connections SET status = 'error', last_error = 'Connection failed' WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
       await audit(request, user, "integration.test_failed", "integration", request.params.id, { provider: connections[0].provider });

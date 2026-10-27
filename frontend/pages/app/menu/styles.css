@@ -381,8 +381,8 @@ body.modal-open{overflow:hidden}
 .bag-panel__items{display:grid;gap:12px;overflow-y:auto;overflow-x:hidden;flex:1;padding:16px 22px;box-sizing:border-box}
 .bag-panel__items::-webkit-scrollbar{width:6px}
 .bag-panel__items::-webkit-scrollbar-track{background:transparent}
-.bag-panel__items::-webkit-scrollbar-thumb{background:rgba(37,34,33,.15);border-radius:999px}
-.bag-panel__items::-webkit-scrollbar-thumb:hover{background:rgba(37,34,33,.25)}
+.bag-panel__items::-webkit-scrollbar-thumb{background:rgba(197,34,54,.82);border-radius:999px}
+.bag-panel__items::-webkit-scrollbar-thumb:hover{background:#a91d30}
 
 /* item layout - clean vertical stack */
 .bag-panel__item{padding:14px;border:1px solid rgba(231,223,223,.7);border-radius:12px;background:var(--surface-soft);display:flex;flex-direction:column;gap:10px;transition:background .15s ease,box-shadow .15s ease}

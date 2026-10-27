@@ -1,8 +1,9 @@
-import { getBusiness, getMenuSettings, getSession, saveBusiness, setSession } from "../data/storage.js";
-import { bootstrapApi, completeBusinessOnboarding, logout, requireAuth, saveMenuSettingsRemote } from "../auth/auth.js";
+import { getBusiness, getMenuSettings, getSession, saveBusiness, saveMenuSettings, setSession } from "../data/storage.js";
+import { bootstrapApi, completeBusinessOnboarding, isUsingApi, logout, requireAuth, saveMenuSettingsRemote } from "../auth/auth.js";
 import { checkForSystemUpdates } from "../auth/auth.js";
 import { escapeHtml } from "../utils/utils.js";
 import { applyLegacyTranslations, getLanguage, setLanguage, translate } from "../i18n/i18n.js";
+import { applyAppearancePreferences } from "./appearance.js";
 
 export { requireAuth };
 
@@ -26,6 +27,9 @@ const APP_NAVIGATION = [
   ["products", "Produtos", "M4 4h7v7H4zM13 4h7v4h-7zM4 13h7v7H4zM13 10h7v10h-7z"],
   ["menu", "Cardápio", "M5 6h14M5 12h14M5 18h9"],
   ["contacts", "Clientes", "M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1m7-9a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-7a4 4 0 0 1 0 7m2 4a4 4 0 0 1 3 4v1"],
+  ["suppliers", "Fornecedores", "M3 7h18v13H3zM7 7V4h10v3M7 12h4m2 0h4M7 16h4m2 0h4"],
+  ["discounts", "Descontos", "M20 13 13 20 3 10V3h7l10 10zM7 7h.01"],
+  ["loyalty", "Fidelidade", "M12 3v18m7-14H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H5"],
   ["team", "Equipe", "M16 11a4 4 0 1 0-3.5-6M8 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-7 8v-2a7 7 0 0 1 14 0v2zm15-7a5 5 0 0 1 5 5v2h-3"],
   ["reports", "Relatórios", "M4 20V10m5 10V4m5 16v-7m5 7V7"],
   ["fiscal", "Fiscal", "M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6"],
@@ -34,9 +38,77 @@ const APP_NAVIGATION = [
 ];
 const APP_NAVIGATION_GROUPS = [
   APP_NAVIGATION.slice(0, 6),
-  APP_NAVIGATION.slice(6, 11),
-  APP_NAVIGATION.slice(11),
+  APP_NAVIGATION.slice(6, 14),
+  APP_NAVIGATION.slice(14),
 ];
+const SIDEBAR_SCROLL_STORAGE_KEY = "food-system-sidebar-scroll-top";
+const SIDEBAR_CONTAINER_SCROLL_STORAGE_KEY = "food-system-sidebar-container-scroll-top";
+let sidebarScrollSaveTimer = 0;
+
+const saveSidebarNavigationScroll = () => {
+  const nav = document.querySelector(".menu-sidebar__nav");
+  if (!nav) return;
+  try {
+    window.localStorage.setItem(SIDEBAR_SCROLL_STORAGE_KEY, String(nav.scrollTop));
+    window.localStorage.setItem(
+      SIDEBAR_CONTAINER_SCROLL_STORAGE_KEY,
+      String(document.querySelector(".menu-sidebar")?.scrollTop || 0),
+    );
+  } catch {
+    // The navigation still works if storage is unavailable.
+  }
+};
+
+const scheduleSidebarNavigationScrollSave = () => {
+  window.clearTimeout(sidebarScrollSaveTimer);
+  sidebarScrollSaveTimer = window.setTimeout(saveSidebarNavigationScroll, 120);
+};
+
+const restoreSidebarNavigationScroll = () => {
+  const restore = () => {
+    let savedScrollTop = 0;
+    let savedContainerScrollTop = 0;
+    try {
+      savedScrollTop = Number(window.localStorage.getItem(SIDEBAR_SCROLL_STORAGE_KEY) || 0);
+      savedContainerScrollTop = Number(window.localStorage.getItem(SIDEBAR_CONTAINER_SCROLL_STORAGE_KEY) || 0);
+    } catch {
+      return;
+    }
+    if (!Number.isFinite(savedScrollTop) || !Number.isFinite(savedContainerScrollTop)) return;
+    if (savedScrollTop <= 0 && savedContainerScrollTop <= 0) return;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const nav = document.querySelector(".menu-sidebar__nav");
+        const sidebar = document.querySelector(".menu-sidebar");
+        if (sidebar && savedContainerScrollTop > 0) sidebar.scrollTop = savedContainerScrollTop;
+        if (nav && savedScrollTop > 0) nav.scrollTop = savedScrollTop;
+      });
+    });
+  };
+
+  restore();
+  window.addEventListener("pageshow", restore, { once: true });
+};
+
+const bindSidebarNavigationScroll = () => {
+  const nav = document.querySelector(".menu-sidebar__nav");
+  const sidebar = document.querySelector(".menu-sidebar");
+  if (nav && nav.dataset.scrollPositionBound !== "true") {
+    nav.dataset.scrollPositionBound = "true";
+    nav.addEventListener("scroll", scheduleSidebarNavigationScroll, { passive: true });
+  }
+  if (sidebar && sidebar.dataset.scrollPositionBound !== "true") {
+    sidebar.dataset.scrollPositionBound = "true";
+    sidebar.addEventListener("scroll", scheduleSidebarNavigationScroll, { passive: true });
+  }
+
+  document.querySelectorAll(".menu-sidebar__nav a").forEach((link) => {
+    if (link.dataset.sidebarScrollBound === "true") return;
+    link.dataset.sidebarScrollBound = "true";
+    link.addEventListener("click", saveSidebarNavigationScroll);
+  });
+};
 
 const ensureCanonicalSidebarNavigation = (activePage) => {
   const nav = document.querySelector(".menu-sidebar__nav");
@@ -293,11 +365,72 @@ const setSidebarCollapsedState = (collapsed) => {
   }
 
   applySidebarInlineState(collapsed);
+  const toggle = document.querySelector(".menu-sidebar__toggle");
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-label", translate(collapsed ? "Expandir menu" : "Minimizar menu"));
+    toggle.title = translate(collapsed ? "Expandir menu" : "Minimizar menu");
+  }
+  const mobileSidebarOpen = !collapsed && window.matchMedia("(max-width: 767px)").matches;
+  document.body.classList.toggle("menu-sidebar-overlay-open", mobileSidebarOpen);
+  const sidebarBackdrop = document.querySelector(".menu-sidebar-backdrop");
+  if (sidebarBackdrop) {
+    sidebarBackdrop.hidden = !mobileSidebarOpen;
+    sidebarBackdrop.classList.toggle("is-visible", mobileSidebarOpen);
+  }
   document.documentElement.dataset.sidebarReady = "true";
 };
 
 const getStoredSidebarCollapsedState = () => {
+  try {
+    const stored = window.localStorage.getItem("food-system-sidebar-collapsed");
+    if (stored === "true") return true;
+    if (stored === "false") return false;
+  } catch {
+    // Fall back to the responsive default when storage is unavailable
+  }
   return window.matchMedia("(max-width: 1023px)").matches;
+};
+
+const ensureSidebarToggle = () => {
+  const brandRow = document.querySelector(".menu-sidebar__brand-row");
+  if (!brandRow) return null;
+  let toggle = brandRow.querySelector(".menu-sidebar__toggle");
+  if (!toggle) {
+    toggle = document.createElement("button");
+    toggle.className = "menu-sidebar__toggle";
+    toggle.type = "button";
+    toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16" /></svg>';
+    brandRow.prepend(toggle);
+  }
+  const nav = document.querySelector(".menu-sidebar__nav");
+  if (nav) {
+    if (!nav.id) nav.id = "menuSidebarNavigation";
+    toggle.setAttribute("aria-controls", nav.id);
+  }
+  return toggle;
+};
+
+const ensureSidebarBackdrop = () => {
+  let backdrop = document.querySelector(".menu-sidebar-backdrop");
+  if (backdrop) return backdrop;
+  backdrop = document.createElement("button");
+  backdrop.className = "menu-sidebar-backdrop";
+  backdrop.type = "button";
+  backdrop.tabIndex = -1;
+  backdrop.hidden = true;
+  backdrop.setAttribute("aria-label", translate("Fechar menu"));
+  document.body.append(backdrop);
+  backdrop.addEventListener("click", () => {
+    try {
+      window.localStorage.setItem("food-system-sidebar-collapsed", "true");
+    } catch {
+      // Keep the current page usable if storage is unavailable
+    }
+    setSidebarCollapsedState(true);
+    document.querySelector(".menu-sidebar__toggle")?.focus();
+  });
+  return backdrop;
 };
 
 export const initProfileMenu = () => {
@@ -306,6 +439,7 @@ export const initProfileMenu = () => {
 
   const button = profile.querySelector(".profile-btn");
   if (!button) return;
+  if (button.dataset.profileMenuBound === "true") return;
 
   let session = getSession();
   let business = getBusiness();
@@ -313,7 +447,7 @@ export const initProfileMenu = () => {
   const clientCategory = "Aplicação local";
   let clientEmail = session?.email || business.email || "";
   const clientPhone = business.phone || session?.phone || "";
-  const clientAvatar = session?.avatar || business.avatar || "";
+  const clientAvatar = business.avatar || "";
   const displayPlan = clientCategory;
   let backdrop = document.getElementById("userEditBackdrop");
   let panel = document.getElementById("userEditPanel");
@@ -330,12 +464,13 @@ export const initProfileMenu = () => {
     panel.hidden = true;
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-modal", "true");
+    panel.tabIndex = -1;
     panel.setAttribute("aria-label", translate("Configurações do usuário"));
     panel.innerHTML = `
       <div class="user-edit-panel__hero">
         <button type="button" class="user-edit-panel__close" data-user-edit-close aria-label="Fechar painel">×</button>
         <div class="user-edit-panel__hero-user">
-          <div class="user-edit-panel__avatar" aria-hidden="true">${escapeHtml(displayName.slice(0, 1).toUpperCase())}</div>
+          <div class="user-edit-panel__avatar" aria-hidden="true">${session?.avatar ? `<img src="${escapeHtml(session.avatar)}" alt="" />` : escapeHtml(displayName.slice(0, 1).toUpperCase())}</div>
           <div class="user-edit-panel__hero-copy">
             <strong data-merchant-content>${escapeHtml(displayName)}</strong>
             <span>${escapeHtml(displayPlan)}</span>
@@ -364,21 +499,22 @@ export const initProfileMenu = () => {
                 <aside class="user-edit-panel__settings-side">
                   <div class="user-edit-panel__settings-avatar">
                     <div class="user-edit-panel__settings-avatar-frame">
-                      <img class="user-edit-panel__settings-avatar-image" alt="Foto do usuário" ${clientAvatar ? `src="${escapeHtml(clientAvatar)}"` : "hidden"} />
+                      <img class="user-edit-panel__settings-avatar-image" alt="Imagem do comércio" ${clientAvatar ? `src="${escapeHtml(clientAvatar)}"` : "hidden"} />
                       <span class="user-edit-panel__settings-avatar-placeholder" ${clientAvatar ? "hidden" : ""}>${displayName.slice(0, 1).toUpperCase()}</span>
                     </div>
                     <div class="user-edit-panel__settings-avatar-copy">
-                      <strong>Imagem do perfil</strong>
-                      <small>Atualize sua foto e os dados da conta</small>
+                      <strong>Imagem do comércio</strong>
+                      <small>Identifique seu estabelecimento no sistema</small>
                     </div>
                     <input class="user-edit-panel__file-input" type="file" accept="image/*" hidden />
                     <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar>Alterar foto</button>
+                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar-remove ${clientAvatar ? "" : "hidden"}>Remover foto</button>
                   </div>
                   <div class="user-edit-panel__settings-summary">
                     <article class="user-edit-panel__card">
                       <span>Aplicativo instalado</span>
                       <strong>Food System</strong>
-                      <small>Operação local neste computador</small>
+                      <small>Configurações do seu estabelecimento</small>
                     </article>
                     <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-open="updates">Verificar atualizações</button>
                   </div>
@@ -418,17 +554,55 @@ export const initProfileMenu = () => {
                   <section class="user-edit-panel__settings-block">
                     <div class="user-edit-panel__settings-block-head">
                       <span>Preferências</span>
-                      <strong>Idioma</strong>
+                      <strong>Aparência e acessibilidade</strong>
                     </div>
-                    <label class="field">
-                      <span>Idioma</span>
-                      <select data-global-language aria-label="Language">
-                        <option value="en">English</option>
-                        <option value="pt">Português</option>
-                      </select>
-                    </label>
+                    <div class="user-edit-panel__settings-grid">
+                      <label class="field">
+                        <span>Idioma</span>
+                        <select data-global-language aria-label="Idioma">
+                          <option value="en">English</option>
+                          <option value="pt">Português</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span>Tema</span>
+                        <select data-global-theme aria-label="Tema de aparência">
+                          <option value="light">Claro</option>
+                          <option value="dark">Escuro</option>
+                          <option value="system">Automático</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span>Barra lateral</span>
+                        <select data-sidebar-layout aria-label="Organização da barra lateral">
+                          <option value="expanded">Expandida</option>
+                          <option value="collapsed">Recolhida</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span>Movimento</span>
+                        <select data-reduced-motion aria-label="Movimento da interface">
+                          <option value="system">Padrão do dispositivo</option>
+                          <option value="reduced">Reduzido</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span>Tamanho do texto</span>
+                        <select data-text-size aria-label="Tamanho do texto">
+                          <option value="normal">Padrão</option>
+                          <option value="large">Maior</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span>Contraste</span>
+                        <select data-high-contrast aria-label="Contraste de cores">
+                          <option value="false">Padrão</option>
+                          <option value="true">Alto contraste</option>
+                        </select>
+                      </label>
+                    </div>
                   </section>
-                  <p class="user-edit-panel__feedback" data-settings-feedback hidden></p>
+                  <p class="user-edit-panel__feedback" data-settings-feedback role="status" aria-live="polite" hidden></p>
                   <button class="user-edit-panel__action" type="submit" data-settings-save>Salvar alterações</button>
                 </form>
               </section>
@@ -479,35 +653,6 @@ export const initProfileMenu = () => {
     document.body.append(backdrop, panel);
   }
 
-  const openPanel = () => {
-    backdrop.hidden = false;
-    panel.hidden = false;
-    requestAnimationFrame(() => {
-      backdrop.classList.add("is-open");
-      panel.classList.add("is-open");
-    });
-    document.body.classList.add("modal-open");
-    button.setAttribute("aria-expanded", "true");
-  };
-
-  const closePanel = () => {
-    backdrop.classList.remove("is-open");
-    panel.classList.remove("is-open");
-    button.setAttribute("aria-expanded", "false");
-    document.body.classList.remove("modal-open");
-    setTimeout(() => {
-      backdrop.hidden = true;
-      panel.hidden = true;
-    }, 220);
-  };
-
-  button.innerHTML = `
-    <svg class="profile-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z"/>
-    </svg>
-  `;
-  button.setAttribute("aria-label", translate(`Perfil de ${displayName}`));
-
   let label = profile.querySelector(".profile-label");
   if (!label) {
     label = document.createElement("span");
@@ -518,7 +663,121 @@ export const initProfileMenu = () => {
   label.setAttribute("role", "button");
   label.setAttribute("tabindex", "0");
 
+  let closePanelTimer = 0;
+  let profileTrigger = button;
+  const switchProfileView = (viewName = "home") => {
+    panel.classList.toggle("user-edit-panel--compact-view", viewName !== "home");
+    panel.querySelectorAll("[data-profile-view]").forEach((view) => {
+      const active = view.dataset.profileView === viewName;
+      view.classList.toggle("is-current", active);
+      view.hidden = !active;
+    });
+    const views = panel.querySelector(".user-edit-panel__views");
+    if (views) views.scrollTop = 0;
+  };
+
+  const openPanel = () => {
+    window.clearTimeout(closePanelTimer);
+    closePanelTimer = 0;
+    backdrop.hidden = false;
+    panel.hidden = false;
+    void panel.offsetWidth;
+    backdrop.classList.add("is-open");
+    panel.classList.add("is-open");
+    document.body.classList.add("modal-open");
+    button.setAttribute("aria-expanded", "true");
+    requestAnimationFrame(() => {
+      panel.querySelector("[data-user-edit-close]")?.focus();
+    });
+  };
+
+  const closePanel = () => {
+    window.clearTimeout(closePanelTimer);
+    backdrop.classList.remove("is-open");
+    panel.classList.remove("is-open");
+    button.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("modal-open");
+    closePanelTimer = window.setTimeout(() => {
+      if (panel.classList.contains("is-open")) return;
+      backdrop.hidden = true;
+      panel.hidden = true;
+      closePanelTimer = 0;
+      (profileTrigger.isConnected ? profileTrigger : button).focus();
+    }, 220);
+  };
+
+  const openProfileSettings = (event) => {
+    const target = event.target instanceof Element
+      ? event.target.closest(".profile-btn, .profile-label")
+      : null;
+    if (!target || !profile.contains(target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    profileTrigger = target;
+    switchProfileView("settings");
+    openPanel();
+  };
+
+  // Delegate from document so the profile trigger continues working if the
+  // sidebar is rebuilt after this panel has been initialized.
+  if (document.documentElement.dataset.profileSettingsDelegate !== "true") {
+    document.documentElement.dataset.profileSettingsDelegate = "true";
+    document.addEventListener("click", (event) => {
+      const target = event.target instanceof Element
+        ? event.target.closest(".profile-btn, .profile-label")
+        : null;
+      if (!target || !target.closest(".profile")) return;
+      openProfileSettings(event);
+    });
+    document.addEventListener("keydown", (event) => {
+      if ((event.key !== "Enter" && event.key !== " ") || !(event.target instanceof Element)) return;
+      const target = event.target.closest(".profile-label[role='button']");
+      if (!target) return;
+      openProfileSettings(event);
+    });
+  }
+  backdrop.addEventListener("click", closePanel);
+  panel.querySelector("[data-user-edit-close]")?.addEventListener("click", closePanel);
+  document.addEventListener("keydown", (event) => {
+    if (panel.hidden) return;
+    if (event.key === "Escape") {
+      closePanel();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = [...panel.querySelectorAll(
+      'a[href]:not([hidden]), button:not([disabled]):not([hidden]), input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), textarea:not([disabled]):not([hidden]), [tabindex]:not([tabindex="-1"]):not([hidden])',
+    )].filter((element) => element.getClientRects().length > 0);
+    if (!focusable.length) {
+      event.preventDefault();
+      panel.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+
+  button.dataset.profileMenuBound = "true";
+
+  button.innerHTML = `
+    <svg class="profile-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z"/>
+    </svg>
+  `;
+  button.setAttribute("aria-label", translate(`Perfil de ${displayName}`));
+
   button.setAttribute("aria-expanded", "false");
+  button.setAttribute("aria-haspopup", "dialog");
+  button.setAttribute("aria-controls", panel.id);
 
   const heroAvatar = () => panel.querySelector(".user-edit-panel__avatar");
   const heroName = () => panel.querySelector(".user-edit-panel__hero-copy strong");
@@ -526,15 +785,70 @@ export const initProfileMenu = () => {
   const settingsForm = panel.querySelector("[data-settings-form]");
   const settingsFeedback = panel.querySelector("[data-settings-feedback]");
   const settingsAvatarButton = panel.querySelector("[data-settings-avatar]");
+  const settingsAvatarRemove = panel.querySelector("[data-settings-avatar-remove]");
   const settingsAvatarInput = panel.querySelector(".user-edit-panel__file-input");
   const settingsAvatarImage = panel.querySelector(".user-edit-panel__settings-avatar-image");
   const settingsAvatarPlaceholder = panel.querySelector(".user-edit-panel__settings-avatar-placeholder");
   const languageSelect = panel.querySelector("[data-global-language]");
+  const themeSelect = panel.querySelector("[data-global-theme]");
+  const motionSelect = panel.querySelector("[data-reduced-motion]");
+  const textSizeSelect = panel.querySelector("[data-text-size]");
+  const contrastSelect = panel.querySelector("[data-high-contrast]");
+  const sidebarLayoutSelect = panel.querySelector("[data-sidebar-layout]");
   if (languageSelect) {
     languageSelect.value = getLanguage();
     languageSelect.addEventListener("change", () => {
       setLanguage(languageSelect.value);
       window.location.reload();
+    });
+  }
+  if (themeSelect) {
+    let savedTheme = "light";
+    try { savedTheme = localStorage.getItem("food-system-theme") || "light"; } catch { /* Default to light theme */ }
+    themeSelect.value = ["light", "dark", "system"].includes(savedTheme) ? savedTheme : "light";
+    themeSelect.addEventListener("change", () => {
+      try { localStorage.setItem("food-system-theme", themeSelect.value); } catch { /* Apply for this page */ }
+      applyAppearancePreferences();
+    });
+  }
+  if (motionSelect) {
+    let savedMotion = "system";
+    try { savedMotion = localStorage.getItem("food-system-reduced-motion") || "system"; } catch { /* Follow device preference */ }
+    motionSelect.value = savedMotion === "reduced" ? "reduced" : "system";
+    motionSelect.addEventListener("change", () => {
+      try { localStorage.setItem("food-system-reduced-motion", motionSelect.value); } catch { /* Apply for this page */ }
+      applyAppearancePreferences();
+    });
+  }
+  if (textSizeSelect) {
+    let savedTextSize = "normal";
+    try { savedTextSize = localStorage.getItem("food-system-text-size") || "normal"; } catch { /* Keep standard text size */ }
+    textSizeSelect.value = savedTextSize === "large" ? "large" : "normal";
+    textSizeSelect.addEventListener("change", () => {
+      try { localStorage.setItem("food-system-text-size", textSizeSelect.value); } catch { /* Apply for this page */ }
+      applyAppearancePreferences();
+    });
+  }
+  if (contrastSelect) {
+    let savedContrast = "false";
+    try { savedContrast = localStorage.getItem("food-system-high-contrast") || "false"; } catch { /* Keep standard contrast */ }
+    contrastSelect.value = savedContrast === "true" ? "true" : "false";
+    contrastSelect.addEventListener("change", () => {
+      try { localStorage.setItem("food-system-high-contrast", contrastSelect.value); } catch { /* Apply for this page */ }
+      applyAppearancePreferences();
+    });
+  }
+  if (sidebarLayoutSelect) {
+    let storedLayout = "";
+    try { storedLayout = localStorage.getItem("food-system-sidebar-collapsed") || ""; } catch { /* Use current layout */ }
+    const currentlyCollapsed = storedLayout
+      ? storedLayout === "true"
+      : document.documentElement.classList.contains("menu-sidebar-collapsed") || window.matchMedia("(max-width: 1023px)").matches;
+    sidebarLayoutSelect.value = currentlyCollapsed ? "collapsed" : "expanded";
+    sidebarLayoutSelect.addEventListener("change", () => {
+      const collapsed = sidebarLayoutSelect.value === "collapsed";
+      try { localStorage.setItem("food-system-sidebar-collapsed", String(collapsed)); } catch { /* Apply for this page */ }
+      setSidebarCollapsedState(collapsed);
     });
   }
   let pendingAvatar = clientAvatar || "";
@@ -547,7 +861,7 @@ export const initProfileMenu = () => {
       name: businessName || displayName,
       email: email || business.email || "",
       phone: phone || "",
-      avatar: avatar || "",
+      avatar: avatar ?? business.avatar ?? "",
     };
     session = session
       ? {
@@ -555,12 +869,15 @@ export const initProfileMenu = () => {
           name: displayName,
           email: email || session.email || "",
           phone: phone || "",
-          avatar: avatar || "",
         }
       : session;
 
     const heroAvatarElement = heroAvatar();
-    if (heroAvatarElement) heroAvatarElement.textContent = displayName.slice(0, 1).toUpperCase();
+    if (heroAvatarElement) {
+      heroAvatarElement.innerHTML = business.avatar
+        ? `<img src="${escapeHtml(business.avatar)}" alt="" />`
+        : escapeHtml(String(business.name || displayName).slice(0, 1).toUpperCase());
+    }
     const heroNameElement = heroName();
     if (heroNameElement) heroNameElement.textContent = displayName;
     const heroEmailElement = heroEmail();
@@ -572,8 +889,8 @@ export const initProfileMenu = () => {
     if (label) label.textContent = translate("Perfil");
 
     if (settingsAvatarImage) {
-      if (avatar) {
-        settingsAvatarImage.src = avatar;
+      if (business.avatar) {
+        settingsAvatarImage.src = business.avatar;
         settingsAvatarImage.hidden = false;
       } else {
         settingsAvatarImage.hidden = true;
@@ -582,8 +899,8 @@ export const initProfileMenu = () => {
     }
 
     if (settingsAvatarPlaceholder) {
-      settingsAvatarPlaceholder.textContent = displayName.slice(0, 1).toUpperCase();
-      settingsAvatarPlaceholder.hidden = Boolean(avatar);
+      settingsAvatarPlaceholder.textContent = String(business.name || displayName).slice(0, 1).toUpperCase();
+      settingsAvatarPlaceholder.hidden = Boolean(business.avatar);
     }
   };
 
@@ -596,12 +913,46 @@ export const initProfileMenu = () => {
   });
 
   settingsAvatarButton?.addEventListener("click", () => settingsAvatarInput?.click());
-  settingsAvatarInput?.addEventListener("change", () => {
+  settingsAvatarInput?.addEventListener("change", async () => {
     const file = settingsAvatarInput.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      pendingAvatar = String(reader.result || "");
+    if (!file.type.startsWith("image/")) {
+      settingsFeedback.textContent = translate("Selecione um arquivo de imagem");
+      settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
+      settingsFeedback.hidden = false;
+      settingsAvatarInput.value = "";
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      settingsFeedback.textContent = translate("A imagem deve ter até 8 MB");
+      settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
+      settingsFeedback.hidden = false;
+      settingsAvatarInput.value = "";
+      return;
+    }
+
+    try {
+      const source = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Não foi possível ler a imagem"));
+        reader.readAsDataURL(file);
+      });
+      const image = await new Promise((resolve, reject) => {
+        const preview = new Image();
+        preview.onload = () => resolve(preview);
+        preview.onerror = () => reject(new Error("Não foi possível abrir a imagem"));
+        preview.src = source;
+      });
+      const maxDimension = 512;
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Não foi possível processar a imagem");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      pendingAvatar = canvas.toDataURL("image/jpeg", .82);
       const values = Object.fromEntries(new FormData(settingsForm).entries());
       syncPanelIdentity({
         name: String(values.name || "").trim() || displayName,
@@ -610,8 +961,33 @@ export const initProfileMenu = () => {
         businessName: String(values.businessName || "").trim() || displayName,
         avatar: pendingAvatar,
       });
-    };
-    reader.readAsDataURL(file);
+      settingsAvatarRemove.hidden = false;
+      settingsFeedback.textContent = translate("Imagem do comércio pronta para salvar");
+      settingsFeedback.className = "user-edit-panel__feedback";
+      settingsFeedback.hidden = false;
+    } catch {
+      settingsFeedback.textContent = translate("Não foi possível processar a imagem");
+      settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
+      settingsFeedback.hidden = false;
+    } finally {
+      settingsAvatarInput.value = "";
+    }
+  });
+
+  settingsAvatarRemove?.addEventListener("click", () => {
+    pendingAvatar = "";
+    const values = Object.fromEntries(new FormData(settingsForm).entries());
+    syncPanelIdentity({
+      name: String(values.name || "").trim() || displayName,
+      email: String(values.email || "").trim(),
+      phone: String(values.phone || "").trim(),
+      businessName: String(values.businessName || "").trim() || displayName,
+      avatar: "",
+    });
+    settingsAvatarRemove.hidden = true;
+    settingsFeedback.textContent = translate("A imagem do comércio será removida ao salvar");
+    settingsFeedback.className = "user-edit-panel__feedback";
+    settingsFeedback.hidden = false;
   });
 
   settingsForm?.addEventListener("submit", async (event) => {
@@ -643,24 +1019,27 @@ export const initProfileMenu = () => {
         avatar: pendingAvatar,
       });
 
+      business = { ...business, name: businessName || name, email, phone, avatar: pendingAvatar };
+
       if (session) {
         setSession({
           ...session,
           name,
           email,
           phone,
-          avatar: pendingAvatar,
         });
         session = getSession();
       }
 
       await bootstrapApi();
       const menuSettings = getMenuSettings();
-      await saveMenuSettingsRemote({
+      const updatedMenuSettings = {
         ...menuSettings,
         businessName: businessName || name,
         menuName: menuSettings.menuName || business.name || businessName || name,
-      });
+      };
+      saveMenuSettings(updatedMenuSettings);
+      if (isUsingApi()) await saveMenuSettingsRemote(updatedMenuSettings);
 
       syncPanelIdentity({ name, email, phone, businessName, avatar: pendingAvatar });
       settingsFeedback.textContent = translate("Configurações salvas");
@@ -712,71 +1091,34 @@ export const initProfileMenu = () => {
     }
   });
 
-  const switchProfileView = (viewName = "home") => {
-    panel.classList.toggle("user-edit-panel--compact-view", viewName !== "home");
-    panel.querySelectorAll("[data-profile-view]").forEach((view) => {
-      const active = view.dataset.profileView === viewName;
-      view.classList.toggle("is-current", active);
-      view.hidden = !active;
-    });
-    const views = panel.querySelector(".user-edit-panel__views");
-    if (views) views.scrollTop = 0;
-  };
-
-  const openFromEvent = (event) => {
-    const target = event.target.closest(".profile-btn, .profile-label");
-    if (!target || !profile.contains(target)) return;
+  profile.addEventListener("click", (event) => {
+    const openButton = event.target instanceof Element ? event.target.closest("[data-profile-open]") : null;
+    if (!openButton || !profile.contains(openButton)) return;
     event.preventDefault();
-    event.stopPropagation();
-    switchProfileView("settings");
+    switchProfileView(openButton.dataset.profileOpen);
     openPanel();
-  };
+  });
 
-  button.addEventListener("click", openFromEvent);
-  document.addEventListener("click", openFromEvent, true);
-
-  backdrop.addEventListener("click", closePanel);
   panel.addEventListener("click", async (event) => {
-    const closeButton = event.target.closest("[data-action='close-app']");
+    const target = event.target instanceof Element ? event.target : null;
+    const closeButton = target?.closest("[data-action='close-app']");
     if (closeButton) {
       event.preventDefault();
       closeApplication();
       return;
     }
 
-    const openButton = event.target.closest("[data-profile-open]");
+    const openButton = target?.closest("[data-profile-open]");
     if (openButton) {
       event.preventDefault();
       switchProfileView(openButton.dataset.profileOpen);
       return;
     }
 
-    if (event.target.closest("[data-profile-back]")) {
+    if (target?.closest("[data-profile-back]")) {
       event.preventDefault();
       switchProfileView("home");
       return;
-    }
-
-    if (event.target.closest("[data-user-edit-close]")) {
-      closePanel();
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !panel.hidden) closePanel();
-  });
-
-  label.addEventListener("click", (event) => {
-    event.preventDefault();
-    switchProfileView("settings");
-    openPanel();
-  });
-
-  label.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      switchProfileView("settings");
-      openPanel();
     }
   });
 };
@@ -843,12 +1185,39 @@ export const initAppShell = async ({ activeNav } = {}) => {
   requireAuth();
 
   ensureCanonicalSidebarNavigation(activeNav);
+  bindSidebarNavigationScroll();
+  const sidebarToggle = ensureSidebarToggle();
+  ensureSidebarBackdrop();
+  if (sidebarToggle && sidebarToggle.dataset.bound !== "true") {
+    sidebarToggle.dataset.bound = "true";
+    sidebarToggle.addEventListener("click", () => {
+      const collapsed = document.querySelector(".menu-shell")?.dataset.sidebarState !== "collapsed";
+      try {
+        window.localStorage.setItem("food-system-sidebar-collapsed", String(collapsed));
+      } catch {
+        // The current page can still use the selected state without persistence
+      }
+      setSidebarCollapsedState(collapsed);
+    });
+  }
   ensureProfileTrigger();
   setSidebarCollapsedState(getStoredSidebarCollapsedState());
+  restoreSidebarNavigationScroll();
+  initProfileMenu();
 
   if (window.__foodSystemSidebarResizeBound !== true) {
     window.__foodSystemSidebarResizeBound = true;
     window.addEventListener("resize", () => setSidebarCollapsedState(getStoredSidebarCollapsedState()));
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !document.body.classList.contains("menu-sidebar-overlay-open")) return;
+      try {
+        window.localStorage.setItem("food-system-sidebar-collapsed", "true");
+      } catch {
+        // Keep the current page usable if storage is unavailable
+      }
+      setSidebarCollapsedState(true);
+      document.querySelector(".menu-sidebar__toggle")?.focus();
+    });
   }
 
   await bootstrapApi();
@@ -861,7 +1230,6 @@ export const initAppShell = async ({ activeNav } = {}) => {
       closeApplication();
     });
   });
-  initProfileMenu();
   ensureBusinessOnboarding();
 
   if (!activeNav) return;

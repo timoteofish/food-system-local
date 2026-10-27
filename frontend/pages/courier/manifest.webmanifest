@@ -5,5 +5,13 @@
   "display": "standalone",
   "background_color": "#f7f7f6",
   "theme_color": "#b4232f",
-  "lang": "pt-BR"
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "../../assets/favicon.webp",
+      "sizes": "any",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ]
 }

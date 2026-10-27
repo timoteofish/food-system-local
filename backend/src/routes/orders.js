@@ -62,37 +62,37 @@ export default async function orderRoutes(app) {
       let diningTabId = body.dining_tab_id || null;
       if (body.table_token) {
         const [tables] = await connection.query("SELECT id FROM restaurant_tables WHERE business_id = ? AND public_token = ? AND active = TRUE LIMIT 1", [request.params.businessId, body.table_token]);
-        if (!tables.length) return reply.notFound("Table not found");
+        if (!tables.length) { await connection.rollback(); return reply.notFound("Table not found"); }
         tableId = tables[0].id;
       }
       if (diningTabId) {
         const [tabs] = await connection.query("SELECT id, restaurant_table_id FROM dining_tabs WHERE id = ? AND business_id = ? AND status = 'open' LIMIT 1", [diningTabId, request.params.businessId]);
-        if (!tabs.length) return reply.badRequest("Invalid or closed dining tab");
-        if (tableId && tableId !== tabs[0].restaurant_table_id) return reply.badRequest("Dining tab does not belong to the selected table");
+        if (!tabs.length) { await connection.rollback(); return reply.badRequest("Invalid or closed dining tab"); }
+        if (tableId && tableId !== tabs[0].restaurant_table_id) { await connection.rollback(); return reply.badRequest("Dining tab does not belong to the selected table"); }
         tableId = tabs[0].restaurant_table_id;
       }
       let paymentMethodId = null;
       if (body.payment_method_id) {
         const [methods] = await connection.query("SELECT id FROM payment_methods WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [body.payment_method_id, request.params.businessId]);
-        if (!methods.length) return reply.badRequest("Invalid payment method");
+        if (!methods.length) { await connection.rollback(); return reply.badRequest("Invalid payment method"); }
         paymentMethodId = methods[0].id;
       }
       const delivery = body.delivery && typeof body.delivery === "object" ? body.delivery : null;
       const deliveryAddress = delivery?.address && typeof delivery.address === "object" ? delivery.address : null;
       const deliveryFee = Number(delivery?.fee || 0);
-      if (delivery && (!deliveryAddress || !Number.isFinite(deliveryFee) || deliveryFee < 0 || deliveryFee > 99999999.99)) return reply.badRequest("Invalid delivery details");
-      if (deliveryAddress && (!String(deliveryAddress.street || "").trim() || !String(deliveryAddress.number || "").trim() || !String(deliveryAddress.city || "").trim())) return reply.badRequest("Delivery address is incomplete");
+      if (delivery && (!deliveryAddress || !Number.isFinite(deliveryFee) || deliveryFee < 0 || deliveryFee > 99999999.99)) { await connection.rollback(); return reply.badRequest("Invalid delivery details"); }
+      if (deliveryAddress && (!String(deliveryAddress.street || "").trim() || !String(deliveryAddress.number || "").trim() || !String(deliveryAddress.city || "").trim())) { await connection.rollback(); return reply.badRequest("Delivery address is incomplete"); }
       let customerId = body.customer_id || null;
       if (customerId) {
         const [customers] = await connection.query("SELECT id FROM customers WHERE id = ? AND business_id = ? LIMIT 1", [customerId, request.params.businessId]);
-        if (!customers.length) return reply.badRequest("Customer does not belong to this business");
+        if (!customers.length) { await connection.rollback(); return reply.badRequest("Customer does not belong to this business"); }
       }
       const scheduledFor = delivery?.scheduled_for ? new Date(delivery.scheduled_for) : null;
-      if (scheduledFor && Number.isNaN(scheduledFor.getTime())) return reply.badRequest("Invalid scheduled delivery date");
+      if (scheduledFor && Number.isNaN(scheduledFor.getTime())) { await connection.rollback(); return reply.badRequest("Invalid scheduled delivery date"); }
       let discountCode = null;
       let discountAmount = 0;
       const ids = inputItems.map((item) => item.product_id || item.id).filter(Boolean);
-      if (!ids.length || ids.length !== inputItems.length) return reply.badRequest("Each item must include a product id");
+      if (!ids.length || ids.length !== inputItems.length) { await connection.rollback(); return reply.badRequest("Each item must include a product id"); }
       const placeholders = ids.map(() => "?").join(",");
       const [products] = await connection.query(`SELECT id, name, price, active FROM products WHERE business_id = ? AND id IN (${placeholders})`, [request.params.businessId, ...ids]);
       const byId = new Map(products.map((product) => [product.id, product]));
@@ -106,7 +106,7 @@ export default async function orderRoutes(app) {
       if (body.discount_code) {
         discountCode = String(body.discount_code).trim().toUpperCase().slice(0, 40);
         const [discounts] = await connection.query("SELECT type, value FROM discounts WHERE business_id = ? AND code = ? AND active = TRUE AND (starts_at IS NULL OR starts_at <= NOW()) AND (ends_at IS NULL OR ends_at >= NOW()) LIMIT 1", [request.params.businessId, discountCode]);
-        if (!discounts.length) return reply.badRequest("Invalid or expired discount code");
+        if (!discounts.length) { await connection.rollback(); return reply.badRequest("Invalid or expired discount code"); }
         discountAmount = number(Math.min(subtotal, discounts[0].type === "percentage" ? subtotal * Number(discounts[0].value) / 100 : Number(discounts[0].value)));
       }
       const total = number(subtotal - discountAmount + deliveryFee);
@@ -114,9 +114,9 @@ export default async function orderRoutes(app) {
       if (paymentInputs.length) {
         const paymentIds = paymentInputs.map((payment) => payment.payment_method_id).filter(Boolean);
         const paidTotal = paymentInputs.reduce((sum, payment) => sum + Number(payment.amount), 0);
-        if (paymentIds.length !== paymentInputs.length || new Set(paymentIds).size !== paymentIds.length || paymentInputs.some((payment) => !Number.isFinite(Number(payment.amount)) || Number(payment.amount) <= 0) || Math.abs(paidTotal - total) > 0.01) return reply.badRequest("Payment allocations must equal the order total");
+        if (paymentIds.length !== paymentInputs.length || new Set(paymentIds).size !== paymentIds.length || paymentInputs.some((payment) => !Number.isFinite(Number(payment.amount)) || Number(payment.amount) <= 0) || Math.abs(paidTotal - total) > 0.01) { await connection.rollback(); return reply.badRequest("Payment allocations must equal the order total"); }
         const [methods] = await connection.query(`SELECT id FROM payment_methods WHERE business_id = ? AND active = TRUE AND id IN (${paymentIds.map(() => "?").join(",")})`, [request.params.businessId, ...paymentIds]);
-        if (methods.length !== paymentIds.length) return reply.badRequest("Invalid payment method");
+        if (methods.length !== paymentIds.length) { await connection.rollback(); return reply.badRequest("Invalid payment method"); }
       }
       const orderId = randomUUID();
       await connection.query("INSERT INTO orders (id, business_id, restaurant_table_id, dining_tab_id, customer_id, delivery_address, delivery_fee, scheduled_for, payment_method_id, subtotal, discount_code, discount_amount, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [orderId, request.params.businessId, tableId, diningTabId, customerId, deliveryAddress ? JSON.stringify(deliveryAddress) : null, deliveryFee, scheduledFor ? scheduledFor : null, paymentMethodId, subtotal, discountCode, discountAmount, total, String(body.order?.notes || "").slice(0, 2000) || null]);

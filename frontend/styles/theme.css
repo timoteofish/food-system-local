@@ -1,0 +1,94 @@
+/* Theme overrides shared by authenticated application screens. */
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html[data-text-size="large"] {
+  font-size: 112.5%;
+}
+
+html[data-high-contrast="true"] {
+  --text: #111;
+  --muted: #3f3f3f;
+  --line: #626262;
+  --accent: #a30f24;
+  --accent-dark: #820b1c;
+  --accent-soft: #ffe3e7;
+}
+
+html[data-theme="dark"][data-high-contrast="true"] {
+  --bg: #000;
+  --surface: #090909;
+  --surface-soft: #151515;
+  --text: #fff;
+  --muted: #e2e2e2;
+  --line: #aaa;
+  --accent: #ff6678;
+  --accent-dark: #ff9aa5;
+  --accent-soft: #481018;
+}
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] .shell,
+html[data-theme="dark"] .page,
+html[data-theme="dark"] .app-header,
+html[data-theme="dark"] .menu-sidebar,
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .product-form-panel,
+html[data-theme="dark"] .table-panel,
+html[data-theme="dark"] .orders-table,
+html[data-theme="dark"] .orders-card,
+html[data-theme="dark"] .orders-overview-card,
+html[data-theme="dark"] .user-edit-card,
+html[data-theme="dark"] .purchase-shell,
+html[data-theme="dark"] .payment-panel,
+html[data-theme="dark"] .login-panel,
+html[data-theme="dark"] .signup-panel,
+html[data-theme="dark"] .user-edit-panel,
+html[data-theme="dark"] .business-onboarding-panel,
+html[data-theme="dark"] .qr-code-panel,
+html[data-theme="dark"] .category-user-panel,
+html[data-theme="dark"] .image-user-panel,
+html[data-theme="dark"] .cash-history,
+html[data-theme="dark"] .team-invite,
+html[data-theme="dark"] .team-list,
+html[data-theme="dark"] .user-edit-panel__page-shell,
+html[data-theme="dark"] .user-edit-panel__settings-block,
+html[data-theme="dark"] .user-edit-panel__settings-avatar,
+html[data-theme="dark"] .user-edit-panel__card {
+  background: var(--surface) !important;
+  color: var(--text);
+  border-color: var(--line) !important;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .btn--secondary {
+  background: var(--surface-soft) !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+}
+
+html[data-theme="dark"] .menu-sidebar__nav a.active,
+html[data-theme="dark"] .menu-sidebar__nav a:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .user-edit-panel__hero {
+  background: #191919;
+}
+
+html[data-theme="dark"] .user-edit-backdrop {
+  background: rgba(0, 0, 0, .66);
+}
+
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .01ms !important;
+}

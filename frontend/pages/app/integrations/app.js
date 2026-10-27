@@ -37,8 +37,8 @@ const userFacingError = (error) => {
   if (raw.includes("Integration credentials are invalid")) {
     return "As credenciais salvas não são válidas Salve o token novamente";
   }
-  if (raw.includes("Integration test_url must use HTTPS")) {
-    return "A URL de teste precisa começar com https://";
+  if (raw.includes("Integration test_url")) {
+    return "A URL de teste precisa ser HTTPS pública e usar a porta 443";
   }
   if (raw.includes("Integration connection failed")) {
     return "Não foi possível acessar o endereço configurado";

@@ -54,6 +54,7 @@ const openPrintTicket = (ticket) => {
     setStatus(translate("Não foi possível abrir a impressão Permita janelas para este aplicativo e tente novamente"), "error");
     return;
   }
+  popup.opener = null;
 
   const orderItems = (ticket.items || []).map((item) => (
     `<p><span>${escapeHtml(item.quantity)} × ${escapeHtml(item.name)}</span><span>${formatTicketPrice(item.total)}</span></p>`

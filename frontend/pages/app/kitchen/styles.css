@@ -52,7 +52,7 @@
   overflow-x: auto;
   padding: 0 0 8px;
   scroll-snap-type: x proximity;
-  scrollbar-color: color-mix(in srgb, var(--accent) 36%, var(--line)) var(--surface-soft);
+  scrollbar-color: rgba(197, 34, 54, .82) transparent;
   scrollbar-width: thin;
 }
 

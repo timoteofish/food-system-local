@@ -23,7 +23,7 @@ export default async function inventoryRoutes(app) {
       await connection.beginTransaction();
       if (supplierId) {
         const [suppliers] = await connection.query("SELECT id FROM suppliers WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [supplierId, request.params.businessId]);
-        if (!suppliers.length) return reply.badRequest("Supplier does not belong to this business");
+        if (!suppliers.length) { await connection.rollback(); return reply.badRequest("Supplier does not belong to this business"); }
       }
       const purchaseId = randomUUID();
       const normalized = [];
@@ -31,9 +31,9 @@ export default async function inventoryRoutes(app) {
       for (const input of inputItems) {
         const quantity = Number(input.quantity);
         const unitCost = Number(input.unit_cost);
-        if (!input.inventory_item_id || !positiveNumber(quantity) || !Number.isFinite(unitCost) || unitCost < 0 || unitCost > 99999999) return reply.badRequest("Invalid purchase item");
+        if (!input.inventory_item_id || !positiveNumber(quantity) || !Number.isFinite(unitCost) || unitCost < 0 || unitCost > 99999999) { await connection.rollback(); return reply.badRequest("Invalid purchase item"); }
         const [items] = await connection.query("SELECT id, current_quantity, cost_per_unit FROM inventory_items WHERE id = ? AND business_id = ? AND active = TRUE FOR UPDATE", [input.inventory_item_id, request.params.businessId]);
-        if (!items.length) return reply.badRequest("Inventory item not found");
+        if (!items.length) { await connection.rollback(); return reply.badRequest("Inventory item not found"); }
         const item = items[0];
         const nextQuantity = Number(item.current_quantity) + quantity;
         const weightedCost = nextQuantity ? ((Number(item.current_quantity) * Number(item.cost_per_unit)) + (quantity * unitCost)) / nextQuantity : unitCost;
@@ -92,7 +92,7 @@ export default async function inventoryRoutes(app) {
         return reply.notFound("Inventory item not found");
       }
       const delta = type === "purchase" ? quantity : type === "loss" ? -quantity : Number(body.direction) === -1 ? -quantity : quantity;
-      if (Number(items[0].current_quantity) + delta < 0) return reply.conflict("Insufficient inventory");
+      if (Number(items[0].current_quantity) + delta < 0) { await connection.rollback(); return reply.conflict("Insufficient inventory"); }
       const movementId = randomUUID();
       await connection.query("UPDATE inventory_items SET current_quantity = current_quantity + ? WHERE id = ?", [delta, request.params.id]);
       await connection.query("INSERT INTO inventory_movements (id, business_id, inventory_item_id, type, quantity, description) VALUES (?, ?, ?, ?, ?, ?)", [movementId, request.params.businessId, request.params.id, type, delta, String(body.description || "").slice(0, 255) || null]);
@@ -109,11 +109,11 @@ export default async function inventoryRoutes(app) {
     try {
       await connection.beginTransaction();
       const [products] = await connection.query("SELECT id FROM products WHERE id = ? AND business_id = ? LIMIT 1", [request.params.productId, request.params.businessId]);
-      if (!products.length) return reply.notFound("Product not found");
+      if (!products.length) { await connection.rollback(); return reply.notFound("Product not found"); }
       const ids = ingredients.map((entry) => entry.inventory_item_id);
-      if (ids.some((id) => !id) || new Set(ids).size !== ids.length || ingredients.some((entry) => !positiveNumber(entry.quantity))) return reply.badRequest("Invalid recipe");
+      if (ids.some((id) => !id) || new Set(ids).size !== ids.length || ingredients.some((entry) => !positiveNumber(entry.quantity))) { await connection.rollback(); return reply.badRequest("Invalid recipe"); }
       const [items] = await connection.query(`SELECT id FROM inventory_items WHERE business_id = ? AND active = TRUE AND id IN (${ids.map(() => "?").join(",")})`, [request.params.businessId, ...ids]);
-      if (items.length !== ids.length) return reply.badRequest("Recipe contains an invalid inventory item");
+      if (items.length !== ids.length) { await connection.rollback(); return reply.badRequest("Recipe contains an invalid inventory item"); }
       await connection.query("DELETE FROM product_ingredients WHERE product_id = ? AND business_id = ?", [request.params.productId, request.params.businessId]);
       for (const entry of ingredients) await connection.query("INSERT INTO product_ingredients (id, business_id, product_id, inventory_item_id, quantity) VALUES (?, ?, ?, ?, ?)", [randomUUID(), request.params.businessId, request.params.productId, entry.inventory_item_id, Number(entry.quantity)]);
       await connection.commit();

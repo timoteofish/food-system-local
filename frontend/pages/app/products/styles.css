@@ -563,61 +563,6 @@ td span{color:var(--muted);font-size:.88rem}
   .table-panel { padding: 13px !important; }
 }
 
-/* ===== SIDEBAR COLLAPSED OVERRIDES ===== */
-body.menu-sidebar-collapsed .menu-sidebar,
-html.menu-sidebar-collapsed .menu-sidebar,
-.menu-shell.menu-sidebar-collapsed .menu-sidebar{
-  width:84px !important;
-  flex-basis:84px !important;
-  padding:18px 10px !important;
-}
-body.menu-sidebar-collapsed .menu-sidebar__brand,
-html.menu-sidebar-collapsed .menu-sidebar__brand,
-.menu-shell.menu-sidebar-collapsed .menu-sidebar__brand{
-  max-width:0 !important;
-  opacity:0 !important;
-  transform:translateX(-10px) !important;
-  pointer-events:none !important;
-}
-body.menu-sidebar-collapsed .menu-sidebar__brand-row,
-html.menu-sidebar-collapsed .menu-sidebar__brand-row,
-.menu-shell.menu-sidebar-collapsed .menu-sidebar__brand-row{
-  justify-content:center !important;
-  padding:0 !important;
-  gap:0 !important;
-}
-body.menu-sidebar-collapsed .menu-sidebar__nav a,
-html.menu-sidebar-collapsed .menu-sidebar__nav a,
-.menu-shell.menu-sidebar-collapsed .menu-sidebar__nav a{
-  justify-content:center !important;
-  padding:12px 0 !important;
-  gap:0 !important;
-}
-body.menu-sidebar-collapsed .menu-label,
-html.menu-sidebar-collapsed .menu-label,
-.menu-shell.menu-sidebar-collapsed .menu-label{
-  max-width:0 !important;
-  opacity:0 !important;
-  transform:translateX(-10px) !important;
-  pointer-events:none !important;
-}
-body.menu-sidebar-collapsed .menu-sidebar__profile,
-html.menu-sidebar-collapsed .menu-sidebar__profile,
-.menu-shell.menu-sidebar-collapsed .menu-sidebar__profile{
-  align-self:center !important;
-  justify-content:center !important;
-}
-body.menu-sidebar-collapsed .menu-sidebar__profile .profile-label,
-html.menu-sidebar-collapsed .menu-sidebar__profile .profile-label,
-.menu-shell.menu-sidebar-collapsed .menu-sidebar__profile .profile-label{
-  display:none !important;
-}
-body.menu-sidebar-collapsed .menu-content,
-html.menu-sidebar-collapsed .menu-content,
-.menu-shell.menu-sidebar-collapsed .menu-content{
-  margin-left:0 !important;
-}
-
 /* ===== MOBILE USABILITY ===== */
 @media(max-width:767px){
   .product-form-panel,

@@ -81,7 +81,7 @@ export default async function authRoutes(app) {
     try {
       await connection.beginTransaction();
       const [existing] = await connection.query("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
-      if (existing.length) return reply.conflict("Email já cadastrado");
+      if (existing.length) { await connection.rollback(); return reply.conflict("Email já cadastrado"); }
       const userId = randomUUID();
       const businessId = randomUUID();
       await connection.query("INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)", [userId, email, name, await hashPassword(password)]);

@@ -8,7 +8,7 @@ struct BackendProcess(Mutex<Option<Child>>);
 
 #[tauri::command]
 fn app_info() -> &'static str {
-    "Food System Local"
+    "Food System"
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -36,7 +36,7 @@ pub fn run() {
                 app.manage(BackendProcess(Mutex::new(Some(child))));
             }
             if let Some(window) = app.get_webview_window("main") {
-                window.set_title("Food System Local")?;
+                window.set_title("Food System")?;
             }
             Ok(())
         })
@@ -52,5 +52,5 @@ pub fn run() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("erro ao executar Food System Local");
+        .expect("erro ao executar Food System");
 }

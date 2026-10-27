@@ -3,7 +3,7 @@ import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import net from "node:net";
-import { extname, join, normalize, resolve } from "node:path";
+import { extname, isAbsolute, join, normalize, relative as relativePath, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -41,7 +41,9 @@ const safePath = (urlPath) => {
     ? "index.html"
     : requested.replace(/^\/+/, "").replace(/^frontend\//, "");
   const file = resolve(frontendRoot, normalize(relative));
-  return file.startsWith(frontendRoot) ? file : null;
+  const pathFromFrontend = relativePath(frontendRoot, file);
+  if (pathFromFrontend === ".." || pathFromFrontend.startsWith(`..${sep}`) || isAbsolute(pathFromFrontend)) return null;
+  return file;
 };
 
 const canConnectDatabase = () => new Promise((resolveConnection) => {

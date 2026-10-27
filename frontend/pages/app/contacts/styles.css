@@ -6,6 +6,11 @@
   align-items: stretch;
 }
 
+.contact-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 920px;
+}
+
 .contacts-intro {
   margin: 7px 0 0;
   color: var(--muted);

@@ -170,6 +170,47 @@ body.menu-sidebar-collapsed .profile-label,
   pointer-events:none !important;
 }
 
+/* Keep the icon rail layout tied directly to the shell's current state. */
+.menu-shell[data-sidebar-state="collapsed"] .menu-sidebar{
+  flex-basis:84px !important;
+  width:84px !important;
+  min-width:84px !important;
+  padding-inline:10px !important;
+}
+
+.menu-shell[data-sidebar-state="collapsed"] .menu-sidebar__brand-row{
+  justify-content:center !important;
+  gap:0 !important;
+  padding:0 !important;
+}
+
+.menu-shell[data-sidebar-state="collapsed"] .menu-sidebar__brand,
+.menu-shell[data-sidebar-state="collapsed"] .menu-label,
+.menu-shell[data-sidebar-state="collapsed"] .menu-sidebar__profile .profile-label{
+  max-width:0 !important;
+  opacity:0 !important;
+  overflow:hidden !important;
+  pointer-events:none !important;
+}
+
+.menu-shell[data-sidebar-state="collapsed"] .menu-sidebar__nav a{
+  justify-content:center !important;
+  gap:0 !important;
+  padding:12px 0 !important;
+}
+
+.menu-shell[data-sidebar-state="collapsed"] .menu-sidebar__profile{
+  align-self:center !important;
+  justify-content:center !important;
+  gap:0 !important;
+  padding:0 !important;
+  border-top:0 !important;
+}
+
+.menu-shell[data-sidebar-state="collapsed"] .menu-sidebar__profile .profile-label{
+  display:none !important;
+}
+
 .menu-sidebar__nav a{
   min-width:0;
 }
@@ -177,6 +218,22 @@ body.menu-sidebar-collapsed .profile-label,
 .menu-icon,
 .profile-btn__icon{
   flex:0 0 auto;
+}
+
+.menu-sidebar .profile-btn{
+  color:var(--text) !important;
+  border-radius:12px !important;
+  transition:background-color .18s ease,color .18s ease !important;
+}
+
+.menu-sidebar .profile-btn:hover{
+  color:var(--accent-dark) !important;
+  background:var(--accent-soft) !important;
+}
+
+.menu-sidebar .profile-btn:focus-visible{
+  outline:3px solid rgba(197,34,54,.28) !important;
+  outline-offset:2px !important;
 }
 
 /* The profile trigger is an icon-only control inside the app sidebar. */
@@ -331,6 +388,55 @@ body.menu-sidebar-collapsed .profile-label,
     padding:0 !important;
   }
 
+  .menu-shell[data-sidebar-state="expanded"] .menu-sidebar{
+    flex-basis:min(240px,calc(100vw - 32px)) !important;
+    width:min(240px,calc(100vw - 32px)) !important;
+    min-width:min(240px,calc(100vw - 32px)) !important;
+    padding:18px 12px 14px !important;
+  }
+
+  .menu-shell[data-sidebar-state="expanded"] .menu-sidebar__brand-row{
+    justify-content:flex-start !important;
+    gap:8px !important;
+    padding:2px 2px 0 !important;
+  }
+
+  .menu-shell[data-sidebar-state="expanded"] .menu-sidebar__brand,
+  .menu-shell[data-sidebar-state="expanded"] .menu-label,
+  .menu-shell[data-sidebar-state="expanded"] .menu-sidebar__profile .profile-label{
+    max-width:160px !important;
+    opacity:1 !important;
+    overflow:hidden !important;
+    pointer-events:auto !important;
+    transform:none !important;
+  }
+
+  .menu-shell[data-sidebar-state="expanded"] .menu-sidebar__profile .profile-label{
+    display:inline-flex !important;
+    width:auto !important;
+    min-width:0 !important;
+    padding:1px 0 0 !important;
+    margin:0 !important;
+  }
+
+  .menu-shell[data-sidebar-state="expanded"] .menu-sidebar__nav a{
+    width:100% !important;
+    justify-content:flex-start !important;
+    gap:10px !important;
+    margin-inline:0 !important;
+    padding:12px 12px !important;
+  }
+
+  .menu-shell[data-sidebar-state="expanded"] .menu-sidebar__profile{
+    width:100% !important;
+    align-self:stretch !important;
+    justify-content:flex-start !important;
+    margin-inline:0 !important;
+    padding:8px !important;
+    gap:10px !important;
+    border-top:1px solid var(--line) !important;
+  }
+
   .menu-builder{
     grid-template-columns:1fr;
   }
@@ -408,9 +514,21 @@ body.menu-sidebar-collapsed .profile-label,
   }
 
   .menu-shell[data-sidebar-state="expanded"] .menu-sidebar{
-    width:min(224px,calc(100vw - 24px)) !important;
-    min-width:min(224px,calc(100vw - 24px)) !important;
-    flex-basis:min(224px,calc(100vw - 24px)) !important;
+    position:fixed !important;
+    inset:0 auto 0 0 !important;
+    z-index:50 !important;
+    width:min(252px,calc(100vw - 48px)) !important;
+    min-width:min(252px,calc(100vw - 48px)) !important;
+    max-height:100dvh !important;
+    height:100dvh !important;
+    flex-basis:min(252px,calc(100vw - 48px)) !important;
+    box-shadow:0 16px 40px rgba(20,20,20,.2) !important;
+  }
+
+  .menu-shell[data-sidebar-state="expanded"] .menu-content{
+    width:100vw !important;
+    min-width:100vw !important;
+    flex-basis:100vw !important;
   }
 
   .menu-sidebar__nav a,
@@ -427,6 +545,10 @@ body.menu-sidebar-collapsed .profile-label,
     width:100% !important;
     margin-inline:0 !important;
     padding:12px 14px !important;
+  }
+
+  .menu-shell[data-sidebar-state="expanded"] .menu-sidebar__brand{
+    max-width:145px !important;
   }
 
   .menu-icon{
