@@ -3,6 +3,7 @@ export {
   completeRegistration,
   getCurrentUser,
   isAuthenticated,
+  isLocalMode,
   login,
   loginWithFirebaseGoogle,
   loginWithGoogle,

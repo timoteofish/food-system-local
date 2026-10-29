@@ -3,6 +3,7 @@ import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
 
 const isMoney = (value) => Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 99999999.99;
+const MAX_LOYALTY_POINTS_PER_OPERATION = 1_000_000;
 
 export default async function customerValueRoutes(app) {
   app.get("/api/v1/businesses/:businessId/discounts", async (request, reply) => {
@@ -45,7 +46,7 @@ export default async function customerValueRoutes(app) {
   app.post("/api/v1/businesses/:businessId/customers/:customerId/loyalty/earn", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
     const points = Number(request.body?.points);
-    if (!Number.isInteger(points) || points <= 0 || points > 1000000) return reply.badRequest("Invalid points amount");
+    if (!Number.isInteger(points) || points <= 0 || points > MAX_LOYALTY_POINTS_PER_OPERATION) return reply.badRequest("Invalid points amount");
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -61,7 +62,7 @@ export default async function customerValueRoutes(app) {
   app.post("/api/v1/businesses/:businessId/customers/:customerId/loyalty/redeem", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
     const points = Number(request.body?.points);
-    if (!Number.isInteger(points) || points <= 0) return reply.badRequest("Invalid points amount");
+    if (!Number.isInteger(points) || points <= 0 || points > MAX_LOYALTY_POINTS_PER_OPERATION) return reply.badRequest("Invalid points amount");
     const [result] = await pool.query("UPDATE loyalty_accounts SET points = points - ? WHERE business_id = ? AND customer_id = ? AND points >= ?", [points, request.params.businessId, request.params.customerId, points]);
     if (!result.affectedRows) return reply.conflict("Insufficient loyalty points");
     const [account] = await pool.query("SELECT points FROM loyalty_accounts WHERE business_id = ? AND customer_id = ? LIMIT 1", [request.params.businessId, request.params.customerId]);

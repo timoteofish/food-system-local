@@ -1,5 +1,8 @@
 import { execFile, spawn } from "node:child_process";
+import { createReadStream } from "node:fs";
 import { access } from "node:fs/promises";
+import path from "node:path";
+import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { config } from "./config.js";
 
@@ -10,10 +13,11 @@ await access(input);
 
 const candidates = [
   process.env.MARIADB_CLIENT_PATH,
+  process.env.MARIADB_ROOT ? path.join(process.env.MARIADB_ROOT, "bin", "mariadb.exe") : "",
   "mariadb",
   "mysql",
+  "C:\\Program Files\\MariaDB 11.8\\bin\\mariadb.exe",
   "C:\\Program Files\\MariaDB 13.0\\bin\\mariadb.exe",
-  "C:\\Program Files\\MariaDB 11.0\\bin\\mariadb.exe",
 ].filter(Boolean);
 let client;
 for (const candidate of candidates) {
@@ -21,15 +25,42 @@ for (const candidate of candidates) {
 }
 if (!client) throw new Error("mariadb/mysql não encontrado. Instale MariaDB ou defina MARIADB_CLIENT_PATH.");
 
-const child = spawn(client, ["--host", config.mysql.host, "--port", String(config.mysql.port), "--user", config.mysql.user, config.mysql.database], {
-  env: { ...process.env, MYSQL_PWD: config.mysql.password },
+const mysql = config.mysqlMaintenance;
+const clientArgs = ["--host", mysql.host, "--port", String(mysql.port), "--user", mysql.user, mysql.database];
+const clientEnv = { ...process.env, MYSQL_PWD: mysql.password };
+await execFileAsync(client, ["--host", mysql.host, "--port", String(mysql.port), "--user", mysql.user, "--execute", "SELECT 1", mysql.database], { env: clientEnv, windowsHide: true, timeout: 10000 });
+const child = spawn(client, clientArgs, {
+  env: clientEnv,
   windowsHide: true,
   stdio: ["pipe", "inherit", "inherit"],
 });
-const code = await new Promise((resolve, reject) => {
+const closePromise = new Promise((resolve, reject) => {
   child.once("error", reject);
-  child.once("close", resolve);
-  import("node:fs").then(({ createReadStream }) => createReadStream(input).pipe(child.stdin));
+  child.once("close", (code, signal) => resolve({ code, signal }));
 });
-if (code !== 0) throw new Error(`Restauração falhou com código ${code}`);
+child.once("spawn", () => {
+  if (process.connected) {
+    try { process.send({ type: "restore-import-started" }); } catch {}
+  }
+  process.stdout.write("Food System restore importer started\n");
+});
+let timedOut = false;
+const timeout = setTimeout(() => {
+  timedOut = true;
+  child.kill();
+}, 120000);
+try {
+  const [inputResult, processResult] = await Promise.allSettled([
+    pipeline(createReadStream(input), child.stdin),
+    closePromise,
+  ]);
+  if (processResult.status === "rejected") throw processResult.reason;
+  if (timedOut) throw new Error("Database restore exceeded the 120-second limit");
+  if (processResult.value.code !== 0) throw new Error(`Restauração falhou com código ${processResult.value.code ?? processResult.value.signal}`);
+  if (inputResult.status === "rejected") throw inputResult.reason;
+} finally {
+  clearTimeout(timeout);
+  if (child.exitCode === null && !child.killed) child.kill();
+  await closePromise.catch(() => {});
+}
 console.log(`Backup restaurado: ${input}`);

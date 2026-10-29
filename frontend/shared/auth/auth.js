@@ -12,7 +12,9 @@ import {
   fetchRestaurantTables,
   fetchTeamMembers,
   fetchTodayStats,
+  fetchBusiness,
   fetchProfile,
+  provisionLocalBusiness,
   firebaseAuthRequest,
   loginRequest,
   logoutRequest,
@@ -61,6 +63,7 @@ const ensureLocalSession = () => {
   };
   setSession(localSession);
   saveBusiness({
+    id: localSession.businessId,
     name: getBusiness()?.name || "Meu comércio",
     email: "local@food-system.local",
     onboardingCompleted: true,
@@ -76,7 +79,18 @@ export const checkApiAvailability = async () => {
     return false;
   }
   apiAvailable = await pingApi();
-  if (apiAvailable && !LOCAL_MODE && getSession()?.token) {
+  if (apiAvailable && LOCAL_MODE) {
+    const localSession = ensureLocalSession();
+    const localName = String(getBusiness()?.name || "").trim();
+    if (localName) {
+      try {
+        const business = await provisionLocalBusiness(localName);
+        saveBusiness({ id: business.id, name: business.name });
+      } catch {
+        // Keep the interface usable if the local profile cannot sync yet.
+      }
+    }
+  } else if (apiAvailable && getSession()?.token) {
     const profile = await fetchProfile();
     persistAuthSession({ user: profile.user, business: profile.business, local: true });
   }
@@ -84,6 +98,7 @@ export const checkApiAvailability = async () => {
 };
 
 export const isUsingApi = () => apiAvailable === true;
+export const isLocalMode = () => LOCAL_MODE;
 
 const requireBusinessId = () => {
   const businessId = getSession()?.businessId;
@@ -337,16 +352,24 @@ export const saveMenuSettingsRemote = async (settings) => {
   if (!isUsingApi()) throw new Error("API indisponível Não foi possível salvar o cardápio");
 
   const businessId = requireBusinessId();
+  const currentBusiness = await fetchBusiness(businessId);
+  let currentSettings = currentBusiness?.settings;
+  if (typeof currentSettings === "string") {
+    try { currentSettings = JSON.parse(currentSettings); } catch { currentSettings = {}; }
+  }
   await updateBusiness(businessId, {
     name: settings.businessName,
     description: settings.menuName,
     primary_color: settings.primaryColor,
     theme_style: settings.style,
     settings: {
+      ...(currentSettings && typeof currentSettings === "object" && !Array.isArray(currentSettings) ? currentSettings : {}),
       gradient_start: settings.gradientStart,
       gradient_end: settings.gradientEnd,
       gradient_angle: settings.gradientAngle,
+      style: settings.style,
       menu_banner: settings.menuBanner,
+      delivery_fee: settings.deliveryFee,
       show_all_products: settings.showAllProducts,
       selected_categories: settings.selectedCategories || [],
     },
@@ -375,7 +398,6 @@ export const placeOrderRemote = async ({
     businessId,
     {
       customer_name: customerName,
-      customer_phone: "0000000000",
       notes: `Mesa: ${tableName} | Pagamento: ${paymentMethod}${notes ? ` | ${notes}` : ""}`,
     },
     orderItems
@@ -424,8 +446,23 @@ const extractTableName = (notes = "") => {
 };
 
 const extractPaymentMethod = (notes = "") => {
-  const match = String(notes).match(/Pagamento:\s*([^|]+)/i);
-  return match ? match[1].trim() : "balcao";
+  const match = String(notes).match(/\b(?:Pagamento|Payment):\s*([^|]+)/i);
+  if (!match) return "balcao";
+  const value = match[1].trim();
+  const normalized = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const methods = new Map([
+    ["dinheiro_balcao", "dinheiro_balcao"],
+    ["dinheiro no balcao", "dinheiro_balcao"],
+    ["cash at counter", "dinheiro_balcao"],
+    ["pix", "pix"],
+    ["credito", "credito"],
+    ["cartao de credito", "credito"],
+    ["credit card", "credito"],
+    ["debito", "debito"],
+    ["cartao de debito", "debito"],
+    ["debit card", "debito"],
+  ]);
+  return methods.get(normalized) || value;
 };
 
 const normalizeOrderStatus = (status = "") => {

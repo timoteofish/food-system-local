@@ -63,7 +63,7 @@
           <div>
             <p class="eyebrow">Conectividade</p>
             <h1>Integrações</h1>
-            <p class="subtitle">Cadastre provedores e valide a conexão</p>
+            <p class="subtitle">Cadastre configurações e verifique se um endpoint responde</p>
           </div>
         </div>
 
@@ -83,7 +83,7 @@
               <label for="integrationName">Nome da integração
                 <input id="integrationName" required maxlength="120" autocomplete="off" />
               </label>
-              <label for="integrationTestUrl">URL HTTPS para teste
+              <label for="integrationTestUrl">URL HTTPS do endpoint
                 <input
                   id="integrationTestUrl"
                   type="url"
@@ -93,7 +93,7 @@
                   required
                 />
               </label>
-              <small class="integration-form__help">O teste verifica uma resposta HTTPS pública na porta 443 e não envia o token</small>
+              <small class="integration-form__help">A verificação faz um GET HTTPS público na porta 443. Ela não autentica no provedor nem envia o token.</small>
               <label for="integrationToken">Token da API
                 <input
                   id="integrationToken"

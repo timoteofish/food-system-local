@@ -6,9 +6,9 @@
     "test": "npm --prefix backend test",
     "test:contract": "npm --prefix backend run test:contract",
     "desktop:download-update": "node desktop/download-update.mjs",
-    "desktop:dev": "tauri dev",
+    "desktop:dev": "npm ci --prefix backend && tauri dev",
     "desktop:prepare-runtime": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File desktop/prepare-runtime.ps1",
-    "desktop:build": "npm run desktop:prepare-runtime && tauri build",
+    "desktop:build": "tauri build",
     "desktop:check": "tauri info"
   },
   "devDependencies": {

@@ -99,7 +99,7 @@ const renderConnections = (connections) => {
           </form>
         </details>
         <div class="integration-actions">
-          <button class="btn btn--secondary" type="button" data-test-integration="${escapeHtml(connection.id)}">${translate("Testar conexão")}</button>
+          <button class="btn btn--secondary" type="button" data-test-integration="${escapeHtml(connection.id)}">${translate("Verificar alcance do endpoint")}</button>
         </div>
       </article>
     `;
@@ -224,10 +224,10 @@ list.addEventListener("click", async (event) => {
     );
     const status = Number(result.status);
     const testMessage = result.connected
-      ? "Conexão aprovada"
+      ? "Endpoint acessível (HTTP 2xx); credenciais do provedor não foram verificadas"
       : Number.isFinite(status) && status > 0
-        ? `O provedor respondeu com HTTP ${status}`
-        : "O provedor não informou o status da conexão";
+        ? `O endpoint respondeu com HTTP ${status}`
+        : "O endpoint não informou o status HTTP";
     setMessage(testMessage, result.connected ? "success" : "error");
     await load();
   } catch (error) {

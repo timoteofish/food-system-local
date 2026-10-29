@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Recuperar senha | Food System</title>
+    <title>Conta local | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
 <link rel="stylesheet" href="../../../styles/base.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -12,30 +12,20 @@
     <link rel="stylesheet" href="../login/styles.css" />
     <link rel="stylesheet" href="./styles.css" />
       <script type="module" src="../../../shared/ui/appearance-boot.js"></script>
+    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
   </head>
   <body class="recover-page">
     <main class="shell">
       <section class="login-panel recover-panel">
         <div class="auth-copy">
           <p class="eyebrow">Food System</p>
-          <h1>Recuperar senha</h1>
-          <p class="subtitle">Informe seu e-mail para receber as instruções de redefinição</p>
+          <h1>Conta local</h1>
+          <p class="subtitle">Esta instalação do Food System usa um perfil local e não exige senha para abrir o aplicativo.</p>
         </div>
-        <form class="auth-form" id="recoverForm">
-          <div class="field">
-            <label for="email">E-mail</label>
-            <input id="email" type="email" placeholder="Digite seu e-mail" required />
-          </div>
-          <p id="recoverFeedback" class="form-feedback" hidden></p>
-          <button class="btn btn--primary" type="submit">Enviar instruções</button>
-        </form>
         <div class="auth-switch">
-          <button class="btn btn--secondary" type="button" onclick="window.location.href='../login/index.html'">Voltar</button>
+          <a class="btn btn--secondary" href="../../../index.html">Voltar ao Food System</a>
         </div>
       </section>
     </main>
-    <script src="../../../env.js"></script>
-    <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
-    <script type="module" src="./app.js"></script>
   </body>
 </html>

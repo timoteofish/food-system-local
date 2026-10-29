@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
+import { createPublicMenu } from "../public-menu.js";
 
 const tableView = (row) => ({
   id: row.id,
@@ -40,7 +41,7 @@ export default async function tableRoutes(app) {
 
   app.get("/api/v1/menu/:token", async (request, reply) => {
     const [rows] = await pool.query(
-      `SELECT b.id AS business_id, b.name AS business_name, b.description AS business_description, b.primary_color,
+      `SELECT b.id AS business_id, b.name AS business_name, b.description AS business_description, b.primary_color, b.settings,
               t.id AS table_id, t.name AS table_name, c.id AS category_id, c.name AS category_name,
               p.id AS product_id, p.name AS product_name, p.description AS product_description, p.price, p.image_url
        FROM restaurant_tables t JOIN businesses b ON b.id = t.business_id
@@ -55,8 +56,14 @@ export default async function tableRoutes(app) {
     for (const row of rows) {
       if (!row.category_id) continue;
       if (!categories.has(row.category_id)) categories.set(row.category_id, { id: row.category_id, name: row.category_name, products: [] });
-      if (row.product_id) categories.get(row.category_id).products.push({ id: row.product_id, name: row.product_name, description: row.product_description, price: Number(row.price), image_url: row.image_url });
+      if (row.product_id) categories.get(row.category_id).products.push({ id: row.product_id, name: row.product_name, description: row.product_description, price: row.price, image_url: row.image_url });
     }
-    return { business: { id: first.business_id, name: first.business_name, description: first.business_description, primary_color: first.primary_color }, table: { id: first.table_id, name: first.table_name }, categories: [...categories.values()] };
+    return createPublicMenu({
+      id: first.business_id,
+      name: first.business_name,
+      description: first.business_description,
+      primary_color: first.primary_color,
+      settings: first.settings,
+    }, [...categories.values()], { id: first.table_id, name: first.table_name });
   });
 }

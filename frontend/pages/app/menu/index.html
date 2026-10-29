@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cardápio | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
-    <script>document.documentElement.dataset.sidebarReady = "false";</script>
+    <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
     <link rel="stylesheet" href="../shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
@@ -78,6 +78,7 @@
             <div class="field"><label for="businessName">Nome do comércio</label><input id="businessName" placeholder="Ex.: Sabor da Serra" /></div>
             <div class="field"><label for="menuName">Título do cardápio</label><input id="menuName" placeholder="Ex.: Cardápio do Café" /></div>
             <div class="field"><label for="menuBanner">Aviso curto para o cliente</label><textarea id="menuBanner" rows="3" placeholder="Ex.: Pedidos disponíveis até as 22h"></textarea></div>
+            <div class="field"><label for="deliveryFeeSetting">Taxa de entrega (R$)</label><input id="deliveryFeeSetting" type="number" min="0" max="99999999.99" step="0.01" value="0" /><small>Este valor é calculado pelo servidor e exibido no cardápio público.</small></div>
             <div class="field"><label for="primaryColor">Cor da marca</label><input id="primaryColor" type="color" /></div>
             <input id="gradientStart" type="hidden" />
             <input id="gradientEnd" type="hidden" />

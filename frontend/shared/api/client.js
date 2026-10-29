@@ -18,19 +18,31 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
     throw new Error("URL da API não configurada Defina window.FOOD_SYSTEM_API_URL ou localStorage['food-system-api-url']");
   }
 
+  const needsAuthentication = auth !== false;
+  let localAccessToken = "";
+  if (needsAuthentication) {
+    try {
+      localAccessToken = await window.__TAURI__?.core?.invoke?.("local_access_token") || "";
+    } catch {
+      // Browser clients do not receive the desktop-only local administrator credential.
+    }
+  }
+  const developmentLocalMode = needsAuthentication && !localAccessToken && ["localhost", "127.0.0.1"].includes(window.location.hostname) && window.location.port === "4173";
   const headers = {
     Accept: "application/json",
     "X-Food-System-Client": "web",
-    "X-Food-System-Local": "true",
+    ...(localAccessToken ? { "X-Food-System-Local": localAccessToken } : developmentLocalMode ? { "X-Food-System-Local": "true" } : {}),
     ...(body ? { "Content-Type": "application/json" } : {}),
   };
-  const storedSession = JSON.parse(localStorage.getItem("food-system-session") || "null");
-  if (storedSession?.token) headers.Authorization = `Bearer ${storedSession.token}`;
+  if (needsAuthentication) {
+    const storedSession = JSON.parse(localStorage.getItem("food-system-session") || "null");
+    if (storedSession?.token) headers.Authorization = `Bearer ${storedSession.token}`;
+  }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
-    credentials: "same-origin",
+    credentials: needsAuthentication ? "same-origin" : "omit",
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -69,6 +81,10 @@ export const registerRequest = (payload) =>
 export const logoutRequest = () => apiRequest("/auth/logout", { method: "POST" });
 
 export const fetchProfile = () => apiRequest("/auth/profile");
+export const fetchBusiness = (businessId) => apiRequest(`/businesses/${businessId}`).then((data) => data.business);
+
+export const provisionLocalBusiness = (name) =>
+  apiRequest("/local/business", { method: "PUT", body: { business: { name } } }).then((data) => data.business);
 
 export const fetchProducts = (businessId) =>
   apiRequest(`/businesses/${businessId}/products`).then((data) => data.products || []);
@@ -114,7 +130,7 @@ export const transferDiningTab = (businessId, tabId, tableId) => apiRequest(`/bu
 export const closeDiningTab = (businessId, tabId) => apiRequest(`/businesses/${businessId}/dining-tabs/${tabId}/close`, { method: "POST" }).then((data) => data.tab || data);
 
 export const fetchTeamMembers = (businessId) =>
-  apiRequest(`/businesses/${businessId}/team`);
+  apiRequest(`/businesses/${businessId}/team`).then((data) => data.members || []);
 
 export const createTeamMember = (businessId, membership) =>
   apiRequest(`/businesses/${businessId}/team`, {
@@ -159,11 +175,11 @@ export const updateOrderStatusRequest = (businessId, orderId, status) =>
     body: { status },
   }).then((data) => data.order || data);
 
-export const createOrder = (businessId, order, items, tableToken = "", delivery = null) =>
+export const createOrder = (businessId, order, items, tableToken = "", delivery = null, idempotencyKey = globalThis.crypto.randomUUID()) =>
   apiRequest(`/businesses/${businessId}/orders`, {
     method: "POST",
     auth: false,
-    body: { order, items, table_token: tableToken, delivery },
+    body: { order, items, table_token: tableToken, delivery, idempotency_key: idempotencyKey },
   });
 
 export const fetchTodayStats = (businessId) =>

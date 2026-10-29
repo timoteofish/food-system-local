@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { authenticate, requireBusinessAccess, requireRole } from "./auth.js";
 import { audit } from "../audit.js";
+import { hasDecimalScale } from "../numbers.js";
 
 export default async function businessesRoutes(app) {
   app.get("/api/v1/businesses/:id", async (request, reply) => {
@@ -22,6 +23,12 @@ export default async function businessesRoutes(app) {
     };
     const updates = Object.entries(fields).filter(([, value]) => value !== undefined);
     if (!updates.length) return reply.badRequest("No business fields provided");
+    if (business.settings !== undefined) {
+      if (!business.settings || typeof business.settings !== "object" || Array.isArray(business.settings)) return reply.badRequest("Business settings must be an object");
+      if (business.settings.delivery_fee !== undefined && (!hasDecimalScale(business.settings.delivery_fee, 2) || Number(business.settings.delivery_fee) < 0 || Number(business.settings.delivery_fee) > 99999999.99)) {
+        return reply.badRequest("Delivery fee must be a valid non-negative amount with at most 2 decimal places");
+      }
+    }
 
     const setClause = updates.map(([field]) => `${field} = ?`).join(", ");
     const values = updates.map(([field, value]) => field === "settings" ? JSON.stringify(value || {}) : value);

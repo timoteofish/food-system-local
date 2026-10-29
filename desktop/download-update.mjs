@@ -17,11 +17,12 @@ if (!signature.length) throw new Error("Assinatura da atualização vazia");
 
 const output = resolve(rawOutput);
 const temporary = `${output}.download-${process.pid}-${Date.now()}`;
+const MAX_UPDATE_BYTES = 1024 * 1024 * 1024;
 await mkdir(dirname(output), { recursive: true });
 
 const fetchHttps = async (url, redirects = 0) => {
   const parsed = new URL(url);
-  if (parsed.protocol !== "https:") throw new Error("Atualizações devem usar HTTPS");
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.hash) throw new Error("Atualizações devem usar HTTPS sem credenciais ou fragmentos na URL");
   const response = await fetch(parsed, { redirect: "manual", signal: AbortSignal.timeout(120000) });
   if ([301, 302, 303, 307, 308].includes(response.status)) {
     if (redirects >= 3) throw new Error("Muitos redirecionamentos no download da atualização");
@@ -34,15 +35,22 @@ const fetchHttps = async (url, redirects = 0) => {
 };
 
 const digest = createHash("sha256");
+let downloadedBytes = 0;
 const hashingStream = new Transform({
   transform(chunk, _encoding, callback) {
-    digest.update(chunk);
-    callback(null, chunk);
+    downloadedBytes += chunk.length;
+    if (downloadedBytes > MAX_UPDATE_BYTES) callback(new Error("O pacote de atualização excede o limite de 1 GiB"));
+    else {
+      digest.update(chunk);
+      callback(null, chunk);
+    }
   },
 });
 
 try {
   const response = await fetchHttps(rawUrl);
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_UPDATE_BYTES) throw new Error("O pacote de atualização excede o limite de 1 GiB");
   await pipeline(Readable.fromWeb(response.body), hashingStream, createWriteStream(temporary, { flags: "wx" }));
   const actual = digest.digest("hex");
   if (actual !== expected) throw new Error(`SHA-256 divergente: esperado ${expected}, recebido ${actual}`);

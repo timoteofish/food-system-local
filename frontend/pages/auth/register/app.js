@@ -1,8 +1,13 @@
-import { loginWithFirebaseGoogle, saveRegistrationStep } from "../../../shared/features/auth/index.js";
+import { isLocalMode, loginWithFirebaseGoogle, saveRegistrationStep } from "../../../shared/features/auth/index.js";
 import { TERMS_SECTIONS } from "../terms/terms-data.js";
 import { translate } from "../../../shared/i18n/i18n.js";
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (isLocalMode()) {
+    window.location.replace("../../../index.html");
+    return;
+  }
+
   const form = document.getElementById("registerForm");
   const terms = document.getElementById("termos");
   const submit = form.querySelector(".btn--primary");
@@ -112,8 +117,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (password.length < 6) {
-      showFeedback("A senha deve ter pelo menos 6 caracteres");
+    if (password.length < 8 || new TextEncoder().encode(password).length > 1024) {
+      showFeedback("A senha deve ter entre 8 e 1024 bytes");
       return;
     }
 

@@ -1,4 +1,5 @@
 import { getLocale, translate } from "../../../../shared/i18n/i18n.js";
+import { safeImageUrl } from "../../../../shared/utils/utils.js";
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -46,8 +47,9 @@ export const initProductDetailsPanel = ({ onToggleStatus } = {}) => {
     if (!product) return;
     currentProduct = product;
     const name = escapeHtml(product.name || translate("Produto sem nome"));
-    const image = product.image
-      ? `<img class="id-product-panel__image" src="${escapeHtml(product.image)}" alt="${name}" />`
+    const safeImage = safeImageUrl(product.image);
+    const image = safeImage
+      ? `<img class="id-product-panel__image" src="${escapeHtml(safeImage)}" alt="${name}" />`
       : `<div class="id-product-panel__image id-product-panel__image--empty" aria-hidden="true">${name.slice(0, 2).toUpperCase()}</div>`;
 
     panel.innerHTML = `

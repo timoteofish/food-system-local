@@ -76,13 +76,17 @@ const openPrintTicket = (ticket) => {
         ${orderItems}
         <hr />
         <p><strong>${printCopy.total}</strong><strong>${formatTicketPrice(ticket.total)}</strong></p>
-        <script>window.print();</script>
       </body>
     </html>
   `;
 
   popup.document.write(ticketMarkup);
   popup.document.close();
+  setTimeout(() => {
+    if (popup.closed) return;
+    popup.focus();
+    popup.print();
+  }, 0);
 };
 
 const renderBoard = (orders) => {

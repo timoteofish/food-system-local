@@ -1,12 +1,19 @@
 import mysql from "mysql2/promise";
 import { config } from "./config.js";
 
-export const pool = mysql.createPool({
-  ...config.mysql,
+const createPool = (credentials) => mysql.createPool({
+  ...credentials,
   waitForConnections: true,
-  connectionLimit: config.mysql.connectionLimit,
+  connectionLimit: credentials.connectionLimit,
   charset: "utf8mb4",
 });
+
+export const pool = createPool(config.mysql);
+let maintenancePool;
+export const getMaintenancePool = () => {
+  maintenancePool ||= createPool(config.mysqlMaintenance);
+  return maintenancePool;
+};
 
 export const checkDatabase = async () => {
   const connection = await pool.getConnection();

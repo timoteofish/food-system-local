@@ -105,10 +105,13 @@ const renderDocuments = (documents) => {
     const documentType = translate(documentTypeLabels[document.document_type] || "Documento fiscal");
     const identifier = document.number || String(document.id || "").slice(0, 8).toUpperCase();
     const errorMessage = document.error_message
-      ? `<p class="fiscal-document__error">${escapeHtml(document.error_message)}</p>`
+      ? `<p class="fiscal-document__error">${escapeHtml(translate(document.error_message))}</p>`
       : "";
-    const issueButton = document.status === "draft"
+    const payloadReady = document.payload && typeof document.payload === "object" && !Array.isArray(document.payload) && Object.keys(document.payload).length > 0;
+    const issueButton = document.status === "draft" && payloadReady
       ? `<button class="btn btn--secondary" data-issue="${escapeHtml(document.id)}" type="button" ${canIssueDocuments ? "" : "disabled"}>${translate("Enviar para emissão")}</button>`
+      : document.status === "draft"
+        ? `<small>${translate("Rascunho sem dados fiscais")}</small>`
       : "";
 
     return `

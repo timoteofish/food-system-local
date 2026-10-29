@@ -18,6 +18,7 @@ const defaultMenuSettings = {
   heroMood: "minimal",
   menuDensity: 42,
   menuBanner: "",
+  deliveryFee: 0,
   showAllProducts: true,
   selectedCategories: [],
   category: "Todos",

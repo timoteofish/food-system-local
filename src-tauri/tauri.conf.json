@@ -4,7 +4,15 @@
   "version": "0.1.0",
   "identifier": "com.foodsystem.local",
   "build": {
-    "beforeDevCommand": "node desktop/start-local.mjs",
+    "beforeDevCommand": {
+      "script": "node desktop/start-local.mjs",
+      "cwd": "../",
+      "wait": false
+    },
+    "beforeBuildCommand": {
+      "script": "powershell -NoProfile -ExecutionPolicy Bypass -File desktop/prepare-runtime.ps1",
+      "cwd": "../"
+    },
     "devUrl": "http://127.0.0.1:4173",
     "frontendDist": "../frontend"
   },
@@ -23,13 +31,17 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' http://127.0.0.1:3000 http://127.0.0.1:4173; connect-src 'self' http://127.0.0.1:3000 http://127.0.0.1:4173; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self' http://localhost:3000 http://127.0.0.1:3000 http://localhost:4173 http://127.0.0.1:4173; connect-src 'self' http://localhost:3000 http://127.0.0.1:3000 http://localhost:4173 http://127.0.0.1:4173; img-src 'self' data: blob: https: https://api.qrserver.com; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
     }
   },
   "bundle": {
     "active": true,
     "icon": ["icons/icon.ico"],
-    "resources": ["../backend", "../desktop"],
+    "resources": {
+      "../backend/": "backend/",
+      "../desktop/": "desktop/",
+      "../frontend/": "frontend/"
+    },
     "targets": ["msi", "nsis"],
     "windows": {
       "webviewInstallMode": {

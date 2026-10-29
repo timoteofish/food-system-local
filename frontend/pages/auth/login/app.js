@@ -1,13 +1,18 @@
-import { bootstrapApi, isAuthenticated, login, loginWithFirebaseGoogle, logout } from "../../../shared/features/auth/index.js";
+import { bootstrapApi, isAuthenticated, isLocalMode, login, loginWithFirebaseGoogle, logout } from "../../../shared/features/auth/index.js";
 import { getRememberedUser, setRememberedUser } from "../../../shared/data/storage.js";
 import { goWithLoading } from "../../../shared/utils/navigation.js";
 import { translate } from "../../../shared/i18n/i18n.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
+  if (isLocalMode()) {
+    window.location.replace("../../../index.html");
+    return;
+  }
+
   await bootstrapApi();
 
   if (isAuthenticated()) {
-    goWithLoading("/frontend/pages/app/dashboard/index.html");
+    goWithLoading("/pages/app/dashboard/index.html");
     return;
   }
 
@@ -49,7 +54,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         button.disabled = true;
         await loginWithFirebaseGoogle();
-        goWithLoading("/frontend/pages/app/dashboard/index.html");
+        goWithLoading("/pages/app/dashboard/index.html");
       } catch (error) {
         showFeedback(error.message || "Não foi possível entrar com o Google");
         button.disabled = false;
@@ -74,7 +79,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       await login({ email, password });
       setRememberedUser(rememberInput?.checked ? email : "");
-      goWithLoading("/frontend/pages/app/dashboard/index.html");
+      goWithLoading("/pages/app/dashboard/index.html");
     } catch (error) {
       showFeedback(error.message || "Não foi possível entrar");
       if (submitButton) submitButton.disabled = false;

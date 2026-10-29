@@ -67,7 +67,7 @@ checkUpdateButton?.addEventListener("click", async () => {
     updateFeedback.dataset.state = result.update_available ? "available" : "success";
     if (result.update_available && safeUpdateUrl) {
       const message = document.createTextNode(
-        `${translate(`Versão ${result.available_version} disponível. Abra o link para atualizar quando quiser.`)} `
+        `${translate(`Versão ${result.available_version} disponível. Abra a página de download para instalar manualmente.`)} `
       );
       const link = document.createElement("a");
       link.href = safeUpdateUrl;

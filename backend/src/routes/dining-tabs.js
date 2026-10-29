@@ -39,7 +39,7 @@ export default async function diningTabRoutes(app) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [tables] = await connection.query("SELECT id FROM restaurant_tables WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [request.params.tableId, request.params.businessId]);
+      const [tables] = await connection.query("SELECT id FROM restaurant_tables WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1 FOR UPDATE", [request.params.tableId, request.params.businessId]);
       if (!tables.length) { await connection.rollback(); return reply.notFound("Table not found"); }
       const existing = await findOpenTab(request.params.businessId, request.params.tableId, connection);
       if (existing) { await connection.rollback(); return reply.conflict("This table already has an open tab"); }
@@ -63,7 +63,7 @@ export default async function diningTabRoutes(app) {
     try {
       await connection.beginTransaction();
       const [tabs] = await connection.query("SELECT id FROM dining_tabs WHERE id = ? AND business_id = ? AND status = 'open' LIMIT 1", [request.params.tabId, request.params.businessId]);
-      const [tables] = await connection.query("SELECT id FROM restaurant_tables WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [targetTableId, request.params.businessId]);
+      const [tables] = await connection.query("SELECT id FROM restaurant_tables WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1 FOR UPDATE", [targetTableId, request.params.businessId]);
       const occupied = await findOpenTab(request.params.businessId, targetTableId, connection);
       if (!tabs.length || !tables.length) { await connection.rollback(); return reply.notFound("Tab or target table not found"); }
       if (occupied && occupied.id !== request.params.tabId) { await connection.rollback(); return reply.conflict("Target table already has an open tab"); }

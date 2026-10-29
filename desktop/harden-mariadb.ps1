@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-  [string]$MariaRoot = "C:\Program Files\MariaDB 13.0",
+  [string]$MariaRoot = "C:\Program Files\MariaDB 11.8",
   [switch]$RestartService
 )
 
@@ -28,9 +28,13 @@ if ($PSCmdlet.ShouldProcess($configPath, "Create a backup at $backupPath and res
 }
 
 if ($RestartService) {
-  $services = Get-Service | Where-Object { $_.Name -match 'MariaDB|MySQL' }
-  if (-not $services) { throw "MariaDB service was not found" }
+  $serviceRoot = [System.IO.Path]::GetFullPath($MariaRoot).TrimEnd('\')
+  $serviceRootPattern = [regex]::Escape($serviceRoot)
+  $services = Get-CimInstance Win32_Service | Where-Object {
+    $_.Name -match 'MariaDB|MySQL' -and $_.PathName -match $serviceRootPattern
+  }
+  if (-not $services) { throw "No MariaDB/MySQL Windows service was found under '$serviceRoot'. Restart the server installed there manually." }
   foreach ($service in $services) {
-    if ($PSCmdlet.ShouldProcess($service.Name, "Restart MariaDB service")) { Restart-Service -Name $service.Name -Force }
+    if ($PSCmdlet.ShouldProcess($service.Name, "Restart the MariaDB service installed under '$serviceRoot'")) { Restart-Service -Name $service.Name -Force }
   }
 }

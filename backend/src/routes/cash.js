@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
+import { hasDecimalScale } from "../numbers.js";
 
 export default async function cashRoutes(app) {
   app.get("/api/v1/businesses/:businessId/cash_movements", async (request, reply) => {
@@ -16,11 +17,16 @@ export default async function cashRoutes(app) {
     const input = request.body?.cash_movement || request.body || {};
     const type = String(input.type || "entry");
     const amount = Number(input.amount);
-    if (!["entry", "withdrawal"].includes(type) || !Number.isFinite(amount) || amount <= 0 || amount > 99999999.99) return reply.badRequest("Invalid cash movement");
+    if (!["entry", "withdrawal"].includes(type) || !hasDecimalScale(input.amount, 2) || amount <= 0 || amount > 99999999.99) return reply.badRequest("Cash movement amount must be positive and have at most 2 decimal places");
     const id = randomUUID();
-    const [sessions] = await pool.query("SELECT id FROM cash_register_sessions WHERE business_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1", [request.params.businessId]);
-    if (!sessions.length) return reply.conflict("Open a cash register before recording a movement");
-    await pool.query("INSERT INTO cash_movements (id, business_id, session_id, type, amount, description) VALUES (?, ?, ?, ?, ?, ?)", [id, request.params.businessId, sessions[0].id, type, amount.toFixed(2), String(input.description || "").slice(0, 255) || null]);
-    return reply.code(201).send({ movement: { id, business_id: request.params.businessId, session_id: sessions[0].id, type, amount, description: input.description || null } });
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [sessions] = await connection.query("SELECT id FROM cash_register_sessions WHERE business_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1 FOR UPDATE", [request.params.businessId]);
+      if (!sessions.length) { await connection.rollback(); return reply.conflict("Open a cash register before recording a movement"); }
+      await connection.query("INSERT INTO cash_movements (id, business_id, session_id, type, amount, description) VALUES (?, ?, ?, ?, ?, ?)", [id, request.params.businessId, sessions[0].id, type, amount.toFixed(2), String(input.description || "").slice(0, 255) || null]);
+      await connection.commit();
+      return reply.code(201).send({ movement: { id, business_id: request.params.businessId, session_id: sessions[0].id, type, amount, description: input.description || null } });
+    } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
   });
 }

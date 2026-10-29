@@ -98,10 +98,13 @@ export const escapeHtml = (value = "") =>
 export const safeImageUrl = (value = "") => {
   const url = String(value || "").trim();
   if (!url) return "";
+  if (/^data:/i.test(url)) {
+    return /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/]+={0,2}$/i.test(url) ? url : "";
+  }
 
   try {
     const parsed = new URL(url, window.location.href);
-    return ["http:", "https:", "data:"].includes(parsed.protocol) ? parsed.href : "";
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "";
   } catch {
     return "";
   }

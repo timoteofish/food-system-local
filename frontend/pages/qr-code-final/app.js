@@ -14,6 +14,7 @@ let settings = {
   gradientEnd: "#252221",
   gradientAngle: 140,
   menuBanner: "",
+  deliveryFee: 0,
   showAllProducts: true,
   selectedCategories: [],
 };
@@ -26,6 +27,15 @@ const tableName = params.get("mesa")?.trim() || translate("Mesa não definida");
 const publicBusinessId = params.get("negocio")?.trim() || "";
 const tableToken = params.get("mesa_token")?.trim() || "";
 let currentTableName = tableName;
+const idempotencyStorageKey = "food-system-public-order-idempotency-key";
+let pendingOrderRequest = (() => {
+  try {
+    const key = sessionStorage.getItem(idempotencyStorageKey);
+    return key ? { signature: "", key } : null;
+  } catch {
+    return null;
+  }
+})();
 
 const cart = { ...getCart() };
 
@@ -215,7 +225,7 @@ const renderBagPanel = () => {
     : `<div class="bag-panel__empty">${translate("Sua sacola está vazia")}</div>`;
 
   const isDelivery = elements.orderType?.value === "delivery";
-  const deliveryFee = isDelivery ? Math.max(0, Number(elements.deliveryFee?.value || 0)) : 0;
+  const deliveryFee = isDelivery ? settings.deliveryFee : 0;
   if (elements.deliveryFeeRow) elements.deliveryFeeRow.hidden = !isDelivery;
   if (elements.deliveryFeeTotal) elements.deliveryFeeTotal.textContent = formatPrice(deliveryFee);
   elements.bagTotal.textContent = formatPrice(getCartTotal() + deliveryFee);
@@ -306,42 +316,45 @@ const loadPublicMenuData = async () => {
     gradientEnd: data.gradient_end || settings.gradientEnd,
     gradientAngle: data.gradient_angle || settings.gradientAngle,
     menuBanner: data.menu_banner || settings.menuBanner,
+    deliveryFee: Number(data.delivery_fee ?? 0),
     showAllProducts: data.show_all_products ?? settings.showAllProducts,
     selectedCategories: data.selected_categories || settings.selectedCategories || [],
   };
-  products = Array.isArray(data.products) ? data.products.map(normalizeProduct) : [];
-  categories = Array.isArray(data.categories)
-    ? data.categories.map((category) => category.name || category).filter(Boolean)
-    : [];
+  const sourceCategories = Array.isArray(data.categories) ? data.categories : [];
+  const sourceProducts = Array.isArray(data.products)
+    ? data.products
+    : sourceCategories.flatMap((category) => (Array.isArray(category.products) ? category.products : []).map((product) => ({ ...product, category: category.name, category_id: category.id })));
+  products = sourceProducts.map(normalizeProduct);
+  categories = sourceCategories.map((category) => category.name || category).filter(Boolean);
   if (data.table?.name && elements.customerTable) {
     currentTableName = data.table.name;
     elements.customerTable.textContent = currentTableName;
   }
+  if (elements.deliveryFee) elements.deliveryFee.textContent = formatPrice(settings.deliveryFee);
 };
 
-const placeCustomerOrder = async ({ entries, paymentMethod, customerName }) => {
+const placeCustomerOrder = async ({ entries, paymentMethod, customerName, idempotencyKey }) => {
   const businessId = publicBusinessId || settings.businessId || "";
   if (!businessId && !tableToken) throw new Error("Não foi possível identificar o estabelecimento deste cardápio");
   const tableLabel = elements.customerTable?.textContent?.trim() || currentTableName;
   const isDelivery = elements.orderType?.value === "delivery";
   const delivery = isDelivery ? {
     address: { street: elements.deliveryStreet.value.trim(), number: elements.deliveryNumber.value.trim(), city: elements.deliveryCity.value.trim() },
-    fee: Number(elements.deliveryFee.value || 0),
   } : null;
 
   const data = await apiCreateOrder(
     businessId,
     {
       customer_name: customerName,
-      customer_phone: "0000000000",
-      notes: `${isDelivery ? translate("Entrega") : `${translate("Mesa: ")}${tableLabel}`} | ${translate("Pagamento: ")}${getPaymentLabel(paymentMethod)}`,
+      notes: `${isDelivery ? translate("Entrega") : `${translate("Mesa: ")}${tableLabel}`} | ${translate("Pagamento: ")}${paymentMethod}`,
     },
     entries.map(({ product, quantity }) => ({
       product_id: product.id,
       quantity,
     })),
     tableToken,
-    delivery
+    delivery,
+    idempotencyKey
   );
 
   return data.order;
@@ -426,8 +439,6 @@ elements.orderType?.addEventListener("change", () => {
   elements.customerTable.closest(".customer-table-fixed")?.toggleAttribute("hidden", delivery);
   renderBagPanel();
 });
-elements.deliveryFee?.addEventListener("input", renderBagPanel);
-
 elements.bagConfirm?.addEventListener("click", async () => {
   const entries = getCartEntries();
   if (!entries.length) return;
@@ -441,16 +452,35 @@ elements.bagConfirm?.addEventListener("click", async () => {
   const customerName = elements.customerName.value.trim() || translate("Cliente");
   const paymentMethod = elements.paymentMethod.value || "pix";
   const totalBeforeClear = getCartTotal();
+  const orderSignature = JSON.stringify({ entries: entries.map(({ product, quantity }) => [product.id, quantity]), paymentMethod, customerName, delivery: isDelivery ? { street: elements.deliveryStreet.value.trim(), number: elements.deliveryNumber.value.trim(), city: elements.deliveryCity.value.trim() } : null });
+  if (!pendingOrderRequest || (pendingOrderRequest.signature && pendingOrderRequest.signature !== orderSignature)) {
+    pendingOrderRequest = { signature: orderSignature, key: globalThis.crypto.randomUUID() };
+    try { sessionStorage.setItem(idempotencyStorageKey, pendingOrderRequest.key); } catch { /* Keep the key for this page session. */ }
+  } else {
+    pendingOrderRequest.signature = orderSignature;
+  }
   elements.bagConfirm.disabled = true;
   elements.bagConfirm.textContent = translate("Enviando pedido");
 
   try {
-    const order = await placeCustomerOrder({
+    const request = (idempotencyKey) => placeCustomerOrder({
       entries,
       paymentMethod,
       customerName,
+      idempotencyKey,
     });
+    let order;
+    try {
+      order = await request(pendingOrderRequest.key);
+    } catch (error) {
+      if (!String(error.message || "").includes("Idempotency key was already used")) throw error;
+      pendingOrderRequest = { signature: orderSignature, key: globalThis.crypto.randomUUID() };
+      try { sessionStorage.setItem(idempotencyStorageKey, pendingOrderRequest.key); } catch { /* Keep the key for this page session. */ }
+      order = await request(pendingOrderRequest.key);
+    }
 
+    pendingOrderRequest = null;
+    try { sessionStorage.removeItem(idempotencyStorageKey); } catch { /* Ignore unavailable session storage. */ }
     Object.keys(cart).forEach((key) => delete cart[key]);
     clearCart();
     closeBagPanel();
@@ -460,7 +490,7 @@ elements.bagConfirm?.addEventListener("click", async () => {
     const orderCode = getOrderCode(order);
     const paymentLabel = getPaymentLabel(paymentMethod);
     const orderTypeLabel = isDelivery ? translate("Entrega") : currentTableName;
-    const orderTotal = Number(order?.total ?? totalBeforeClear + (isDelivery ? Number(elements.deliveryFee.value || 0) : 0));
+    const orderTotal = Number(order?.total ?? totalBeforeClear + (isDelivery ? settings.deliveryFee : 0));
     if (elements.success) {
       elements.success.hidden = false;
       elements.success.innerHTML = `
@@ -469,6 +499,10 @@ elements.bagConfirm?.addEventListener("click", async () => {
       `;
     }
   } catch (error) {
+    if (String(error.message || "").includes("Idempotency key was already used")) {
+      pendingOrderRequest = null;
+      try { sessionStorage.removeItem(idempotencyStorageKey); } catch { /* Ignore unavailable session storage. */ }
+    }
     showToast(translate(error.message || "Não foi possível enviar o pedido"), { type: "error" });
   } finally {
     renderBagPanel();

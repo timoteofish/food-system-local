@@ -623,7 +623,7 @@ export const initProfileMenu = () => {
                 <p data-update-notes></p>
                 <button class="user-edit-panel__action" type="button" data-update-check>Verificar agora</button>
                 <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-update-later hidden>Lembrar depois</button>
-                <a class="user-edit-panel__action" data-update-now hidden target="_blank" rel="noopener">Atualizar agora</a>
+              <a class="user-edit-panel__action" data-update-now hidden target="_blank" rel="noopener">Abrir página de download</a>
               </div>
               <p class="user-edit-panel__feedback" data-update-feedback hidden></p>
               <div class="user-edit-panel__actions-stack">
@@ -1076,7 +1076,7 @@ export const initProfileMenu = () => {
       updateNow.href = safeUpdateUrl || "#";
       updateNow.rel = "noopener noreferrer";
       updateFeedback.textContent = result.update_available
-        ? result.download_url ? translate("Atualização disponível Escolha quando instalar") : translate("Há uma atualização registrada, mas o pacote ainda não foi disponibilizado")
+        ? result.download_url ? translate("Há uma nova versão. O link abre a página de download; a instalação é manual.") : translate("Há uma atualização registrada, mas o pacote ainda não foi disponibilizado")
         : translate("O sistema já está atualizado");
     } catch (error) {
       updateFeedback.textContent = translate(error?.message || "Não foi possível verificar atualizações");

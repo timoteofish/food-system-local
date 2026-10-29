@@ -38,6 +38,7 @@ const fields = {
   heroMood: document.getElementById("heroMood"),
   menuDensity: document.getElementById("menuDensity"),
   menuBanner: document.getElementById("menuBanner"),
+  deliveryFee: document.getElementById("deliveryFeeSetting"),
   showAllProducts: document.getElementById("showAllProducts"),
   categoryList: document.getElementById("categoryList"),
 };
@@ -221,8 +222,30 @@ const getFilteredProducts = () => {
   return filtered;
 };
 
-const getCustomerMenuUrl = () => {
-  const url = new URL("../../qr-code-final/index.html", window.location.href);
+const getCustomerMenuUrl = async () => {
+  let publicBase = String(window.FOOD_SYSTEM_PUBLIC_MENU_URL || "").trim();
+  if (!publicBase) {
+    try {
+      publicBase = await window.__TAURI__?.core?.invoke?.("public_menu_base_url") || "";
+    } catch {
+      // Browser development may publish from the current origin.
+    }
+  }
+  let baseUrl = window.location.origin;
+  if (publicBase) {
+    let parsedBase;
+    try { parsedBase = new URL(publicBase); }
+    catch { throw new Error("Endereço público do cardápio inválido"); }
+    if (parsedBase.protocol !== "https:" || parsedBase.username || parsedBase.password || parsedBase.search || parsedBase.hash || parsedBase.pathname !== "/") {
+      throw new Error("O endereço público do cardápio deve ser uma origem HTTPS, sem caminho adicional");
+    }
+    baseUrl = parsedBase.origin;
+  } else if (["tauri.localhost", "localhost", "127.0.0.1", ""].includes(window.location.hostname)) {
+    throw new Error("Configure FOOD_SYSTEM_PUBLIC_MENU_URL com o endereço HTTPS acessível aos clientes");
+  } else if (window.location.protocol !== "https:") {
+    throw new Error("O endereço público do cardápio deve usar HTTPS");
+  }
+  const url = new URL("/pages/qr-code-final/index.html", baseUrl);
   const tableName = qrCodeTable?.value.trim();
   const table = restaurantTables.find((item) => item.name.toLowerCase() === tableName?.toLowerCase());
   if (table?.public_token) {
@@ -248,7 +271,7 @@ const renderQrCode = async () => {
     }
   }
 
-  const targetUrl = getCustomerMenuUrl();
+  const targetUrl = await getCustomerMenuUrl();
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(targetUrl)}`;
   if (qrCodeImage) qrCodeImage.src = qrUrl;
   if (qrCodeLink) qrCodeLink.value = targetUrl;
@@ -445,6 +468,7 @@ const syncFromFields = () => {
     heroMood: fields.heroMood.value,
     menuDensity: fields.menuDensity.value,
     menuBanner: fields.menuBanner?.value || "",
+    deliveryFee: Number(fields.deliveryFee?.value || 0),
     showAllProducts: fields.showAllProducts?.checked ?? true,
     selectedCategories,
   };
@@ -472,6 +496,8 @@ Object.entries(fields).forEach(([key, field]) => {
               ? settings.menuDensity ?? 50
               : key === "menuBanner"
                 ? settings.menuBanner || ""
+              : key === "deliveryFee"
+                ? settings.deliveryFee ?? 0
               : key === "gradientAngle"
                 ? settings.gradientAngle ?? 135
                   : key === "gradientStart"
@@ -553,14 +579,22 @@ qrCodeTable?.addEventListener("change", () => {
 });
 
 qrCodeOpenPage?.addEventListener("click", () => {
+  const popup = window.open("about:blank", "_blank");
+  if (popup) popup.opener = null;
   renderQrCode()
-    .then(() => window.open(getCustomerMenuUrl(), "_blank", "noopener,noreferrer"))
-    .catch((error) => showToast(translate(error.message || "Não foi possível abrir a página"), { type: "error" }));
+    .then(() => {
+      if (popup && qrCodeLink?.value) popup.location.href = qrCodeLink.value;
+    })
+    .catch((error) => {
+      popup?.close();
+      showToast(translate(error.message || "Não foi possível abrir a página"), { type: "error" });
+    });
 });
 copyQrCodeLink?.addEventListener("click", async () => {
   try {
     await renderQrCode();
-    const value = qrCodeLink?.value || getCustomerMenuUrl();
+    const value = qrCodeLink?.value || "";
+    if (!value) throw new Error("Gere o QR Code antes de copiar o link");
     await navigator.clipboard.writeText(value);
     showToast(translate("Link copiado"));
   } catch {

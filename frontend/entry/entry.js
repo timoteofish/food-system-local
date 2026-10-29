@@ -1,7 +1,9 @@
 import { getBusiness, getMenuSettings, saveBusiness, saveMenuSettings } from "../shared/data/storage.js";
+import { API_BASE_URL } from "../shared/api/config.js";
+import { provisionLocalBusiness } from "../shared/api/client.js";
 
 const SETUP_KEY = "food-system-initial-setup-complete";
-const DEFAULT_TARGET = "/frontend/pages/app/dashboard/index.html";
+const DEFAULT_TARGET = "/pages/app/dashboard/index.html";
 const params = new URLSearchParams(window.location.search);
 const requestedTarget = params.get("next") || DEFAULT_TARGET;
 const targetUrl = (() => {
@@ -53,7 +55,7 @@ const applyLanguage = (language) => {
   languageInput.querySelector('[value="en"]').textContent = copy.languageOptions.en;
   document.querySelectorAll("[data-copy]").forEach((element) => {
     const value = copy[element.dataset.copy];
-    if (value?.includes("<br")) element.innerHTML = value;
+    if (value?.includes("<br")) element.innerHTML = value.replace(/<(?!br\s*\/?>)[^>]*>/gi, "");
     else if (value) element.textContent = value;
   });
   businessInput.placeholder = copy.placeholder;
@@ -93,7 +95,7 @@ if (hasExistingSetup) {
     applyLanguage(language);
   });
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     language = languageInput.value === "en" ? "en" : "pt";
     const name = businessInput.value.trim();
@@ -107,6 +109,8 @@ if (hasExistingSetup) {
     submitButton.disabled = true;
     try {
       previousValues = Object.fromEntries(keysToRestore.map((key) => [key, localStorage.getItem(key)]));
+      const response = await fetch(`${API_BASE_URL.replace("/api/v1", "")}/up").catch(() => null);
+      if (response?.ok) await provisionLocalBusiness(name);
       business = { ...business, name };
       saveBusiness(business);
       saveMenuSettings({ ...getMenuSettings(), businessName: name });
@@ -126,7 +130,7 @@ if (hasExistingSetup) {
         }
       });
     } finally {
-      submitButton.disabled = false;
+      if (!error.hidden) submitButton.disabled = false;
     }
   });
 }
