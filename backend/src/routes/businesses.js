@@ -3,6 +3,7 @@ import { pool } from "../db.js";
 import { authenticate, requireBusinessAccess, requireRole } from "./auth.js";
 import { audit } from "../audit.js";
 import { hasDecimalScale } from "../numbers.js";
+import { hasValidBusinessColor, hasValidBusinessDescription, hasValidBusinessName } from "../business-validation.js";
 
 export default async function businessesRoutes(app) {
   app.get("/api/v1/businesses/:id", async (request, reply) => {
@@ -23,15 +24,25 @@ export default async function businessesRoutes(app) {
     };
     const updates = Object.entries(fields).filter(([, value]) => value !== undefined);
     if (!updates.length) return reply.badRequest("No business fields provided");
+    if (business.name !== undefined && !hasValidBusinessName(business.name)) {
+      return reply.badRequest("Business name must be between 2 and 160 characters");
+    }
+    if (business.description !== undefined && !hasValidBusinessDescription(business.description)) {
+      return reply.badRequest("Business description must be text no longer than 65535 bytes");
+    }
+    if (business.primary_color !== undefined && !hasValidBusinessColor(business.primary_color)) {
+      return reply.badRequest("Primary color must be a six-digit hexadecimal color");
+    }
     if (business.settings !== undefined) {
-      if (!business.settings || typeof business.settings !== "object" || Array.isArray(business.settings)) return reply.badRequest("Business settings must be an object");
+      if (!business.settings || typeof business.settings !== "object" || Array.isArray(business.settings) || Object.getPrototypeOf(business.settings) !== Object.prototype) return reply.badRequest("Business settings must be a plain object");
+      if (Buffer.byteLength(JSON.stringify(business.settings), "utf8") > 32 * 1024) return reply.badRequest("Business settings cannot exceed 32 KiB");
       if (business.settings.delivery_fee !== undefined && (!hasDecimalScale(business.settings.delivery_fee, 2) || Number(business.settings.delivery_fee) < 0 || Number(business.settings.delivery_fee) > 99999999.99)) {
         return reply.badRequest("Delivery fee must be a valid non-negative amount with at most 2 decimal places");
       }
     }
 
     const setClause = updates.map(([field]) => `${field} = ?`).join(", ");
-    const values = updates.map(([field, value]) => field === "settings" ? JSON.stringify(value || {}) : value);
+    const values = updates.map(([field, value]) => field === "settings" ? JSON.stringify(value || {}) : field === "name" ? value.trim() : value);
     const [result] = await pool.query(`UPDATE businesses SET ${setClause} WHERE id = ?`, [...values, request.params.id]);
     if (!result.affectedRows) return reply.notFound("Business not found");
     const [rows] = await pool.query("SELECT * FROM businesses WHERE id = ? LIMIT 1", [request.params.id]);
@@ -42,7 +53,9 @@ export default async function businessesRoutes(app) {
     const user = await authenticate(request);
     if (!user) return reply.unauthorized("Sessão inválida");
     const { name, description = "", primary_color = "#0f766e" } = request.body || {};
-    if (!String(name || "").trim()) return reply.badRequest("Business name is required");
+    if (!hasValidBusinessName(name)) return reply.badRequest("Business name must be between 2 and 160 characters");
+    if (!hasValidBusinessDescription(description)) return reply.badRequest("Business description must be text no longer than 65535 bytes");
+    if (!hasValidBusinessColor(primary_color)) return reply.badRequest("Primary color must be a six-digit hexadecimal color");
 
     const id = randomUUID();
     const connection = await pool.getConnection();

@@ -1,4 +1,4 @@
 backend/.env
 state/backups/
 src-tauri/target/
-desktop/runtime/node.exe
+desktop/runtime/

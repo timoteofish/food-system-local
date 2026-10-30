@@ -3,6 +3,8 @@ import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
 import { createPublicMenu } from "../public-menu.js";
 
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+
 const tableView = (row) => ({
   id: row.id,
   business_id: row.business_id,
@@ -24,7 +26,10 @@ export default async function tableRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/tables", async (request, reply) => {
     if (!(await requireRole(request, reply))) return;
-    const name = String(request.body?.restaurant_table?.name || request.body?.name || "").trim();
+    const body = request.body;
+    const tableInput = isPlainObject(body) && body.restaurant_table !== undefined ? body.restaurant_table : body;
+    if (!isPlainObject(tableInput) || typeof tableInput.name !== "string") return reply.badRequest("Table name must be text");
+    const name = tableInput.name.trim();
     if (!name || name.length > 120) return reply.badRequest("Table name is required and must be at most 120 characters");
     const table = { id: randomUUID(), business_id: request.params.businessId, name, public_token: randomBytes(24).toString("hex") };
     await pool.query("INSERT INTO restaurant_tables (id, business_id, name, public_token) VALUES (?, ?, ?, ?)", [table.id, table.business_id, table.name, table.public_token]);

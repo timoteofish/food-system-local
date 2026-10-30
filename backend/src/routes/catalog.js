@@ -8,6 +8,7 @@ const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const isBoolean = (value) => value === true || value === false || value === 0 || value === 1;
 const isPosition = (value) => Number.isInteger(value) && value >= -2_147_483_648 && value <= 2_147_483_647;
 const isText = (value, maxBytes = MAX_TEXT_BYTES) => typeof value === "string" && Buffer.byteLength(value, "utf8") <= maxBytes;
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 
 export default async function catalogRoutes(app) {
   app.get("/api/v1/businesses/:businessId/categories", async (request, reply) => {
@@ -22,7 +23,10 @@ export default async function catalogRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/categories", async (request, reply) => {
     if (!(await requireRole(request, reply))) return;
-    const name = String(request.body?.category?.name || request.body?.name || "").trim();
+    const body = request.body;
+    const categoryInput = isPlainObject(body) && body.category !== undefined ? body.category : body;
+    if (!isPlainObject(categoryInput) || typeof categoryInput.name !== "string") return reply.badRequest("Category name must be text");
+    const name = categoryInput.name.trim();
     if (!name) return reply.badRequest("Category name is required");
     if (name.length > 120) return reply.badRequest("Category name must be at most 120 characters");
     const id = randomUUID();

@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { requireBusinessAccess } from "./auth.js";
 
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+const validId = (value) => typeof value === "string" && value.length > 0 && value.length <= 36;
+
 const tabView = (row) => ({
   id: row.id,
   business_id: row.business_id,
@@ -36,6 +39,10 @@ export default async function diningTabRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/tables/:tableId/dining-tabs", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
+    if (request.body !== undefined && !isPlainObject(request.body)) return reply.badRequest("Dining tab data must be an object");
+    const customerId = request.body?.customer_id;
+    if (customerId !== undefined && customerId !== null && customerId !== "" && !validId(customerId)) return reply.badRequest("Invalid customer id");
+    if (request.body?.notes !== undefined && request.body.notes !== null && (typeof request.body.notes !== "string" || request.body.notes.length > 500)) return reply.badRequest("Dining tab notes must be text no longer than 500 characters");
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -43,12 +50,12 @@ export default async function diningTabRoutes(app) {
       if (!tables.length) { await connection.rollback(); return reply.notFound("Table not found"); }
       const existing = await findOpenTab(request.params.businessId, request.params.tableId, connection);
       if (existing) { await connection.rollback(); return reply.conflict("This table already has an open tab"); }
-      const customerId = request.body?.customer_id || null;
-      if (customerId) {
-        const [customers] = await connection.query("SELECT id FROM customers WHERE id = ? AND business_id = ? LIMIT 1", [customerId, request.params.businessId]);
+      const normalizedCustomerId = customerId || null;
+      if (normalizedCustomerId) {
+        const [customers] = await connection.query("SELECT id FROM customers WHERE id = ? AND business_id = ? LIMIT 1", [normalizedCustomerId, request.params.businessId]);
         if (!customers.length) { await connection.rollback(); return reply.badRequest("Customer does not belong to this business"); }
       }
-      const tab = { id: randomUUID(), business_id: request.params.businessId, restaurant_table_id: request.params.tableId, customer_id: customerId, notes: String(request.body?.notes || "").slice(0, 500) || null };
+      const tab = { id: randomUUID(), business_id: request.params.businessId, restaurant_table_id: request.params.tableId, customer_id: normalizedCustomerId, notes: request.body?.notes?.trim() || null };
       await connection.query("INSERT INTO dining_tabs (id, business_id, restaurant_table_id, customer_id, notes) VALUES (?, ?, ?, ?, ?)", [tab.id, tab.business_id, tab.restaurant_table_id, tab.customer_id, tab.notes]);
       await connection.commit();
       return reply.code(201).send({ tab });
@@ -57,8 +64,8 @@ export default async function diningTabRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/dining-tabs/:tabId/transfer", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
-    const targetTableId = String(request.body?.table_id || "");
-    if (!targetTableId) return reply.badRequest("Target table is required");
+    const targetTableId = isPlainObject(request.body) && typeof request.body.table_id === "string" ? request.body.table_id : "";
+    if (!validId(targetTableId)) return reply.badRequest("Target table is required");
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();

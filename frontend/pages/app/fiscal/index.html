@@ -63,36 +63,16 @@
           <div>
             <p class="eyebrow">Emissão fiscal</p>
             <h1>Documentos fiscais</h1>
-            <p class="subtitle">Crie rascunhos e acompanhe o andamento das emissões</p>
+            <p class="subtitle">Registre rascunhos fiscais para consulta</p>
           </div>
         </div>
 
         <section class="panel fiscal-configuration" aria-labelledby="fiscalConfigurationTitle">
-          <h2 id="fiscalConfigurationTitle">Acesso ao provedor</h2>
-          <p class="fiscal-configuration__help">Esta tela ainda não monta os dados fiscais exigidos nem integra um provedor certificado. Os rascunhos vazios não podem ser enviados para emissão.</p>
+          <h2 id="fiscalConfigurationTitle">Status da emissão</h2>
+          <p class="fiscal-configuration__help">Esta tela permite apenas salvar rascunhos. A emissão está desativada: o sistema ainda não monta documentos legalmente completos nem possui integração com um provedor fiscal certificado.</p>
           <div class="fiscal-config-state" id="fiscalConfigurationState" role="status" aria-live="polite"></div>
 
-          <details class="fiscal-credentials-details">
-            <summary>Credenciais do provedor</summary>
-            <form class="fiscal-credentials-form" id="fiscalCredentialsForm">
-              <label for="fiscalApiToken">Token da API
-                <input id="fiscalApiToken" name="api_token" type="password" autocomplete="new-password" />
-              </label>
-              <label for="fiscalClientCert">Certificado do cliente
-                <textarea id="fiscalClientCert" name="client_cert" rows="4" autocomplete="off" spellcheck="false"></textarea>
-              </label>
-              <label for="fiscalClientKey">Chave privada do certificado
-                <textarea id="fiscalClientKey" name="client_key" rows="4" autocomplete="off" spellcheck="false"></textarea>
-              </label>
-              <label for="fiscalCa">Certificado da autoridade (CA), se necessário
-                <textarea id="fiscalCa" name="ca" rows="4" autocomplete="off" spellcheck="false"></textarea>
-              </label>
-              <p class="fiscal-credentials-form__help">
-                Preencha apenas o que deseja atualizar Campos vazios mantêm os dados atuais, as credenciais ficam criptografadas no servidor e não são exibidas novamente</p>
-              <button class="btn btn--secondary" type="submit">Salvar credenciais</button>
-            </form>
-            <p class="operation-message" id="fiscalCredentialsMessage" role="status" aria-live="polite" hidden></p>
-          </details>
+
         </section>
 
         <section class="panel fiscal-create" aria-labelledby="fiscalCreateTitle">

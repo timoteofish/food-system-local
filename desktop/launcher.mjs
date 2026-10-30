@@ -5,6 +5,7 @@ import { createServer as createHttpsServer } from "node:https";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import net from "node:net";
+import { homedir } from "node:os";
 import { extname, isAbsolute, join, normalize, relative as relativePath, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -36,7 +37,17 @@ const nodeEnvironment = process.env.NODE_ENV || "production";
 const localAccessToken = nodeEnvironment === "development"
   ? ""
   : process.env.FOOD_SYSTEM_LOCAL_ACCESS_TOKEN || randomBytes(32).toString("base64url");
-const dataDir = process.env.FOOD_SYSTEM_DATA_DIR || join(desktopRoot, "runtime");
+const defaultDataDir = process.env.APPDATA
+  ? join(process.env.APPDATA, "com.foodsystem.local")
+  : process.env.LOCALAPPDATA
+    ? join(process.env.LOCALAPPDATA, "com.foodsystem.local")
+    : process.env.XDG_DATA_HOME
+      ? join(process.env.XDG_DATA_HOME, "com.foodsystem.local")
+      : process.platform === "darwin"
+        ? join(homedir(), "Library", "Application Support", "com.foodsystem.local")
+        : join(homedir(), ".local", "share", "com.foodsystem.local");
+const dataDir = process.env.FOOD_SYSTEM_DATA_DIR || defaultDataDir;
+const environmentFile = process.env.FOOD_SYSTEM_ENV_FILE || join(dataDir, "config.env");
 const backupDir = join(dataDir, "backups");
 const recoveryMarker = resolve(backupDir, "..", "restore-recovery-required");
 if (existsSync(recoveryMarker)) {
@@ -119,8 +130,10 @@ const ensureDatabase = async () => {
     process.exitCode = 1;
   });
   for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (startedDatabase.exitCode !== null || startedDatabase.signalCode !== null) {
+      throw new Error(`MariaDB exited before becoming ready (code ${startedDatabase.exitCode ?? startedDatabase.signalCode})`);
+    }
     if (await canConnectDatabase()) {
-      startedDatabaseReady = true;
       return;
     }
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
@@ -148,9 +161,32 @@ const waitForChildExit = (child, timeoutMs) => {
   });
 };
 
+const waitForApiListener = (child, timeoutMs = 10_000) => new Promise((resolveApi, rejectApi) => {
+  let settled = false;
+  const finish = (error) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    child.removeListener("message", onMessage);
+    child.removeListener("exit", onExit);
+    child.removeListener("error", onError);
+    if (error) rejectApi(error);
+    else resolveApi();
+  };
+  const onMessage = (message) => {
+    if (message?.type === "api-listening") finish();
+  };
+  const onExit = (code, signal) => finish(new Error(`Local API exited before binding port 3000 (code ${code ?? signal})`));
+  const onError = (error) => finish(error);
+  const timer = setTimeout(() => finish(new Error("Local API did not bind port 3000 within 10 seconds")), timeoutMs);
+  child.on("message", onMessage);
+  child.once("exit", onExit);
+  child.once("error", onError);
+});
+
 const readMaintenanceCredentials = async () => {
   let configText = "";
-  try { configText = await readFile(join(dataDir, "config.env"), "utf8"); } catch {}
+  try { configText = await readFile(environmentFile, "utf8"); } catch {}
   const lines = configText.split(/\r?\n/);
   const value = (key) => process.env[key] || lines.find((line) => line.startsWith(`${key}=`))?.slice(key.length + 1).trim() || "";
   const user = value("MYSQL_MAINTENANCE_USER");
@@ -426,7 +462,7 @@ const handleFrontend = (request, response) => {
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
       "Referrer-Policy": "no-referrer",
-      "Content-Security-Policy": "default-src 'self' http://127.0.0.1:3000 http://localhost:3000; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000; img-src 'self' data: blob: https: https://api.qrserver.com; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+      "Content-Security-Policy": "default-src 'self' http://127.0.0.1:3000 http://localhost:3000; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
       "Cache-Control": "no-store",
       ...(frontendProtocol === "https" ? { "Strict-Transport-Security": "max-age=31536000" } : {}),
     });
@@ -459,12 +495,13 @@ if (shuttingDown) {
 }
 const backendEnv = {
   ...process.env,
+  MARIADB_ROOT: mariaRoot,
   NODE_ENV: nodeEnvironment,
   FOOD_SYSTEM_LOCAL_ACCESS_TOKEN: localAccessToken,
   FOOD_SYSTEM_SECRET_KEY: secretKey,
   FOOD_SYSTEM_DATA_DIR: dataDir,
   FOOD_SYSTEM_BACKUP_DIR: join(dataDir, "backups"),
-  FOOD_SYSTEM_ENV_FILE: join(dataDir, "config.env"),
+  FOOD_SYSTEM_ENV_FILE: environmentFile,
   HOST: "127.0.0.1",
 };
 migrationPromise = execFile(process.execPath, ["src/migrate.js"], {
@@ -474,6 +511,9 @@ migrationPromise = execFile(process.execPath, ["src/migrate.js"], {
 });
 try {
   await migrationPromise;
+  // The migration runner verifies @@basedir, port, bind address, and database
+  // before doing work. Only then is it safe for shutdown to target this server.
+  startedDatabaseReady = Boolean(startedDatabase);
 } catch (error) {
   if (shuttingDown) {
     await shutdown();
@@ -496,8 +536,10 @@ backend = spawn(process.execPath, ["src/server.js"], {
   stdio: ["ignore", "inherit", "inherit", "ipc"],
   env: backendEnv,
 });
+const apiListening = waitForApiListener(backend);
 backend.on("message", (message) => {
-  if (message?.type === "restore-start") backendRestoreInProgress = true;
+  if (message?.type === "api-stopping") process.stdout.write("FOOD_SYSTEM_API_STOPPING\n");
+  else if (message?.type === "restore-start") backendRestoreInProgress = true;
   else if (message?.type === "restore-end") backendRestoreInProgress = false;
   else if (message?.type === "restore-recovery-required") backendRestoreInProgress = true;
 });
@@ -505,6 +547,21 @@ backend.on("error", (error) => {
   console.error("Food System could not start its API:", error.message);
   void shutdown().then(() => { process.exitCode = 1; }).catch((shutdownError) => console.error("Food System shutdown failed:", shutdownError.message));
 });
+
+backend.on("exit", (code) => {
+  if (code && code !== 0) process.exitCode = code;
+  void shutdown();
+});
+
+try {
+  await apiListening;
+} catch (error) {
+  console.error("Food System could not bind its local API:", error.message);
+  await shutdown();
+  process.exitCode = 1;
+  throw error;
+}
+process.stdout.write("FOOD_SYSTEM_API_LISTENING\n");
 
 const waitForReadiness = async () => {
   for (let attempt = 1; attempt <= 20; attempt += 1) {
@@ -522,11 +579,6 @@ const waitForReadiness = async () => {
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
   }
 };
-
-backend.on("exit", (code) => {
-  if (code && code !== 0) process.exitCode = code;
-  void shutdown();
-});
 
 frontend.listen(frontendPort, frontendHost, () => {
   console.log(`Food System frontend: ${frontendProtocol}://${frontendHost}:${frontendPort}`);

@@ -46,16 +46,16 @@
             <div class="bag-panel__footer">
               <label class="field" for="customerNameInput">
                 <span>Seu nome (opcional)</span>
-                <input id="customerNameInput" type="text" placeholder="Ex.: Maria" />
+                <input id="customerNameInput" type="text" maxlength="160" placeholder="Ex.: Maria" />
               </label>
               <label class="field" for="customerOrderType">
                 <span>Tipo do pedido</span>
                 <select id="customerOrderType"><option value="table">Mesa ou balcão</option><option value="delivery">Entrega</option></select>
               </label>
               <div id="customerDeliveryFields" hidden>
-                <label class="field" for="deliveryStreet"><span>Rua</span><input id="deliveryStreet" type="text" autocomplete="street-address" /></label>
-                <label class="field" for="deliveryNumber"><span>Número</span><input id="deliveryNumber" type="text" /></label>
-                <label class="field" for="deliveryCity"><span>Cidade</span><input id="deliveryCity" type="text" autocomplete="address-level2" /></label>
+                <label class="field" for="deliveryStreet"><span>Rua</span><input id="deliveryStreet" type="text" maxlength="200" autocomplete="street-address" /></label>
+                <label class="field" for="deliveryNumber"><span>Número</span><input id="deliveryNumber" type="text" maxlength="40" /></label>
+                <label class="field" for="deliveryCity"><span>Cidade</span><input id="deliveryCity" type="text" maxlength="120" autocomplete="address-level2" /></label>
                 <div class="field"><span>Taxa de entrega</span><strong id="deliveryFee"></strong></div>
               </div>
               <div class="customer-table-fixed">

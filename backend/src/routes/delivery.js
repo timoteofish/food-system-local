@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
 import { audit } from "../audit.js";
+import { hasDecimalScale } from "../numbers.js";
 
 const statuses = new Set(["requested", "assigned", "picked_up", "delivered", "cancelled", "failed"]);
 const courierTransitions = new Map([
@@ -17,6 +18,8 @@ const deliveryTransitions = new Map([
   ["failed", new Set()],
 ]);
 const hashToken = (token) => createHash("sha256").update(token).digest("hex");
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+const validId = (value) => typeof value === "string" && value.length > 0 && value.length <= 36;
 const courierLocationWrites = new Map();
 const clearCourierLocationIfInactive = async (connection, courierId, businessId) => {
   if (!courierId) return;
@@ -43,9 +46,10 @@ export default async function deliveryRoutes(app) {
   app.post("/api/v1/businesses/:businessId/couriers", async (request, reply) => {
     const user = await requireRole(request, reply);
     if (!user) return;
-    const name = String(request.body?.name || "").trim();
-    const phone = String(request.body?.phone || "").trim().slice(0, 40) || null;
-    if (name.length < 2 || name.length > 160) return reply.badRequest("Courier name is required");
+    if (!isPlainObject(request.body) || typeof request.body.name !== "string" || (request.body.phone !== undefined && request.body.phone !== null && typeof request.body.phone !== "string")) return reply.badRequest("Courier name and phone must be text");
+    const name = request.body.name.trim();
+    const phone = typeof request.body.phone === "string" ? request.body.phone.trim() : "";
+    if (name.length < 2 || name.length > 160 || phone.length > 40) return reply.badRequest("Courier name or phone is outside the supported length");
     const id = randomUUID();
     await pool.query("INSERT INTO delivery_couriers (id, business_id, name, phone) VALUES (?, ?, ?, ?)", [id, request.params.businessId, name, phone]);
     await audit(request, user, "courier.created", "courier", id, { name });
@@ -79,8 +83,11 @@ export default async function deliveryRoutes(app) {
   app.post("/api/v1/businesses/:businessId/orders/:orderId/delivery", async (request, reply) => {
     const user = await requireRole(request, reply);
     if (!user) return;
+    if (request.body !== undefined && !isPlainObject(request.body)) return reply.badRequest("Delivery data must be an object");
+    const suppliedCourierId = request.body?.courier_id;
+    if (suppliedCourierId !== undefined && suppliedCourierId !== null && suppliedCourierId !== "" && !validId(suppliedCourierId)) return reply.badRequest("Invalid courier id");
+    const courierId = suppliedCourierId || null;
     const connection = await pool.getConnection();
-    const courierId = request.body?.courier_id || null;
     const id = randomUUID();
     const status = courierId ? "assigned" : "requested";
     try {
@@ -107,7 +114,7 @@ export default async function deliveryRoutes(app) {
   app.patch("/api/v1/businesses/:businessId/deliveries/:id", async (request, reply) => {
     const user = await requireRole(request, reply);
     if (!user) return;
-    const status = String(request.body?.status || "");
+    const status = isPlainObject(request.body) && typeof request.body.status === "string" ? request.body.status : "";
     if (!statuses.has(status)) return reply.badRequest("Invalid delivery status");
     const connection = await pool.getConnection();
     try {
@@ -134,7 +141,8 @@ export default async function deliveryRoutes(app) {
   app.patch("/api/v1/courier/deliveries/:id", async (request, reply) => {
     const courier = await authenticateCourier(request);
     if (!courier) return reply.unauthorized("Courier token is invalid or expired");
-    const status = String(request.body?.status || "");
+    const status = isPlainObject(request.body) && typeof request.body.status === "string" ? request.body.status : "";
+    if (!courierTransitions.get("assigned").has(status) && !courierTransitions.get("picked_up").has(status)) return reply.badRequest("Invalid courier delivery status");
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -156,10 +164,10 @@ export default async function deliveryRoutes(app) {
     if (courierLocationWrites.size >= 1024) {
       for (const [id, lastWrite] of courierLocationWrites) if (now - lastWrite >= 5_000) courierLocationWrites.delete(id);
     }
-    const latitude = Number(request.body?.latitude);
-    const longitude = Number(request.body?.longitude);
-    const accuracy = request.body?.accuracy_m === undefined ? null : Number(request.body.accuracy_m);
-    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180 || (accuracy !== null && (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 99_999_999.99))) return reply.badRequest("Invalid courier location");
+    if (!isPlainObject(request.body)) return reply.badRequest("Courier location must be an object");
+    const { latitude, longitude } = request.body;
+    const accuracy = request.body.accuracy_m === undefined ? null : request.body.accuracy_m;
+    if (typeof latitude !== "number" || !hasDecimalScale(latitude, 7) || latitude < -90 || latitude > 90 || typeof longitude !== "number" || !hasDecimalScale(longitude, 7) || longitude < -180 || longitude > 180 || (accuracy !== null && (typeof accuracy !== "number" || !hasDecimalScale(accuracy, 2) || accuracy < 0 || accuracy > 99_999_999.99))) return reply.badRequest("Invalid courier location");
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();

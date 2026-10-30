@@ -1,6 +1,5 @@
 import { getBusiness, getMenuSettings, saveBusiness, saveMenuSettings } from "../shared/data/storage.js";
-import { API_BASE_URL } from "../shared/api/config.js";
-import { provisionLocalBusiness } from "../shared/api/client.js";
+import { pingApi, provisionLocalBusiness } from "../shared/api/client.js";
 
 const SETUP_KEY = "food-system-initial-setup-complete";
 const DEFAULT_TARGET = "/pages/app/dashboard/index.html";
@@ -30,6 +29,7 @@ const translations = {
     note: "Você poderá alterar essas informações nas configurações",
     languageOptions: { pt: "Português", en: "Inglês" },
     placeholder: "Ex.: Café da Praça", error: "Não foi possível salvar as informações, tente novamente",
+    nameError: "O nome deve ter entre 2 e 160 caracteres.",
   },
   en: {
     headline: "Organize your<br />restaurant",
@@ -40,6 +40,7 @@ const translations = {
     note: "You can change this information later in settings",
     languageOptions: { pt: "Portuguese", en: "English" },
     placeholder: "e.g. Market Street Café", error: "Could not save your information, please try again",
+    nameError: "The name must contain 2 to 160 characters.",
   },
 };
 
@@ -99,18 +100,20 @@ if (hasExistingSetup) {
     event.preventDefault();
     language = languageInput.value === "en" ? "en" : "pt";
     const name = businessInput.value.trim();
-    if (!name) {
+    if (name.length < 2 || name.length > 160) {
       businessInput.focus();
+      error.textContent = (translations[language] || translations.en).nameError;
+      error.hidden = false;
       return;
     }
+    error.hidden = true;
     const keysToRestore = [SETUP_KEY, "food-system-business", "food-system-menu-settings", "food-system-language"];
     let previousValues = null;
     const submitButton = form.querySelector('[type="submit"]');
     submitButton.disabled = true;
     try {
       previousValues = Object.fromEntries(keysToRestore.map((key) => [key, localStorage.getItem(key)]));
-      const response = await fetch(`${API_BASE_URL.replace("/api/v1", "")}/up").catch(() => null);
-      if (response?.ok) await provisionLocalBusiness(name);
+      if (await pingApi()) await provisionLocalBusiness(name);
       business = { ...business, name };
       saveBusiness(business);
       saveMenuSettings({ ...getMenuSettings(), businessName: name });

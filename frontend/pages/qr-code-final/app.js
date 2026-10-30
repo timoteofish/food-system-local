@@ -239,7 +239,7 @@ const renderBagPanel = () => {
 const getEmptyMenuMessage = () => {
   if (!products.some((item) => item.active)) return translate("Este cardápio ainda não tem produtos disponíveis");
   if (searchQuery.trim()) return translate("Nenhum produto corresponde à sua busca");
-  if (selectedCategory !== "Todos") return translate("Nenhum produto disponível na categoria “$1”").replace("$1", selectedCategory);
+  if (selectedCategory !== "Todos") return translate("Nenhum produto disponível na categoria “$1”").replace("$1", escapeHtml(selectedCategory));
   return translate("Nenhum produto disponível no momento");
 };
 
@@ -257,7 +257,7 @@ const renderList = () => {
                 <button class="qty-btn qty-increase" type="button" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(translate("Aumentar quantidade de "))}${escapeHtml(item.name)}">+</button>
               </div>
             `
-            : `<button class="choose-btn" type="button" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(translate("Adicionar "))}${escapeHtml(item.name)} ${translate("ao pedido")}">${translate("Adicionar")}</button>`;
+            : `<button class="choose-btn" type="button" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(translate("Adicionar "))}${escapeHtml(item.name)} ${escapeHtml(translate("ao pedido"))}">${translate("Adicionar")}</button>`;
 
           return `
             <article class="menu-item" data-id="${escapeHtml(item.id)}">

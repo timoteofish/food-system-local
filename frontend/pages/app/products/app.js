@@ -202,7 +202,7 @@ const render = () => {
   const productRows = visible.map((item) => {
     const productName = escapeHtml(item.name || translate("Produto sem nome"));
     const statusLabel = translate(item.active ? "Ativo" : "Inativo");
-    const statusAction = translate(item.active ? "Desativar produto" : "Ativar produto");
+    const statusAction = escapeHtml(translate(item.active ? "Desativar produto" : "Ativar produto"));
     return `
       <tr data-id="${escapeHtml(item.id)}">
         <td>${renderImage(item)}</td>

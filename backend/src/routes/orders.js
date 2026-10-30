@@ -13,6 +13,7 @@ const MAX_PAYMENT_ALLOCATIONS = 20;
 const validId = (value) => typeof value === "string" && value.length > 0 && value.length <= 36;
 const validTableToken = (value) => typeof value === "string" && /^[0-9a-f]{48}$/i.test(value);
 const validIdempotencyKey = (value) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 
 export default async function orderRoutes(app) {
   app.post("/api/v1/businesses/:businessId/orders/:id/print-jobs", async (request, reply) => {
@@ -60,7 +61,8 @@ export default async function orderRoutes(app) {
   });
 
   app.post("/api/v1/businesses/:businessId/orders", async (request, reply) => {
-    const body = request.body || {};
+    const body = request.body;
+    if (!isPlainObject(body)) return reply.badRequest("Order data must be an object");
     const inputItems = Array.isArray(body.items) ? body.items : [];
     if (!inputItems.length) return reply.badRequest("At least one order item is required");
     if (inputItems.length > MAX_ORDER_ITEMS || inputItems.some((item) => !item || typeof item !== "object" || Array.isArray(item))) return reply.badRequest(`Orders may contain at most ${MAX_ORDER_ITEMS} valid items`);
@@ -71,6 +73,37 @@ export default async function orderRoutes(app) {
     if (body.payment_method_id !== undefined && body.payment_method_id !== null && body.payment_method_id !== "" && !validId(body.payment_method_id)) return reply.badRequest("Invalid payment method id");
     if (body.customer_id !== undefined && body.customer_id !== null && body.customer_id !== "" && !validId(body.customer_id)) return reply.badRequest("Invalid customer id");
     if (!validIdempotencyKey(body.idempotency_key)) return reply.badRequest("A valid idempotency key is required");
+    const orderData = body.order === undefined || body.order === null ? {} : body.order;
+    if (!isPlainObject(orderData)) return reply.badRequest("Order details must be an object");
+    if (orderData.customer_name !== undefined && (typeof orderData.customer_name !== "string" || orderData.customer_name.trim().length > 160)) return reply.badRequest("Customer name must be text no longer than 160 characters");
+    if (orderData.notes !== undefined && (typeof orderData.notes !== "string" || orderData.notes.length > 2000)) return reply.badRequest("Order notes must be text no longer than 2000 characters");
+    const customerName = typeof orderData.customer_name === "string" ? orderData.customer_name.trim() : "";
+    const orderNotes = typeof orderData.notes === "string" ? orderData.notes : "";
+    let delivery = null;
+    let deliveryAddress = null;
+    let scheduledFor = null;
+    if (body.delivery !== undefined && body.delivery !== null) {
+      if (!isPlainObject(body.delivery)) return reply.badRequest("Delivery details must be an object");
+      delivery = body.delivery;
+      if (!isPlainObject(delivery.address)) return reply.badRequest("Delivery address must be an object");
+      const addressLimits = { street: 200, number: 40, city: 120 };
+      const normalizedAddress = {};
+      for (const [field, maxLength] of Object.entries(addressLimits)) {
+        const value = delivery.address[field];
+        if (typeof value !== "string" || !value.trim() || value.trim().length > maxLength) return reply.badRequest(`Delivery address ${field} must contain 1 to ${maxLength} characters`);
+        normalizedAddress[field] = value.trim();
+      }
+      deliveryAddress = normalizedAddress;
+      const schedule = delivery.scheduled_for;
+      if (schedule !== undefined && schedule !== null && schedule !== "") {
+        if (typeof schedule !== "string" || schedule.length > 40) return reply.badRequest("Scheduled delivery date must be a valid date string");
+        scheduledFor = new Date(schedule);
+        const scheduleYear = scheduledFor.getUTCFullYear();
+        if (Number.isNaN(scheduledFor.getTime()) || scheduleYear < 1000 || scheduleYear > 9999) return reply.badRequest("Scheduled delivery date is invalid");
+      }
+    }
+    const discountInput = typeof body.discount_code === "string" ? body.discount_code.trim().toUpperCase() : "";
+    if (body.discount_code !== undefined && body.discount_code !== null && body.discount_code !== "" && (typeof body.discount_code !== "string" || discountInput.length > 40)) return reply.badRequest("Discount code must be text no longer than 40 characters");
     const idempotencyKey = body.idempotency_key;
     const requestHash = createHash("sha256").update(JSON.stringify({ business_id: request.params.businessId, body })).digest("hex");
     const connection = await pool.getConnection();
@@ -95,8 +128,6 @@ export default async function orderRoutes(app) {
         if (!methods.length) { await connection.rollback(); return reply.badRequest("Invalid payment method"); }
         paymentMethodId = methods[0].id;
       }
-      const delivery = body.delivery && typeof body.delivery === "object" ? body.delivery : null;
-      const deliveryAddress = delivery?.address && typeof delivery.address === "object" ? delivery.address : null;
       const [businessRows] = await connection.query("SELECT settings FROM businesses WHERE id = ? LIMIT 1", [request.params.businessId]);
       if (!businessRows.length) { await connection.rollback(); return reply.notFound("Business not found"); }
       let businessSettings = businessRows[0].settings;
@@ -109,16 +140,11 @@ export default async function orderRoutes(app) {
         return reply.code(500).send({ error: "Business delivery fee configuration is invalid" });
       }
       const deliveryFee = deliveryAddress ? configuredDeliveryFee : 0;
-      if (delivery && !deliveryAddress) { await connection.rollback(); return reply.badRequest("Invalid delivery details; address is required"); }
-      if (deliveryAddress && (!String(deliveryAddress.street || "").trim() || !String(deliveryAddress.number || "").trim() || !String(deliveryAddress.city || "").trim())) { await connection.rollback(); return reply.badRequest("Delivery address is incomplete"); }
-      const customerName = typeof body.order?.customer_name === "string" ? body.order.customer_name.trim().slice(0, 160) : "";
       let customerId = body.customer_id || null;
       if (customerId) {
         const [customers] = await connection.query("SELECT id FROM customers WHERE id = ? AND business_id = ? LIMIT 1", [customerId, request.params.businessId]);
         if (!customers.length) { await connection.rollback(); return reply.badRequest("Customer does not belong to this business"); }
       }
-      const scheduledFor = delivery?.scheduled_for ? new Date(delivery.scheduled_for) : null;
-      if (scheduledFor && Number.isNaN(scheduledFor.getTime())) { await connection.rollback(); return reply.badRequest("Invalid scheduled delivery date"); }
       let discountCode = null;
       let discountAmount = 0;
       const ids = inputItems.map((item) => item.product_id || item.id);
@@ -136,8 +162,8 @@ export default async function orderRoutes(app) {
       });
       const subtotal = number(items.reduce((sum, item) => sum + item.total, 0));
       if (subtotal > MAX_ORDER_AMOUNT) { await connection.rollback(); return reply.badRequest("Order subtotal exceeds the maximum supported amount"); }
-      if (body.discount_code) {
-        discountCode = String(body.discount_code).trim().toUpperCase().slice(0, 40);
+      if (discountInput) {
+        discountCode = discountInput;
         const [discounts] = await connection.query("SELECT type, value FROM discounts WHERE business_id = ? AND code = ? AND active = TRUE AND (starts_at IS NULL OR starts_at <= NOW()) AND (ends_at IS NULL OR ends_at >= NOW()) LIMIT 1", [request.params.businessId, discountCode]);
         if (!discounts.length) { await connection.rollback(); return reply.badRequest("Invalid or expired discount code"); }
         discountAmount = number(Math.min(subtotal, discounts[0].type === "percentage" ? subtotal * Number(discounts[0].value) / 100 : Number(discounts[0].value)));
@@ -154,7 +180,7 @@ export default async function orderRoutes(app) {
         if (methods.length !== paymentIds.length) { await connection.rollback(); return reply.badRequest("Invalid payment method"); }
       }
       const orderId = randomUUID();
-      await connection.query("INSERT INTO orders (id, business_id, idempotency_key, idempotency_hash, restaurant_table_id, dining_tab_id, customer_id, customer_name, delivery_address, delivery_fee, scheduled_for, payment_method_id, subtotal, discount_code, discount_amount, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [orderId, request.params.businessId, idempotencyKey, requestHash, tableId, diningTabId, customerId, customerName || null, deliveryAddress ? JSON.stringify(deliveryAddress) : null, deliveryFee, scheduledFor ? scheduledFor : null, paymentMethodId, subtotal, discountCode, discountAmount, total, String(body.order?.notes || "").slice(0, 2000) || null]);
+      await connection.query("INSERT INTO orders (id, business_id, idempotency_key, idempotency_hash, restaurant_table_id, dining_tab_id, customer_id, customer_name, delivery_address, delivery_fee, scheduled_for, payment_method_id, subtotal, discount_code, discount_amount, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [orderId, request.params.businessId, idempotencyKey, requestHash, tableId, diningTabId, customerId, customerName || null, deliveryAddress ? JSON.stringify(deliveryAddress) : null, deliveryFee, scheduledFor ? scheduledFor : null, paymentMethodId, subtotal, discountCode, discountAmount, total, orderNotes || null]);
       for (const item of items) await connection.query("INSERT INTO order_items (id, order_id, product_id, name, unit_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?)", [item.id, orderId, item.product_id, item.name, item.unit_price, item.quantity, item.total]);
       for (const payment of paymentInputs) await connection.query("INSERT INTO order_payments (id, business_id, order_id, payment_method_id, amount) VALUES (?, ?, ?, ?, ?)", [randomUUID(), request.params.businessId, orderId, payment.payment_method_id, (toMinorUnits(payment.amount) / 100).toFixed(2)]);
       await connection.commit();
@@ -196,7 +222,7 @@ export default async function orderRoutes(app) {
 
   app.patch("/api/v1/businesses/:businessId/orders/:id/update_status", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
-    const status = String(request.body?.status || "");
+    const status = isPlainObject(request.body) && typeof request.body.status === "string" ? request.body.status : "";
     if (!statuses.has(status)) return reply.badRequest("Invalid order status");
     const connection = await pool.getConnection();
     try {

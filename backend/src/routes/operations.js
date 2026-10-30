@@ -21,8 +21,9 @@ export default async function operationsRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/payment-methods", async (request, reply) => {
     if (!(await requireRole(request, reply))) return;
-    const name = String(request.body?.name || "").trim();
-    if (!name || name.length > 80) return reply.badRequest("Invalid payment method");
+    const rawName = request.body?.name;
+    if (typeof rawName !== "string" || !rawName.trim() || rawName.trim().length > 80) return reply.badRequest("Invalid payment method");
+    const name = rawName.trim();
     const id = randomUUID();
     try { await pool.query("INSERT INTO payment_methods (id, business_id, name) VALUES (?, ?, ?)", [id, request.params.businessId, name]); }
     catch (error) { if (error.code === "ER_DUP_ENTRY") return reply.conflict("Payment method already exists"); throw error; }
@@ -37,8 +38,10 @@ export default async function operationsRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/cash-register/open", async (request, reply) => {
     if (!(await requireRole(request, reply, ["owner", "manager", "cashier"]))) return;
-    const openingAmount = Number(request.body?.opening_amount || 0);
-    if (!money(openingAmount)) return reply.badRequest("Invalid opening amount");
+    if (request.body !== undefined && (!request.body || typeof request.body !== "object" || Array.isArray(request.body))) return reply.badRequest("Cash register opening data must be an object");
+    const rawOpeningAmount = request.body?.opening_amount === undefined ? 0 : request.body.opening_amount;
+    if (!money(rawOpeningAmount)) return reply.badRequest("Invalid opening amount");
+    const openingAmount = Number(rawOpeningAmount);
     const connection = await pool.getConnection();
     const lockName = `food-system-cash:${createHash("sha256").update(String(request.params.businessId)).digest("hex").slice(0, 40)}`;
     let lockAcquired = false;
@@ -61,8 +64,10 @@ export default async function operationsRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/cash-register/:sessionId/close", async (request, reply) => {
     if (!(await requireRole(request, reply, ["owner", "manager", "cashier"]))) return;
-    const closingAmount = Number(request.body?.closing_amount);
-    if (!money(closingAmount)) return reply.badRequest("Invalid closing amount");
+    if (!request.body || typeof request.body !== "object" || Array.isArray(request.body) || (request.body.notes !== undefined && request.body.notes !== null && (typeof request.body.notes !== "string" || request.body.notes.length > 255))) return reply.badRequest("Cash register notes must be text no longer than 255 characters");
+    const rawClosingAmount = request.body?.closing_amount;
+    if (!money(rawClosingAmount)) return reply.badRequest("Invalid closing amount");
+    const closingAmount = Number(rawClosingAmount);
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -71,7 +76,7 @@ export default async function operationsRoutes(app) {
       const [totals] = await connection.query("SELECT COALESCE(SUM(CASE WHEN type IN ('sale','entry') THEN amount ELSE -amount END), 0) AS movements FROM cash_movements WHERE session_id = ?", [request.params.sessionId]);
       const expectedAmount = Number((Number(sessions[0].opening_amount) + Number(totals[0].movements)).toFixed(2));
       const differenceAmount = Number((closingAmount - expectedAmount).toFixed(2));
-      await connection.query("UPDATE cash_register_sessions SET status = 'closed', closing_amount = ?, expected_amount = ?, difference_amount = ?, closed_by = ?, closed_at = CURRENT_TIMESTAMP, notes = ? WHERE id = ? AND business_id = ? AND status = 'open'", [closingAmount, expectedAmount, differenceAmount, request.user?.id || null, String(request.body?.notes || "").slice(0, 255) || null, request.params.sessionId, request.params.businessId]);
+      await connection.query("UPDATE cash_register_sessions SET status = 'closed', closing_amount = ?, expected_amount = ?, difference_amount = ?, closed_by = ?, closed_at = CURRENT_TIMESTAMP, notes = ? WHERE id = ? AND business_id = ? AND status = 'open'", [closingAmount, expectedAmount, differenceAmount, request.user?.id || null, request.body.notes?.trim() || null, request.params.sessionId, request.params.businessId]);
       await connection.commit();
       return { closed: true, reconciliation: { expected_amount: expectedAmount, closing_amount: closingAmount, difference_amount: differenceAmount } };
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }

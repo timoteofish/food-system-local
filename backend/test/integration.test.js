@@ -12,7 +12,7 @@ const request = async (path, options = {}) => {
   }
   const response = await fetch(`${base}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: { ...(options.body === undefined ? {} : { "Content-Type": "application/json" }), ...(options.headers || {}) },
   });
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
@@ -100,6 +100,17 @@ test("API rejects anonymous business creation and assigns the authenticated owne
   await assert.rejects(request("/businesses", { method: "POST", body: JSON.stringify({ name: "Anonymous business" }) }), /401/);
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `business-${suffix}@example.test`, name: "Business Owner", password: "SenhaSegura123" }) });
+  const auth = { Authorization: `Bearer ${registered.token}` };
+  const invalidBusinesses = [
+    { name: 12 },
+    { name: "x" },
+    { name: "B".repeat(161) },
+    { name: "Valid Name", description: "😀".repeat(16_384) },
+    { name: "Valid Name", primary_color: "url(javascript:alert(1))" },
+  ];
+  for (const business of invalidBusinesses) {
+    await assert.rejects(request("/businesses", { method: "POST", headers: auth, body: JSON.stringify(business) }), /400/);
+  }
   const created = await request("/businesses", { method: "POST", headers: { Authorization: `Bearer ${registered.token}` }, body: JSON.stringify({ name: `Second business ${suffix}` }) });
   assert.equal(created.business.name, `Second business ${suffix}`);
   const team = await request(`/businesses/${created.business.id}/team`, { headers: { Authorization: `Bearer ${registered.token}` } });
@@ -227,7 +238,7 @@ test("API assigns and advances a local delivery", async () => {
   const courierPayload = await courierDeliveries.json();
   assert.equal(courierPayload.deliveries[0].id, assigned.delivery.id);
   const courierRegression = await fetch(`${base}/courier/deliveries/${assigned.delivery.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "X-Courier-Token": courierToken.token }, body: JSON.stringify({ status: "assigned" }) });
-  assert.equal(courierRegression.status, 409);
+  assert.equal(courierRegression.status, 400);
   const locationResponse = await fetch(`${base}/courier/location`, { method: "POST", headers: { "Content-Type": "application/json", "X-Courier-Token": courierToken.token }, body: JSON.stringify({ latitude: -12.9714, longitude: -38.5014, accuracy_m: 12 }) });
   assert.equal(locationResponse.status, 200);
   const duplicateLocationResponse = await fetch(`${base}/courier/location`, { method: "POST", headers: { "Content-Type": "application/json", "X-Courier-Token": courierToken.token }, body: JSON.stringify({ latitude: -12.9715, longitude: -38.5015 }) });
@@ -398,6 +409,10 @@ test("API ingests an external order idempotently", async () => {
     method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ event_type: "order.received", external_order_id: `oversized-${suffix}`, payload: { data: "x".repeat(256 * 1024) } }),
   });
   assert.equal(oversizedEventPayload.status, 400);
+  const oversizedEventBody = await fetch(`${base}/businesses/${businessId}/integrations/${connection.connection.id}/events`, {
+    method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ event_type: "order.received", external_order_id: `oversized-body-${suffix}`, payload: { data: "x".repeat(260 * 1024) } }),
+  });
+  assert.equal(oversizedEventBody.status, 413);
 
   const category = await request(`/businesses/${businessId}/categories`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Marketplace ${suffix}` }) });
   const product = await request(`/businesses/${businessId}/products`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Marketplace item ${suffix}`, price: 42.5, category_id: category.category.id }) });
@@ -439,6 +454,22 @@ test("API rejects oversized fiscal documents before storage", async () => {
     body: JSON.stringify({ document_type: "nfce", payload: { data: "x".repeat(256 * 1024) } }),
   });
   assert.equal(response.status, 400);
+
+  const auth = { Authorization: `Bearer ${registered.token}` };
+  const draft = await request(`/businesses/${registered.business.id}/fiscal/documents`, {
+    method: "POST",
+    headers: auth,
+    body: JSON.stringify({ document_type: "nfce", payload: {} }),
+  });
+  const issue = await fetch(`${base}/businesses/${registered.business.id}/fiscal/documents/${draft.document.id}/issue`, {
+    method: "POST",
+    headers: auth,
+  });
+  assert.equal(issue.status, 503);
+  assert.match((await issue.json()).error, /Fiscal issuance is disabled/);
+  const stored = await request(`/businesses/${registered.business.id}/fiscal/documents`, { headers: auth });
+  assert.equal(stored.documents.find((document) => document.id === draft.document.id).status, "draft");
+  assert.equal(stored.configuration.issuanceAvailable, false);
 });
 
 test("API manages inventory movements and product recipes", async () => {
@@ -543,6 +574,9 @@ test("API manages cash sessions, payment methods, customers and suppliers", asyn
   });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
+  for (const opening_amount of [true, "0x10", "1e3", null, ""]) {
+    await assert.rejects(request(`/businesses/${businessId}/cash-register/open`, { method: "POST", headers: auth, body: JSON.stringify({ opening_amount }) }), /400/);
+  }
   const method = await request(`/businesses/${businessId}/payment-methods`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Cash ${suffix}` }) });
   assert.equal(method.method.name, `Cash ${suffix}`);
   const category = await request(`/businesses/${businessId}/categories`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Payment ${suffix}` }) });
@@ -628,7 +662,7 @@ test("API lists backups and rejects unsafe restore paths", async () => {
   await assert.rejects(request(`/businesses/${businessId}/backups`, { headers: auth }), /403/);
   await assert.rejects(request(`/businesses/${businessId}/backups`, { method: "POST", headers: auth }), /403/);
   await assert.rejects(request(`/businesses/${businessId}/backups/restore`, { method: "POST", headers: auth, body: JSON.stringify({ name: "..\\outside.sql" }) }), /400/);
-  await assert.rejects(request(`/businesses/${businessId}/backups/restore`, { method: "POST", headers: auth, body: JSON.stringify({ name: "food-system-2026-10-29T12-00-00-000Z.sql.enc" }) }), /403/);
+  await assert.rejects(request(`/businesses/${businessId}/backups/restore`, { method: "POST", headers: auth, body: JSON.stringify({ name: "food-system-2026-10-29T12-00-00-000Z-01234567-89ab-cdef-0123-456789abcdef.sql.enc" }) }), /403/);
 });
 
 test("API returns CMV and gross margin from product recipes", async () => {
@@ -674,8 +708,11 @@ test("API audits administrative mutations and rotates sessions on login", async 
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   await request(`/businesses/${businessId}/categories`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Audit ${suffix}` }) });
-  const [auditRows] = await pool.query("SELECT action, user_id, business_id FROM audit_logs WHERE user_id = ? AND business_id = ? ORDER BY created_at DESC LIMIT 10", [registered.user.id, businessId]);
-  assert.ok(auditRows.some((row) => row.action.includes("POST") && row.action.includes("categories")));
+  const [auditRows] = await pool.query(
+    "SELECT action, user_id, business_id FROM audit_logs WHERE user_id = ? AND business_id = ? AND action = ? LIMIT 1",
+    [registered.user.id, businessId, "HTTP POST /api/v1/businesses/:businessId/categories"],
+  );
+  assert.equal(auditRows.length, 1);
 
   const login = await request("/auth/login", { method: "POST", body: JSON.stringify({ email, password: "SenhaSegura123" }) });
   assert.notEqual(login.token, registered.token);

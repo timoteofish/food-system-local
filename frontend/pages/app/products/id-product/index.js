@@ -59,7 +59,7 @@ export const initProductDetailsPanel = ({ onToggleStatus } = {}) => {
           <p>${translate("Produto")}</p>
           <h2>${name}</h2>
         </div>
-        <button class="id-product-panel__close" type="button" data-id-product-close aria-label="${translate("Fechar")}">×</button>
+        <button class="id-product-panel__close" type="button" data-id-product-close aria-label="${escapeHtml(translate("Fechar"))}">×</button>
       </header>
       <div class="id-product-panel__body">
         ${image}

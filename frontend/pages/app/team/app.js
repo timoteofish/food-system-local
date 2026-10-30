@@ -12,7 +12,7 @@ import { translate } from "../../../shared/i18n/i18n.js";
 const roleLabels = {
   owner: "Proprietário",
   manager: "Gerente",
-  staff: "Membro da equipe",
+  staff: "Equipe",
 };
 
 const getRoleLabel = (role) => translate(roleLabels[role] || roleLabels.staff);
@@ -32,7 +32,6 @@ const state = {
 const elements = {
   form: document.getElementById("teamInviteForm"),
   name: document.getElementById("memberName"),
-  email: document.getElementById("memberEmail"),
   role: document.getElementById("memberRole"),
   list: document.getElementById("teamList"),
   count: document.getElementById("teamCount"),
@@ -53,7 +52,7 @@ const renderTeam = () => {
 
   elements.list.innerHTML = state.members.map((member) => {
     const name = escapeHtml(member.user?.name || translate("Sem nome"));
-    const email = escapeHtml(member.user?.email || "");
+    const email = String(member.user?.email || "").trim();
     const role = escapeHtml(member.role || "staff");
     const status = Object.hasOwn(statusLabels, member.status) ? member.status : "unknown";
     const id = escapeHtml(member.id);
@@ -67,12 +66,12 @@ const renderTeam = () => {
       <article class="team-member" data-member-id="${id}">
         <div class="team-member__identity">
           <strong>${name}</strong>
-          <span>${email}</span>
+          ${email ? `<span>${escapeHtml(email)}</span>` : ""}
         </div>
-        <select class="team-member__role" data-team-role aria-label="${translate("Papel de acesso de")} ${name}" ${disabled}>${roleOptions}</select>
+        <select class="team-member__role" data-team-role aria-label="${escapeHtml(translate("Função de"))} ${name}" ${disabled}>${roleOptions}</select>
         <span class="team-member__status is-${status}">${translate(statusLabels[status] || "Status desconhecido")}</span>
         <div class="team-member__actions">
-          <button class="btn btn--secondary" type="button" data-team-disable aria-label="${translate("Remover acesso de")} ${name}" ${disabled}>${translate("Remover acesso")}</button>
+          <button class="btn btn--secondary" type="button" data-team-disable aria-label="${escapeHtml(translate("Remover pessoa"))} ${name}" ${disabled}>${translate("Remover pessoa")}</button>
         </div>
       </article>
     `;
@@ -107,7 +106,6 @@ elements.form.addEventListener("submit", async (event) => {
 
   const payload = {
     full_name: elements.name.value.trim(),
-    email: elements.email.value.trim(),
     role: elements.role.value,
   };
 
@@ -137,9 +135,9 @@ elements.list.addEventListener("change", async (event) => {
   try {
     await updateTeamMemberRemote(card.dataset.memberId, { role: select.value });
     await loadTeam();
-    showToast(translate("Permissão atualizada"));
+    showToast(translate("Função atualizada"));
   } catch (error) {
-    showToast(translate("Não foi possível alterar o papel"), { type: "error" });
+    showToast(translate("Não foi possível alterar a função"), { type: "error" });
     await loadTeam();
   }
 });
@@ -154,15 +152,15 @@ elements.list.addEventListener("click", async (event) => {
   const card = button.closest("[data-member-id]");
   const id = businessId();
   if (!card || !id) return;
-  if (!window.confirm(translate("Remover o acesso desta pessoa?"))) return;
+  if (!window.confirm(translate("Remover esta pessoa da lista da equipe?"))) return;
 
   button.disabled = true;
   try {
     await disableTeamMemberRemote(card.dataset.memberId);
-    showToast(translate("Acesso removido"));
+    showToast(translate("Pessoa removida da equipe"));
     await loadTeam();
   } catch (error) {
-    showToast(translate("Não foi possível remover o acesso"), { type: "error" });
+    showToast(translate("Não foi possível remover a pessoa"), { type: "error" });
     button.disabled = false;
   }
 });

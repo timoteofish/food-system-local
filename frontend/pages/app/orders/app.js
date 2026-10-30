@@ -342,4 +342,4 @@ document.addEventListener("click", async (event) => {
   } finally {
     actionButton.disabled = false;
   }
-})();
+});

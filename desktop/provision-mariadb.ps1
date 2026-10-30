@@ -4,7 +4,7 @@ param(
   [string]$Database = "food_system",
   [string]$AppUser = "food_system",
   [string]$MaintenanceUser = "food_system_maintenance",
-  [Parameter(Mandatory = $true)][SecureString]$AppPassword,
+  [SecureString]$AppPassword,
   [Parameter(Mandatory = $true)][SecureString]$RootPassword,
   [ValidateSet("127.0.0.1")][string]$HostName = "127.0.0.1",
   [string]$ConfigPath = (Join-Path $env:APPDATA "com.foodsystem.local\config.env")
@@ -17,8 +17,9 @@ if ($MaintenanceUser -notmatch '^[A-Za-z0-9_]{1,32}$' -or $MaintenanceUser -eq $
 $client = Join-Path $MariaRoot "bin\mariadb.exe"
 if (-not (Test-Path -LiteralPath $client)) { throw "MariaDB client not found at $client" }
 
-$appBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($AppPassword)
+$appBstr = [IntPtr]::Zero
 $rootBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($RootPassword)
+$appPasswordBytes = $null
 $plainPassword = $null
 $maintenancePassword = $null
 $maintenanceBytes = $null
@@ -32,28 +33,43 @@ $acl = $null
 $configTempPath = $null
 $configLines = @()
 try {
-  $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($appBstr)
+  if ($AppPassword) {
+    $appBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($AppPassword)
+    $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($appBstr)
+  } else {
+    $appPasswordBytes = New-Object byte[] 32
+    $randomGenerator = [Security.Cryptography.RandomNumberGenerator]::Create()
+    $randomGenerator.GetBytes($appPasswordBytes)
+    $plainPassword = [BitConverter]::ToString($appPasswordBytes).Replace("-", "").ToLowerInvariant()
+  }
   $rootPlainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($rootBstr)
   if ($plainPassword.Length -lt 16 -or $plainPassword -match '[\\"\r\n]') { throw "AppPassword must contain at least 16 characters and no quotes, backslashes, or line breaks" }
   $escapedPassword = $plainPassword.Replace("'", "''")
+  $mariaConfigPath = Join-Path $MariaRoot "data\my.ini"
+  if (-not (Test-Path -LiteralPath $mariaConfigPath)) { throw "MariaDB configuration not found at $mariaConfigPath. Harden the intended server to 127.0.0.1 before provisioning." }
+  $inMySqlDGroup = $false
+  $hasMySqlDGroup = $false
+  $serverBindAddress = $null
+  foreach ($line in [System.IO.File]::ReadAllLines($mariaConfigPath)) {
+    if ($line -match '^\s*\[(?<group>[^\]]+)\]\s*(?:[#;].*)?$') {
+      $inMySqlDGroup = $Matches.group.Trim() -ieq "mysqld"
+      if ($inMySqlDGroup) { $hasMySqlDGroup = $true }
+      continue
+    }
+    if ($inMySqlDGroup -and $line -match '^\s*bind[-_]address\s*=\s*(?<value>[^#;]*?)\s*(?:[#;].*)?$') {
+      $serverBindAddress = $Matches.value.Trim().Trim('"').Trim("'")
+    }
+  }
+  if (-not $hasMySqlDGroup -or $serverBindAddress -ne "127.0.0.1") {
+    throw "MariaDB is not explicitly configured with bind-address=127.0.0.1. Run harden-mariadb.ps1 and restart the intended server before provisioning."
+  }
   $maintenanceBytes = New-Object byte[] 32
-  $randomGenerator = [Security.Cryptography.RandomNumberGenerator]::Create()
+  if (-not $randomGenerator) { $randomGenerator = [Security.Cryptography.RandomNumberGenerator]::Create() }
   $randomGenerator.GetBytes($maintenanceBytes)
   $maintenancePassword = [BitConverter]::ToString($maintenanceBytes).Replace("-", "").ToLowerInvariant()
   # Recreate both dedicated accounts so stale grants cannot survive provisioning.
   $sql = "CREATE DATABASE IF NOT EXISTS ``$Database`` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP USER IF EXISTS '$AppUser'@'$HostName'; DROP USER IF EXISTS '$MaintenanceUser'@'$HostName'; CREATE USER '$AppUser'@'$HostName' IDENTIFIED BY '$escapedPassword'; CREATE USER '$MaintenanceUser'@'$HostName' IDENTIFIED BY '$maintenancePassword'; GRANT SELECT, INSERT, UPDATE, DELETE ON ``$Database``.* TO '$AppUser'@'$HostName'; GRANT ALL PRIVILEGES ON ``$Database``.* TO '$MaintenanceUser'@'$HostName'; GRANT SHUTDOWN ON *.* TO '$MaintenanceUser'@'$HostName'; FLUSH PRIVILEGES;"
-  $env:MYSQL_PWD = $rootPlainPassword
-  $processInfo = [Diagnostics.ProcessStartInfo]::new()
-  $processInfo.FileName = $client
-  $processInfo.Arguments = "--protocol=tcp --host=127.0.0.1 --user=root --batch --skip-column-names"
-  $processInfo.UseShellExecute = $false
-  $processInfo.RedirectStandardInput = $true
-  $process = [Diagnostics.Process]::Start($processInfo)
-  $process.StandardInput.WriteLine($sql)
-  $process.StandardInput.Close()
-  $process.WaitForExit()
-  if ($process.ExitCode -ne 0) { throw "MariaDB provisioning failed. Authenticate as root and rerun this script." }
-
+  # Validate and stage the protected config before changing database accounts.
   $parent = Split-Path -Parent $ConfigPath
   New-Item -ItemType Directory -Force -Path $parent | Out-Null
   $managedConfigKeys = @("MYSQL_HOST", "MYSQL_PORT", "MYSQL_DATABASE", "MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_MAINTENANCE_USER", "MYSQL_MAINTENANCE_PASSWORD")
@@ -90,6 +106,33 @@ try {
   [System.IO.File]::WriteAllText($configTempPath, "", [System.Text.UTF8Encoding]::new($false))
   Set-Acl -LiteralPath $configTempPath -AclObject $acl
   [System.IO.File]::WriteAllText($configTempPath, $configContent, [System.Text.UTF8Encoding]::new($false))
+
+  $env:MYSQL_PWD = $rootPlainPassword
+  $serverIdentityOutput = @(& $client --protocol=tcp --host=127.0.0.1 --user=root --batch --skip-column-names --execute "SELECT @@basedir, @@port, @@bind_address")
+  $identityExitCode = $LASTEXITCODE
+  if ($identityExitCode -ne 0 -or $serverIdentityOutput.Count -ne 1) {
+    throw "Could not verify the MariaDB server identity. Authenticate as root and confirm the intended server is listening on 127.0.0.1:3306."
+  }
+  $identityFields = @(([string]$serverIdentityOutput[0]) -split "`t")
+  if ($identityFields.Count -ne 3) { throw "MariaDB returned an invalid server identity response." }
+  $serverPort = [int]$identityFields[1]
+  $expectedMariaRoot = [System.IO.Path]::GetFullPath($MariaRoot).TrimEnd([char[]]@(92, 47))
+  $actualMariaRoot = [System.IO.Path]::GetFullPath($identityFields[0].Trim()).TrimEnd([char[]]@(92, 47))
+  if ($actualMariaRoot -ine $expectedMariaRoot -or $serverPort -ne 3306 -or $identityFields[2].Trim() -ne "127.0.0.1") {
+    throw "The MariaDB server at 127.0.0.1:3306 does not match MariaRoot or the required loopback settings. No database accounts were changed."
+  }
+
+  $processInfo = [Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = $client
+  $processInfo.Arguments = "--protocol=tcp --host=127.0.0.1 --user=root --batch --skip-column-names"
+  $processInfo.UseShellExecute = $false
+  $processInfo.RedirectStandardInput = $true
+  $process = [Diagnostics.Process]::Start($processInfo)
+  $process.StandardInput.WriteLine($sql)
+  $process.StandardInput.Close()
+  $process.WaitForExit()
+  if ($process.ExitCode -ne 0) { throw "MariaDB provisioning failed. Authenticate as root and rerun this script." }
+
   if (Test-Path -LiteralPath $ConfigPath) {
     [System.IO.File]::Replace($configTempPath, $ConfigPath, $null)
   } else {
@@ -101,6 +144,7 @@ try {
   Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue
   $plainPassword = $null
   $maintenancePassword = $null
+  if ($appPasswordBytes) { [Array]::Clear($appPasswordBytes, 0, $appPasswordBytes.Length) }
   if ($maintenanceBytes) { [Array]::Clear($maintenanceBytes, 0, $maintenanceBytes.Length) }
   if ($randomGenerator) { $randomGenerator.Dispose() }
   $rootPlainPassword = $null

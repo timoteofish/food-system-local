@@ -32,16 +32,31 @@ avatarButton?.addEventListener("click", () => avatarInput?.click());
 avatarInput?.addEventListener("change", () => {
   const file = avatarInput.files?.[0];
   if (!file) return;
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 8 * 1024 * 1024) {
+    avatarInput.value = "";
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => {
-    if (avatarPreview) {
-      avatarPreview.src = String(reader.result || "");
-      avatarPreview.hidden = false;
-    }
-    if (avatarPlaceholder) {
-      avatarPlaceholder.hidden = true;
-    }
+    const image = new Image();
+    image.onload = () => {
+      if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth > 12_000 || image.naturalHeight > 12_000 || image.naturalWidth * image.naturalHeight > 40_000_000) return;
+      const scale = Math.min(1, 512 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      if (avatarPreview) {
+        avatarPreview.src = canvas.toDataURL("image/jpeg", 0.82);
+        avatarPreview.hidden = false;
+      }
+      if (avatarPlaceholder) avatarPlaceholder.hidden = true;
+    };
+    image.src = String(reader.result || "");
   };
+  avatarInput.value = "";
   reader.readAsDataURL(file);
 });
 

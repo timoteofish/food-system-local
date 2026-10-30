@@ -1,4 +1,4 @@
-/* Shared sidebar and page heading for authenticated app screens. */
+/* Shared sidebar and page heading for application screens. */
 .menu-sidebar {
   display: flex;
   flex-direction: column;

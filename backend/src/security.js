@@ -135,7 +135,7 @@ export const redact = (value) => {
   if (Array.isArray(value)) return value.map(redact);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(Object.entries(value).map(([name, item]) => {
-    const sensitive = /password|secret|token|credential|certificate|private.?key/i.test(name);
+    const sensitive = /password|secret|token|credential|certificate|private.?key|authorization|cookie|api.?key|access.?key|refresh.?key|session.?id/i.test(name);
     return [name, sensitive ? "[REDACTED]" : redact(item)];
   }));
 };

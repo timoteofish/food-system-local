@@ -109,5 +109,4 @@ export const safeImageUrl = (value = "") => {
     return "";
   }
 };
-import { getLanguage, getLocale } from "../i18n/i18n.js";
 

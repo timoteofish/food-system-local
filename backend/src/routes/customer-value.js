@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
+import { hasDecimalScale } from "../numbers.js";
 
 const isMoney = (value) => Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 99999999.99;
 const MAX_LOYALTY_POINTS_PER_OPERATION = 1_000_000;
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 
 export default async function customerValueRoutes(app) {
   app.get("/api/v1/businesses/:businessId/discounts", async (request, reply) => {
@@ -14,22 +16,28 @@ export default async function customerValueRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/discounts", async (request, reply) => {
     if (!(await requireRole(request, reply))) return;
-    const body = request.body?.discount || request.body || {};
-    const name = String(body.name || "").trim();
-    const type = String(body.type || "");
+    const body = isPlainObject(request.body) && request.body.discount !== undefined ? request.body.discount : request.body;
+    if (!isPlainObject(body)) return reply.badRequest("Discount data must be an object");
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const type = typeof body.type === "string" ? body.type : "";
     const value = Number(body.value);
-    if (!name || name.length > 120 || !["percentage", "fixed"].includes(type) || !isMoney(value) || (type === "percentage" && value > 100)) return reply.badRequest("Invalid discount");
+    const code = body.code === undefined || body.code === null || body.code === "" ? null : typeof body.code === "string" ? body.code.trim().toUpperCase() : false;
+    if (!name || name.length > 120 || !["percentage", "fixed"].includes(type) || !hasDecimalScale(body.value, 2) || !isMoney(value) || (type === "percentage" && value > 100) || code === false || (code !== null && (!code || code.length > 40))) return reply.badRequest("Invalid discount");
+    const startsAt = body.starts_at === undefined || body.starts_at === null || body.starts_at === "" ? null : body.starts_at;
+    const endsAt = body.ends_at === undefined || body.ends_at === null || body.ends_at === "" ? null : body.ends_at;
+    if ((startsAt !== null && (typeof startsAt !== "string" || Number.isNaN(Date.parse(startsAt)))) || (endsAt !== null && (typeof endsAt !== "string" || Number.isNaN(Date.parse(endsAt))))) return reply.badRequest("Invalid discount date");
     const id = randomUUID();
-    try { await pool.query("INSERT INTO discounts (id, business_id, name, code, type, value, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [id, request.params.businessId, name, body.code ? String(body.code).trim().toUpperCase().slice(0, 40) : null, type, value, body.starts_at || null, body.ends_at || null]); }
+    try { await pool.query("INSERT INTO discounts (id, business_id, name, code, type, value, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [id, request.params.businessId, name, code, type, value, startsAt, endsAt]); }
     catch (error) { if (error.code === "ER_DUP_ENTRY") return reply.conflict("Discount code already exists"); throw error; }
     return reply.code(201).send({ discount: { id, business_id: request.params.businessId, name, type, value } });
   });
 
   app.post("/api/v1/businesses/:businessId/discounts/preview", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
-    const code = String(request.body?.code || "").trim().toUpperCase();
-    const subtotal = Number(request.body?.subtotal);
-    if (!code || !isMoney(subtotal)) return reply.badRequest("Code and subtotal are required");
+    if (!isPlainObject(request.body) || typeof request.body.code !== "string") return reply.badRequest("Code and subtotal are required");
+    const code = request.body.code.trim().toUpperCase();
+    const subtotal = Number(request.body.subtotal);
+    if (!code || code.length > 40 || !hasDecimalScale(request.body.subtotal, 2) || !isMoney(subtotal)) return reply.badRequest("Code and subtotal are required");
     const [rows] = await pool.query("SELECT * FROM discounts WHERE business_id = ? AND code = ? AND active = TRUE AND (starts_at IS NULL OR starts_at <= NOW()) AND (ends_at IS NULL OR ends_at >= NOW()) LIMIT 1", [request.params.businessId, code]);
     if (!rows.length) return reply.notFound("Discount not found");
     const discount = rows[0];
@@ -45,7 +53,7 @@ export default async function customerValueRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/customers/:customerId/loyalty/earn", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
-    const points = Number(request.body?.points);
+    const points = request.body?.points;
     if (!Number.isInteger(points) || points <= 0 || points > MAX_LOYALTY_POINTS_PER_OPERATION) return reply.badRequest("Invalid points amount");
     const connection = await pool.getConnection();
     try {
@@ -61,7 +69,7 @@ export default async function customerValueRoutes(app) {
 
   app.post("/api/v1/businesses/:businessId/customers/:customerId/loyalty/redeem", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
-    const points = Number(request.body?.points);
+    const points = request.body?.points;
     if (!Number.isInteger(points) || points <= 0 || points > MAX_LOYALTY_POINTS_PER_OPERATION) return reply.badRequest("Invalid points amount");
     const [result] = await pool.query("UPDATE loyalty_accounts SET points = points - ? WHERE business_id = ? AND customer_id = ? AND points >= ?", [points, request.params.businessId, request.params.customerId, points]);
     if (!result.affectedRows) return reply.conflict("Insufficient loyalty points");

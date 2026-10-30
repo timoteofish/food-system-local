@@ -42,7 +42,7 @@ document.getElementById("sendLocation").addEventListener("click", () => {
   message.textContent = translate("Solicitando localização");
   navigator.geolocation.getCurrentPosition(async ({ coords }) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/courier/location`, { method: "POST", headers: { "Content-Type": "application/json", "X-Courier-Token": getToken() }, body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude, accuracy_m: coords.accuracy }) });
+      const response = await fetch(`${API_BASE_URL}/courier/location`, { method: "POST", headers: { "Content-Type": "application/json", "X-Courier-Token": getToken() }, body: JSON.stringify({ latitude: Number(coords.latitude.toFixed(7)), longitude: Number(coords.longitude.toFixed(7)), accuracy_m: Number(coords.accuracy.toFixed(2)) }) });
       await parseResponse(response);
       message.textContent = translate("Localização enviada");
     } catch (error) { message.textContent = translate(error.message); }

@@ -1,5 +1,6 @@
 export const hasDecimalScale = (value, scale) => {
   if ((typeof value !== "number" && typeof value !== "string") || !String(value).trim()) return false;
+  if (typeof value === "string" && !/^-?\d+(?:\.\d+)?$/.test(value.trim())) return false;
   const number = Number(value);
   return Number.isFinite(number) && Number(number.toFixed(scale)) === number;
 };

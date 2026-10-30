@@ -287,7 +287,6 @@ const legacyTextPairs = {
   "pedidos": "orders",
   Cancelar: "Cancel",
   "Os dados do caixa não estão disponíveis": "Cash register data is unavailable",
-  "Cadastre as credenciais do provedor antes de enviar documentos": "Add the provider credentials before submitting documents",
   "Informe os dados do comércio antes de concluir o cadastro": "Enter the business details before completing registration",
   "Suporte remoto": "Remote support",
   "O suporte é feito remotamente pela equipe responsável pelo sistema": "Support is provided remotely by the team responsible for the system",
@@ -608,6 +607,10 @@ const legacyTextPairs = {
   "Papel de acesso": "Access role",
   "EQUIPE": "TEAM",
   "Defina quem pode acessar o sistema e o que cada pessoa pode fazer": "Choose who can access the system and what each person can do",
+  "Mantenha o cadastro das pessoas da equipe. Como o sistema é local e não tem login individual, estas funções são apenas informativas.": "Keep an employee roster. This system is local and has no individual sign-in, so these roles are informational only.",
+  "Cadastre sua equipe sem criar contas ou senhas de acesso.": "Add employees without creating accounts or passwords.",
+  "Função (informativa)": "Role (informational)",
+  Equipe: "Staff",
   "A pessoa precisa ter uma conta no Food System": "The person needs a Food System account",
   "Para adicionar alguém, a pessoa precisa ter uma conta no Food System": "To add someone, they need a Food System account",
   "Membro da equipe": "Team member",
@@ -618,13 +621,19 @@ const legacyTextPairs = {
   "Não foi possível carregar a equipe": "Could not load the team",
   "Não foi possível abrir a equipe": "Could not open the team page",
   "Pessoa adicionada à equipe": "Person added to the team",
+  "Função de": "Role for",
+  "Remover pessoa": "Remove person",
+  "Remover esta pessoa da lista da equipe?": "Remove this person from the team roster?",
+  "Pessoa removida da equipe": "Person removed from the team",
+  "Função atualizada": "Role updated",
+  "Não foi possível alterar a função": "Could not update the role",
+  "Não foi possível remover a pessoa": "Could not remove the person",
   "Papel de acesso de": "Access role for",
   "Remover acesso de": "Remove access for",
   "Remover acesso": "Remove access",
   "Remover o acesso desta pessoa?": "Remove this person's access?",
   "Acesso removido": "Access removed",
   "Não foi possível alterar o papel": "Could not change the role",
-  "Não foi possível remover o acesso": "Could not remove access",
   "O usuário precisa se cadastrar antes do convite": "The user must create an account before access can be granted",
   "Usuário já pertence à empresa": "This user is already a member of the business",
   Papel: "Role",
@@ -860,7 +869,6 @@ const legacyTextPairs = {
   "Não foi possível criar o QR da mesa": "Could not create the table QR code",
   "Não identificado": "Unknown",
   "Não informada": "Not specified",
-  "Permissão atualizada": "Access role updated",
   "Pré-visualização da imagem": "Image preview",
   "Próximo mês": "Next month",
   "QR Code ainda não foi gerado": "The QR code has not been generated yet",
@@ -1040,6 +1048,7 @@ const legacyTextPairs = {
   "Foto pronta para salvar": "Photo ready to save",
   "A foto será removida ao salvar": "The photo will be removed when you save",
   "Selecione um arquivo de imagem": "Select an image file",
+  "Selecione um arquivo PNG, JPEG ou WebP de até 8 MB": "Choose a PNG, JPEG, or WebP file up to 8 MB",
   "A imagem deve ter até 8 MB": "The image must be 8 MB or smaller",
   "Não foi possível processar a imagem": "Could not process the image",
   "Produto sem nome": "Unnamed product",
@@ -1152,7 +1161,6 @@ const legacyTextPairs = {
   "Credenciais do provedor não cadastradas": "Provider credentials have not been added",
   "Endpoint HTTPS não configurado": "HTTPS endpoint is not configured",
   "Erro na requisição": "Request failed",
-  "Este rascunho não está mais disponível para emissão": "This draft is no longer available for issuance",
   "Falha ao carregar a configuração do Firebase": "Could not load the Firebase configuration",
   "Falha de conexão ao iniciar o login com o Google Verifique sua internet e tente novamente": "Connection failed while starting Google sign-in Check your internet connection and try again",
   "Firebase não configurado": "Firebase is not configured",
@@ -1164,7 +1172,6 @@ const legacyTextPairs = {
   "O login com o Google foi cancelado antes da conclusão": "Google sign-in was canceled before it finished",
   "O login com o Google não está disponível neste endereço Acesse pelo localhost ou entre em contato com o suporte": "Google sign-in is unavailable at this address Open the app through localhost or contact support",
   "O provedor não autorizou o documento Consulte o motivo na fila": "The provider did not authorize the document Check the reason in the queue",
-  "O provedor não conseguiu processar o documento Confira a configuração e tente novamente": "The provider could not process the document Check the configuration and try again",
   "Peça à mesa sem instalar o aplicativo": "Order at your table without installing an app",
   "Preencha os dados principais do comércio para continuar": "Complete the main business details to continue",
   "Sem número": "No number",
@@ -1301,11 +1308,6 @@ const legacyTextPairs = {
   "As credenciais da integração não estão configuradas": "Integration credentials are not configured",
   "As credenciais da integração são inválidas": "Integration credentials are invalid",
   "Falha ao conectar à integração": "Integration connection failed",
-  "As credenciais fiscais existentes não puderam ser lidas": "Existing fiscal credentials could not be read",
-  "O provedor fiscal não está configurado com HTTPS Configure FISCAL_PROVIDER_URL e as credenciais do certificado antes de emitir": "Fiscal provider is not configured with HTTPS Configure FISCAL_PROVIDER_URL and certificate credentials before issuing",
-  "As credenciais do provedor fiscal não estão configuradas": "Fiscal provider credentials are not configured",
-  "As credenciais do provedor fiscal são inválidas": "Fiscal provider credentials are invalid",
-  "A solicitação ao provedor fiscal falhou": "Fiscal provider request failed",
   "Erro interno do servidor": "Internal server error",
 };
 
@@ -1418,7 +1420,8 @@ export const applyLegacyTranslations = (root = document) => {
     if (element.textContent !== translate("closeApplication")) element.textContent = translate("closeApplication");
   });
 
-  const walker = root.createTreeWalker(root.body || root, NodeFilter.SHOW_TEXT);
+  const documentRoot = root.nodeType === Node.DOCUMENT_NODE ? root : root.ownerDocument;
+  const walker = documentRoot.createTreeWalker(root.nodeType === Node.DOCUMENT_NODE ? root.body || root : root, NodeFilter.SHOW_TEXT);
   let node;
   while ((node = walker.nextNode())) {
     if (node.parentElement?.closest("script,style")) continue;

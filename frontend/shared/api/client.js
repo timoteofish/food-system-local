@@ -1,6 +1,19 @@
 import { API_BASE_URL } from "./config.js";
 import { setSession } from "../data/storage.js";
 
+const isLocalAdminApi = (() => {
+  try {
+    const url = new URL(API_BASE_URL);
+    return url.protocol === "http:" &&
+      url.hostname === "127.0.0.1" &&
+      url.port === "3000" &&
+      url.pathname === "/api/v1" &&
+      !url.username && !url.password && !url.search && !url.hash;
+  } catch {
+    return false;
+  }
+})();
+
 const parseResponse = async (response) => {
   const text = await response.text();
   const data = text ? JSON.parse(text) : {};
@@ -20,14 +33,16 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
 
   const needsAuthentication = auth !== false;
   let localAccessToken = "";
-  if (needsAuthentication) {
+  if (needsAuthentication && isLocalAdminApi) {
     try {
       localAccessToken = await window.__TAURI__?.core?.invoke?.("local_access_token") || "";
     } catch {
-      // Browser clients do not receive the desktop-only local administrator credential.
+      // Do not send stored session credentials to a service that has not passed
+      // the desktop launcher readiness handshake on the trusted loopback API.
+      throw new Error("The local API is not ready yet. Try again shortly.");
     }
   }
-  const developmentLocalMode = needsAuthentication && !localAccessToken && ["localhost", "127.0.0.1"].includes(window.location.hostname) && window.location.port === "4173";
+  const developmentLocalMode = needsAuthentication && isLocalAdminApi && !localAccessToken && ["localhost", "127.0.0.1"].includes(window.location.hostname) && window.location.port === "4173";
   const headers = {
     Accept: "application/json",
     "X-Food-System-Client": "web",
@@ -43,6 +58,7 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
     method,
     headers,
     credentials: needsAuthentication ? "same-origin" : "omit",
+    redirect: "error",
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -218,7 +234,9 @@ export const pingApi = async () => {
   if (!API_BASE_URL) return false;
 
   try {
-    const response = await fetch(`${API_BASE_URL.replace("/api/v1", "")}/up`);
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      signal: AbortSignal.timeout(2500),
+    });
     return response.ok;
   } catch {
     return false;

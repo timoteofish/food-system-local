@@ -153,5 +153,4 @@ export const initCalendarPanel = ({ onSelect, onClear } = {}) => {
 
   return { open, close };
 };
-import { getLocale } from "../../../../shared/i18n/i18n.js";
 

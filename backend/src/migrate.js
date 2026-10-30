@@ -4,8 +4,10 @@ import { fileURLToPath } from "node:url";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { getMaintenancePool, pool as runtimePool } from "./db.js";
+import { config } from "./config.js";
 import { hasSecretKey } from "./security.js";
 import { migrateLegacyIntegrationCredentials } from "./migration-secrets.js";
+import { assertSelectedMariaDb } from "./database-identity.js";
 
 const execFile = promisify(execFileCallback);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../sql");
@@ -51,6 +53,14 @@ let locked = false;
 let connection;
 try {
   connection = await maintenancePool.getConnection();
+  const expectedMariaRoot = process.env.MARIADB_ROOT || "";
+  if (expectedMariaRoot) {
+    await assertSelectedMariaDb(connection, {
+      installRoot: expectedMariaRoot,
+      port: config.mysql.port,
+      database: config.mysql.database,
+    });
+  }
   const [lockRows] = await connection.query("SELECT GET_LOCK(?, 30) AS acquired", [migrationLock]);
   if (Number(lockRows[0]?.acquired) !== 1) throw new Error("Could not acquire the schema migration lock");
   locked = true;

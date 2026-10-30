@@ -9,10 +9,7 @@ const businessId = getSession()?.businessId;
 const documentList = document.getElementById("fiscalList");
 const configState = document.getElementById("fiscalConfigurationState");
 const fiscalMessage = document.getElementById("fiscalMessage");
-const credentialsMessage = document.getElementById("fiscalCredentialsMessage");
-const credentialsForm = document.getElementById("fiscalCredentialsForm");
 const createForm = document.getElementById("fiscalForm");
-const credentialsButton = credentialsForm.querySelector("button[type='submit']");
 const createButton = createForm.querySelector("button[type='submit']");
 
 const statusLabels = {
@@ -28,31 +25,10 @@ const documentTypeLabels = {
   nfe: "NF-e",
   receipt: "Recibo",
 };
-let canIssueDocuments = false;
 
 const userFacingError = (error) => {
   const raw = error?.message || "Não foi possível concluir a operação";
-  if (raw.includes("FISCAL_PROVIDER_URL") || raw.includes("Fiscal provider is not configured")) {
-    return "O endpoint HTTPS do provedor não está configurado no servidor";
-  }
-  if (raw.includes("FOOD_SYSTEM_SECRET_KEY")) {
-    return "O armazenamento seguro do servidor não está configurado Configure a chave antes de salvar credenciais";
-  }
-  if (raw.includes("Fiscal provider credentials are not configured")) {
-    return "Cadastre as credenciais do provedor antes de enviar documentos";
-  }
-  if (raw.includes("Fiscal provider credentials are invalid")) {
-    return "As credenciais salvas não são válidas Atualize os dados do provedor";
-  }
-  if (raw.includes("Fiscal provider must use HTTPS")) {
-    return "O endereço do provedor precisa usar HTTPS";
-  }
-  if (raw.includes("Fiscal provider request failed")) {
-    return "O provedor não conseguiu processar o documento Confira a configuração e tente novamente";
-  }
-  if (raw.includes("Draft fiscal document not found")) {
-    return "Este rascunho não está mais disponível para emissão";
-  }
+  if (raw.includes("Fiscal issuance is disabled")) return "A emissão fiscal está desativada até haver integração certificada";
   return "Não foi possível concluir a operação Verifique a conexão e tente novamente";
 };
 
@@ -63,33 +39,8 @@ const setMessage = (element, text = "", type = "success") => {
   element.classList.toggle("is-success", type === "success" && Boolean(text));
 };
 
-const renderConfiguration = (configuration = {}) => {
-  const providerConfigured = Boolean(configuration.providerConfigured);
-  const secureStorageAvailable = Boolean(configuration.secureStorageAvailable);
-  const credentialsStored = Boolean(configuration.credentialsStored);
-  canIssueDocuments = providerConfigured && secureStorageAvailable && credentialsStored;
-
-  const states = [
-    {
-      ready: providerConfigured,
-      label: translate(providerConfigured ? "Endpoint HTTPS configurado" : "Endpoint HTTPS não configurado"),
-    },
-    {
-      ready: secureStorageAvailable,
-      label: translate(secureStorageAvailable ? "Armazenamento seguro disponível" : "Chave de segurança ausente no servidor"),
-    },
-    {
-      ready: credentialsStored,
-      label: translate(credentialsStored ? "Credenciais do provedor salvas" : "Credenciais do provedor não cadastradas"),
-    },
-  ];
-
-  configState.innerHTML = states.map((state) => `
-    <span class="fiscal-config-state__item ${state.ready ? "is-ready" : "is-missing"}">
-      <span aria-hidden="true">${state.ready ? "✓" : "!"}</span>
-      ${state.label}
-    </span>
-  `).join("");
+const renderConfiguration = () => {
+  configState.innerHTML = `<span class="fiscal-config-state__item is-missing"><span aria-hidden="true">!</span>${translate("Emissão desativada até existir integração fiscal certificada")}</span>`;
 };
 
 const renderDocuments = (documents) => {
@@ -107,11 +58,8 @@ const renderDocuments = (documents) => {
     const errorMessage = document.error_message
       ? `<p class="fiscal-document__error">${escapeHtml(translate(document.error_message))}</p>`
       : "";
-    const payloadReady = document.payload && typeof document.payload === "object" && !Array.isArray(document.payload) && Object.keys(document.payload).length > 0;
-    const issueButton = document.status === "draft" && payloadReady
-      ? `<button class="btn btn--secondary" data-issue="${escapeHtml(document.id)}" type="button" ${canIssueDocuments ? "" : "disabled"}>${translate("Enviar para emissão")}</button>`
-      : document.status === "draft"
-        ? `<small>${translate("Rascunho sem dados fiscais")}</small>`
+    const issueButton = document.status === "draft"
+      ? `<small>${translate("Rascunho salvo · emissão desativada até integração certificada")}</small>`
       : "";
 
     return `
@@ -134,7 +82,7 @@ const load = async () => {
   documentList.innerHTML = `<p class="operation-empty" role="status">${translate("Carregando documentos")}</p>`;
   try {
     const data = await apiRequest(`/businesses/${businessId}/fiscal/documents`);
-    renderConfiguration(data.configuration || {});
+    renderConfiguration();
     renderDocuments(Array.isArray(data.documents) ? data.documents : []);
     return true;
   } catch (error) {
@@ -147,38 +95,6 @@ const load = async () => {
 
 documentList.addEventListener("click", (event) => {
   if (event.target.closest(".fiscal-retry")) void load();
-});
-
-credentialsForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const credentials = Object.fromEntries(
-    Array.from(credentialsForm.querySelectorAll("[name]"))
-      .map((field) => [field.name, field.value.trim()])
-      .filter(([, value]) => Boolean(value))
-  );
-
-  if (!Object.keys(credentials).length) {
-    setMessage(credentialsMessage, "Preencha ao menos um campo para atualizar as credenciais", "error");
-    credentialsForm.querySelector("input, textarea").focus();
-    return;
-  }
-
-  credentialsButton.disabled = true;
-  setMessage(credentialsMessage);
-
-  try {
-    await apiRequest(`/businesses/${businessId}/fiscal/credentials`, {
-      method: "PUT",
-      body: { credentials },
-    });
-    credentialsForm.reset();
-    setMessage(credentialsMessage, "Credenciais atualizadas com segurança");
-    await load();
-  } catch (error) {
-    setMessage(credentialsMessage, userFacingError(error), "error");
-  } finally {
-    credentialsButton.disabled = false;
-  }
 });
 
 createForm.addEventListener("submit", async (event) => {
@@ -204,30 +120,6 @@ createForm.addEventListener("submit", async (event) => {
     setMessage(fiscalMessage, userFacingError(error), "error");
   } finally {
     createButton.disabled = false;
-  }
-});
-
-documentList.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-issue]");
-  if (!button || button.disabled) return;
-
-  button.disabled = true;
-  setMessage(fiscalMessage);
-
-  try {
-    const result = await apiRequest(
-      `/businesses/${businessId}/fiscal/documents/${button.dataset.issue}/issue`,
-      { method: "POST" }
-    );
-    setMessage(fiscalMessage, result.document?.status === "authorized"
-      ? "Documento autorizado pelo provedor"
-      : "O provedor não autorizou o documento Consulte o motivo na fila", result.document?.status === "authorized" ? "success" : "error");
-    await load();
-  } catch (error) {
-    setMessage(fiscalMessage, userFacingError(error), "error");
-    await load();
-  } finally {
-    if (button.isConnected) button.disabled = false;
   }
 });
 

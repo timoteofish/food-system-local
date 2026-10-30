@@ -5,7 +5,25 @@ import os from "node:os";
 import path from "node:path";
 
 process.env.FOOD_SYSTEM_SECRET_KEY = "security-file-test-key-which-is-long-enough";
-const { decryptFile, encryptFile, encryptSecret } = await import("../src/security.js");
+const { decryptFile, encryptFile, encryptSecret, redact } = await import("../src/security.js");
+
+test("audit redaction removes common authorization and credential field names recursively", () => {
+  assert.deepEqual(redact({
+    authorization: "Bearer token",
+    cookie: "session=value",
+    api_key: "api-key",
+    refreshToken: "refresh-token",
+    session_id: "session-id",
+    nested: [{ client_secret: "client-secret", label: "safe" }],
+  }), {
+    authorization: "[REDACTED]",
+    cookie: "[REDACTED]",
+    api_key: "[REDACTED]",
+    refreshToken: "[REDACTED]",
+    session_id: "[REDACTED]",
+    nested: [{ client_secret: "[REDACTED]", label: "safe" }],
+  });
+});
 
 test("streaming backup encryption round-trips large files and authenticates ciphertext", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "food-system-backup-test-"));

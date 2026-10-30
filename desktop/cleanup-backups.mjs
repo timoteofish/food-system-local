@@ -3,7 +3,10 @@ import path from "node:path";
 import { isSafeBackupName } from "../backend/src/backup-files.js";
 
 const RESTORE_TEMP_PATTERN = /^\.(?:restore|recovery)-\d+-[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.sql$/i;
-const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Backup and restore subprocesses have bounded run times measured in minutes.
+// A one-hour grace period protects active work while limiting exposure of a
+// plaintext dump left behind by a crash or forced shutdown.
+const DEFAULT_MAX_AGE_MS = 60 * 60 * 1000;
 
 export const removeStalePlaintextBackups = async (directory, { now = Date.now(), maxAgeMs = DEFAULT_MAX_AGE_MS } = {}) => {
   let entries;

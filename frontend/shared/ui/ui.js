@@ -1,7 +1,7 @@
 import { getBusiness, getMenuSettings, getSession, saveBusiness, saveMenuSettings, setSession } from "../data/storage.js";
 import { bootstrapApi, completeBusinessOnboarding, isUsingApi, logout, requireAuth, saveMenuSettingsRemote } from "../auth/auth.js";
 import { checkForSystemUpdates } from "../auth/auth.js";
-import { escapeHtml } from "../utils/utils.js";
+import { escapeHtml, safeImageUrl } from "../utils/utils.js";
 import { applyLegacyTranslations, getLanguage, setLanguage, translate } from "../i18n/i18n.js";
 import { applyAppearancePreferences } from "./appearance.js";
 
@@ -96,11 +96,11 @@ const bindSidebarNavigationScroll = () => {
   const sidebar = document.querySelector(".menu-sidebar");
   if (nav && nav.dataset.scrollPositionBound !== "true") {
     nav.dataset.scrollPositionBound = "true";
-    nav.addEventListener("scroll", scheduleSidebarNavigationScroll, { passive: true });
+    nav.addEventListener("scroll", scheduleSidebarNavigationScrollSave, { passive: true });
   }
   if (sidebar && sidebar.dataset.scrollPositionBound !== "true") {
     sidebar.dataset.scrollPositionBound = "true";
-    sidebar.addEventListener("scroll", scheduleSidebarNavigationScroll, { passive: true });
+    sidebar.addEventListener("scroll", scheduleSidebarNavigationScrollSave, { passive: true });
   }
 
   document.querySelectorAll(".menu-sidebar__nav a").forEach((link) => {
@@ -447,7 +447,8 @@ export const initProfileMenu = () => {
   const clientCategory = "Aplicação local";
   let clientEmail = session?.email || business.email || "";
   const clientPhone = business.phone || session?.phone || "";
-  const clientAvatar = business.avatar || "";
+  const safeClientAvatar = safeImageUrl(business.avatar);
+  const safeSessionAvatar = safeImageUrl(session?.avatar);
   const displayPlan = clientCategory;
   let backdrop = document.getElementById("userEditBackdrop");
   let panel = document.getElementById("userEditPanel");
@@ -470,7 +471,7 @@ export const initProfileMenu = () => {
       <div class="user-edit-panel__hero">
         <button type="button" class="user-edit-panel__close" data-user-edit-close aria-label="Fechar painel">×</button>
         <div class="user-edit-panel__hero-user">
-          <div class="user-edit-panel__avatar" aria-hidden="true">${session?.avatar ? `<img src="${escapeHtml(session.avatar)}" alt="" />` : escapeHtml(displayName.slice(0, 1).toUpperCase())}</div>
+          <div class="user-edit-panel__avatar" aria-hidden="true">${safeSessionAvatar ? `<img src="${escapeHtml(safeSessionAvatar)}" alt="" />` : escapeHtml(displayName.slice(0, 1).toUpperCase())}</div>
           <div class="user-edit-panel__hero-copy">
             <strong data-merchant-content>${escapeHtml(displayName)}</strong>
             <span>${escapeHtml(displayPlan)}</span>
@@ -499,16 +500,16 @@ export const initProfileMenu = () => {
                 <aside class="user-edit-panel__settings-side">
                   <div class="user-edit-panel__settings-avatar">
                     <div class="user-edit-panel__settings-avatar-frame">
-                      <img class="user-edit-panel__settings-avatar-image" alt="Imagem do comércio" ${clientAvatar ? `src="${escapeHtml(clientAvatar)}"` : "hidden"} />
-                      <span class="user-edit-panel__settings-avatar-placeholder" ${clientAvatar ? "hidden" : ""}>${displayName.slice(0, 1).toUpperCase()}</span>
+                      <img class="user-edit-panel__settings-avatar-image" alt="Imagem do comércio" ${safeClientAvatar ? `src="${escapeHtml(safeClientAvatar)}"` : "hidden"} />
+                      <span class="user-edit-panel__settings-avatar-placeholder" ${safeClientAvatar ? "hidden" : ""}>${escapeHtml(displayName.slice(0, 1).toUpperCase())}</span>
                     </div>
                     <div class="user-edit-panel__settings-avatar-copy">
                       <strong>Imagem do comércio</strong>
                       <small>Identifique seu estabelecimento no sistema</small>
                     </div>
-                    <input class="user-edit-panel__file-input" type="file" accept="image/*" hidden />
+                    <input class="user-edit-panel__file-input" type="file" accept="image/png,image/jpeg,image/webp" hidden />
                     <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar>Alterar foto</button>
-                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar-remove ${clientAvatar ? "" : "hidden"}>Remover foto</button>
+                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar-remove ${safeClientAvatar ? "" : "hidden"}>Remover foto</button>
                   </div>
                   <div class="user-edit-panel__settings-summary">
                     <article class="user-edit-panel__card">
@@ -528,15 +529,15 @@ export const initProfileMenu = () => {
                     <div class="user-edit-panel__settings-grid">
                       <label class="field">
                         <span>Nome</span>
-                        <input name="name" type="text" value="${escapeHtml(displayName)}" autocomplete="name" />
+                        <input name="name" type="text" value="${escapeHtml(displayName)}" autocomplete="name" minlength="2" maxlength="160" required />
                       </label>
                       <label class="field">
                         <span>Nome do comércio</span>
-                        <input name="businessName" type="text" value="${escapeHtml(business.name || displayName)}" autocomplete="organization" />
+                        <input name="businessName" type="text" value="${escapeHtml(business.name || displayName)}" autocomplete="organization" minlength="2" maxlength="160" required />
                       </label>
                       <label class="field">
                         <span>Telefone</span>
-                        <input name="phone" type="tel" value="${escapeHtml(clientPhone)}" autocomplete="tel" placeholder="(00) 00000-0000" />
+                        <input name="phone" type="tel" value="${escapeHtml(clientPhone)}" autocomplete="tel" maxlength="40" placeholder="(00) 00000-0000" />
                       </label>
                     </div>
                   </section>
@@ -851,7 +852,7 @@ export const initProfileMenu = () => {
       setSidebarCollapsedState(collapsed);
     });
   }
-  let pendingAvatar = clientAvatar || "";
+  let pendingAvatar = safeClientAvatar;
 
   const syncPanelIdentity = ({ name, email, phone, businessName, avatar }) => {
     displayName = name || businessName || "Usuário";
@@ -873,9 +874,10 @@ export const initProfileMenu = () => {
       : session;
 
     const heroAvatarElement = heroAvatar();
+    const safeAvatar = safeImageUrl(business.avatar);
     if (heroAvatarElement) {
-      heroAvatarElement.innerHTML = business.avatar
-        ? `<img src="${escapeHtml(business.avatar)}" alt="" />`
+      heroAvatarElement.innerHTML = safeAvatar
+        ? `<img src="${escapeHtml(safeAvatar)}" alt="" />`
         : escapeHtml(String(business.name || displayName).slice(0, 1).toUpperCase());
     }
     const heroNameElement = heroName();
@@ -889,8 +891,8 @@ export const initProfileMenu = () => {
     if (label) label.textContent = translate("Perfil");
 
     if (settingsAvatarImage) {
-      if (business.avatar) {
-        settingsAvatarImage.src = business.avatar;
+      if (safeAvatar) {
+        settingsAvatarImage.src = safeAvatar;
         settingsAvatarImage.hidden = false;
       } else {
         settingsAvatarImage.hidden = true;
@@ -900,7 +902,7 @@ export const initProfileMenu = () => {
 
     if (settingsAvatarPlaceholder) {
       settingsAvatarPlaceholder.textContent = String(business.name || displayName).slice(0, 1).toUpperCase();
-      settingsAvatarPlaceholder.hidden = Boolean(business.avatar);
+      settingsAvatarPlaceholder.hidden = Boolean(safeAvatar);
     }
   };
 
@@ -916,15 +918,9 @@ export const initProfileMenu = () => {
   settingsAvatarInput?.addEventListener("change", async () => {
     const file = settingsAvatarInput.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      settingsFeedback.textContent = translate("Selecione um arquivo de imagem");
-      settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
-      settingsFeedback.hidden = false;
-      settingsAvatarInput.value = "";
-      return;
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      settingsFeedback.textContent = translate("A imagem deve ter até 8 MB");
+    const supportedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+    if (!supportedTypes.has(file.type) || file.size > 8 * 1024 * 1024) {
+      settingsFeedback.textContent = translate("Selecione um arquivo PNG, JPEG ou WebP de até 8 MB");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
       settingsFeedback.hidden = false;
       settingsAvatarInput.value = "";
@@ -944,6 +940,7 @@ export const initProfileMenu = () => {
         preview.onerror = () => reject(new Error("Não foi possível abrir a imagem"));
         preview.src = source;
       });
+      if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth > 12_000 || image.naturalHeight > 12_000 || image.naturalWidth * image.naturalHeight > 40_000_000) throw new Error("Image dimensions exceed the supported limit");
       const maxDimension = 512;
       const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
       const canvas = document.createElement("canvas");
@@ -997,10 +994,10 @@ export const initProfileMenu = () => {
     const name = String(formData.get("name") || "").trim();
     const email = String(session?.email || business.email || clientEmail || "").trim().toLowerCase();
     const phone = String(formData.get("phone") || "").trim();
-    const businessName = String(formData.get("businessName") || "").trim() || name;
+    const businessName = String(formData.get("businessName") || "").trim();
 
-    if (!name || !email) {
-      settingsFeedback.textContent = translate("Preencha nome e e-mail para salvar");
+    if (name.length < 2 || name.length > 160 || businessName.length < 2 || businessName.length > 160 || phone.length > 40 || !/^\S+@\S+\.\S+$/.test(email)) {
+      settingsFeedback.textContent = translate("Informe nome e comércio entre 2 e 160 caracteres e um e-mail válido");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
       settingsFeedback.hidden = false;
       return;

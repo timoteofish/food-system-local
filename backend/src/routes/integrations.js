@@ -11,9 +11,9 @@ const connectionStatuses = new Set(["disconnected", "pending", "connected", "err
 const externalStatuses = new Set(["received", "accepted", "preparing", "ready", "out_for_delivery", "completed", "cancelled", "failed"]);
 const MAX_INTEGRATION_SETTINGS_BYTES = 32 * 1024;
 const MAX_INTEGRATION_EVENT_BYTES = 256 * 1024;
+const MAX_INTEGRATION_EVENT_BODY_BYTES = MAX_INTEGRATION_EVENT_BYTES + 4 * 1024;
 const localOrderStatus = { received: "pending", accepted: "confirmed", preparing: "preparing", ready: "ready", out_for_delivery: "out_for_delivery", completed: "completed", cancelled: "cancelled", failed: "cancelled" };
 
-const json = (value, fallback = {}) => value && typeof value === "object" ? value : fallback;
 const isJsonObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
 const validWebhookSignature = async (request, businessId, integrationId) => {
@@ -45,16 +45,18 @@ export default async function integrationRoutes(app) {
   app.post("/api/v1/businesses/:businessId/integrations", async (request, reply) => {
     const user = await requireRole(request, reply);
     if (!user) return;
-    const body = request.body || {};
-    const provider = String(body.provider || "");
+    const body = request.body;
+    if (!isJsonObject(body)) return reply.badRequest("Integration data must be an object");
+    const provider = typeof body.provider === "string" ? body.provider : "";
     if (!providers.has(provider)) return reply.badRequest("Invalid integration provider");
-    if (body.credentials) return reply.badRequest("Integration credentials are not available until secure storage is configured");
+    if (body.credentials !== undefined) return reply.badRequest("Integration credentials are not available until secure storage is configured");
+    if (body.display_name !== undefined && (typeof body.display_name !== "string" || !body.display_name.trim() || body.display_name.trim().length > 120)) return reply.badRequest("Integration name must contain 1 to 120 characters");
     const settings = body.settings === undefined ? {} : body.settings;
     if (!isJsonObject(settings) || Buffer.byteLength(JSON.stringify(settings), "utf8") > MAX_INTEGRATION_SETTINGS_BYTES) return reply.badRequest("Integration settings must be an object no larger than 32 KB");
     const id = randomUUID();
     await pool.query(
       "INSERT INTO integration_connections (id, business_id, provider, display_name, status, settings) VALUES (?, ?, ?, ?, 'disconnected', ?)",
-      [id, request.params.businessId, provider, String(body.display_name || provider).slice(0, 120), JSON.stringify(settings)],
+      [id, request.params.businessId, provider, body.display_name === undefined ? provider : body.display_name.trim(), JSON.stringify(settings)],
     );
     await audit(request, user, "integration.created", "integration", id, { provider });
     return reply.code(201).send({ connection: { id, business_id: request.params.businessId, provider, status: "disconnected" } });
@@ -63,13 +65,15 @@ export default async function integrationRoutes(app) {
   app.patch("/api/v1/businesses/:businessId/integrations/:id", async (request, reply) => {
     const user = await requireRole(request, reply);
     if (!user) return;
-    const body = request.body || {};
-    const status = String(body.status || "");
-    if (status && !connectionStatuses.has(status)) return reply.badRequest("Invalid integration status");
+    const body = request.body;
+    if (!isJsonObject(body)) return reply.badRequest("Integration update must be an object");
+    const status = body.status === undefined ? "" : typeof body.status === "string" ? body.status : null;
+    if (status === null || (body.status !== undefined && !connectionStatuses.has(status))) return reply.badRequest("Invalid integration status");
+    if (body.display_name !== undefined && (typeof body.display_name !== "string" || !body.display_name.trim() || body.display_name.trim().length > 120)) return reply.badRequest("Integration name must contain 1 to 120 characters");
     if (body.settings !== undefined && (!isJsonObject(body.settings) || Buffer.byteLength(JSON.stringify(body.settings), "utf8") > MAX_INTEGRATION_SETTINGS_BYTES)) return reply.badRequest("Integration settings must be an object no larger than 32 KB");
     const [result] = await pool.query(
       "UPDATE integration_connections SET display_name = COALESCE(?, display_name), status = COALESCE(?, status), settings = COALESCE(?, settings), last_error = CASE WHEN ? = 'connected' THEN NULL ELSE last_error END WHERE id = ? AND business_id = ?",
-      [body.display_name ? String(body.display_name).slice(0, 120) : null, status || null, body.settings ? JSON.stringify(json(body.settings)) : null, status, request.params.id, request.params.businessId],
+      [body.display_name === undefined ? null : body.display_name.trim(), status || null, body.settings === undefined ? null : JSON.stringify(body.settings), status || null, request.params.id, request.params.businessId],
     );
     if (!result.affectedRows) return reply.notFound("Integration not found");
     await audit(request, user, "integration.updated", "integration", request.params.id, { status });
@@ -126,17 +130,18 @@ export default async function integrationRoutes(app) {
     }
   });
 
-  app.post("/api/v1/businesses/:businessId/integrations/:id/events", async (request, reply) => {
+  app.post("/api/v1/businesses/:businessId/integrations/:id/events", { bodyLimit: MAX_INTEGRATION_EVENT_BODY_BYTES }, async (request, reply) => {
+    const body = request.body;
+    if (!isJsonObject(body)) return reply.badRequest("Integration event must be an object");
+    if (body.event_type !== "order.received") return reply.badRequest("Unsupported integration event type");
+    if (typeof body.external_order_id !== "string" || !body.external_order_id.trim() || body.external_order_id.length > 190) return reply.badRequest("external_order_id must contain 1 to 190 characters");
+    const payload = body.payload === undefined ? {} : body.payload;
+    if (!isJsonObject(payload) || Buffer.byteLength(JSON.stringify(payload), "utf8") > MAX_INTEGRATION_EVENT_BYTES) return reply.badRequest("Integration event payload must be an object no larger than 256 KB");
     if (request.headers.authorization) {
       if (!(await requireRole(request, reply))) return;
     } else if (!(await validWebhookSignature(request, request.params.businessId, request.params.id))) {
       return reply.unauthorized("Invalid integration signature");
     }
-    const body = request.body || {};
-    if (body.event_type !== "order.received") return reply.badRequest("Unsupported integration event type");
-    if (typeof body.external_order_id !== "string" || !body.external_order_id.trim() || body.external_order_id.length > 190) return reply.badRequest("external_order_id must contain 1 to 190 characters");
-    const payload = body.payload === undefined ? {} : body.payload;
-    if (!isJsonObject(payload) || Buffer.byteLength(JSON.stringify(payload), "utf8") > MAX_INTEGRATION_EVENT_BYTES) return reply.badRequest("Integration event payload must be an object no larger than 256 KB");
     const eventId = randomUUID();
     const connection = await pool.getConnection();
     try {
@@ -181,11 +186,12 @@ export default async function integrationRoutes(app) {
   app.patch("/api/v1/businesses/:businessId/external-orders/:id", async (request, reply) => {
     const user = await requireRole(request, reply);
     if (!user) return;
-    const status = String(request.body?.status || "");
-    const requestedOrderId = request.body?.order_id;
+    if (!isJsonObject(request.body)) return reply.badRequest("External order update must be an object");
+    const status = request.body.status === undefined ? "" : typeof request.body.status === "string" ? request.body.status : null;
+    if (status === null || (request.body.status !== undefined && !externalStatuses.has(status))) return reply.badRequest("Invalid external order status");
+    const requestedOrderId = request.body.order_id;
     const orderId = requestedOrderId === undefined || requestedOrderId === null || requestedOrderId === "" ? null : requestedOrderId;
     if (orderId !== null && (typeof orderId !== "string" || orderId.length === 0 || orderId.length > 36)) return reply.badRequest("Invalid local order id");
-    if (status && !externalStatuses.has(status)) return reply.badRequest("Invalid external order status");
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();

@@ -73,30 +73,6 @@
 
 .fiscal-config-state__item.is-missing { border-color: var(--line); }
 
-.fiscal-credentials-details {
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-
-.fiscal-credentials-details summary {
-  width: fit-content;
-  padding: 4px 0;
-  color: var(--accent-dark);
-  font-size: .86rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.fiscal-credentials-details summary:focus-visible { border-radius: 4px; }
-
-.fiscal-credentials-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding-top: 13px;
-}
-
-.fiscal-credentials-form label,
 .fiscal-form label {
   display: grid;
   min-width: 0;
@@ -106,8 +82,6 @@
   font-weight: 650;
 }
 
-.fiscal-credentials-form input,
-.fiscal-credentials-form textarea,
 .fiscal-form input,
 .fiscal-form select {
   width: 100%;
@@ -122,35 +96,12 @@
   transition: border-color .16s ease, box-shadow .16s ease;
 }
 
-.fiscal-credentials-form textarea {
-  min-height: 105px;
-  resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: .82rem;
-  line-height: 1.5;
-}
-
-.fiscal-credentials-form input:focus,
-.fiscal-credentials-form textarea:focus,
 .fiscal-form input:focus,
 .fiscal-form select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(197, 34, 54, .08), 0 0 16px rgba(239, 75, 88, .06);
 }
 
-.fiscal-credentials-form__help {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding: 10px 12px;
-  border-left: 2px solid rgba(197, 34, 54, .3);
-  border-radius: 0 8px 8px 0;
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: .78rem;
-  line-height: 1.55;
-}
-
-.fiscal-credentials-form .btn,
 .fiscal-form .btn {
   min-height: 44px;
   border-radius: 10px;
@@ -265,20 +216,14 @@
 }
 
 @media (max-width: 520px) {
-  .fiscal-credentials-form,
   .fiscal-form { grid-template-columns: minmax(0, 1fr); }
   .fiscal-item { grid-template-columns: minmax(0, 1fr); align-items: start; }
-  .fiscal-credentials-form__help,
-  .fiscal-credentials-form .btn { grid-column: auto; }
-  .fiscal-credentials-form .btn,
   .fiscal-form .btn,
   .fiscal-item .btn { width: 100%; }
   .fiscal-item { padding: 13px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fiscal-credentials-form input,
-  .fiscal-credentials-form textarea,
   .fiscal-form input,
   .fiscal-form select { transition: none; }
 }

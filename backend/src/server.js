@@ -30,6 +30,7 @@ const authLimits = new Map([
   ["/api/v1/auth/login", { limit: 10, windowMs: 15 * 60 * 1000 }],
   ["/api/v1/auth/register", { limit: 20, windowMs: 60 * 60 * 1000 }],
 ]);
+const testRateLimitBypass = config.nodeEnv === "test" && process.env.FOOD_SYSTEM_TEST_DISABLE_AUTH_RATE_LIMIT === "1";
 
 await app.register(sensible);
 await app.register(cors, {
@@ -52,6 +53,7 @@ app.addHook("onRequestAbort", async (request) => {
   releaseMaintenanceRequest(request);
 });
 app.addHook("onRequest", async (request, reply) => {
+  if (testRateLimitBypass) return;
   const policy = authLimits.get(request.routeOptions.url);
   if (!policy) return;
   const now = Date.now();
@@ -85,7 +87,7 @@ app.addHook("onSend", async (_request, reply) => {
 });
 app.addHook("onResponse", async (request, reply) => {
   try {
-    if (!request.user || request.user.local || request.auditRecorded || !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return;
+    if (!request.user || request.auditRecorded || !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return;
     try {
       await audit(request, request.user, `HTTP ${request.method} ${request.routeOptions?.url || request.url}`.slice(0, 120), null, null, { status_code: reply.statusCode });
     } catch (error) {
@@ -139,6 +141,20 @@ app.setErrorHandler((error, _request, reply) => {
 const closeApi = async () => {
   if (shutdownStarted) return;
   shutdownStarted = true;
+  if (process.connected) {
+    await new Promise((resolveSent) => {
+      const timer = setTimeout(resolveSent, 500);
+      try {
+        process.send({ type: "api-stopping" }, () => {
+          clearTimeout(timer);
+          resolveSent();
+        });
+      } catch {
+        clearTimeout(timer);
+        resolveSent();
+      }
+    });
+  }
   try {
     await app.close();
   } catch (error) {
@@ -160,6 +176,7 @@ process.on("SIGTERM", () => { void closeApi(); });
 
 try {
   await app.listen({ host: config.host, port: config.port });
+  if (process.connected) process.send({ type: "api-listening" });
 } catch (error) {
   app.log.error(error);
   process.exit(1);

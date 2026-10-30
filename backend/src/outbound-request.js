@@ -2,7 +2,10 @@ import { lookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
 import { BlockList, isIP } from "node:net";
 
-const nonPublicRanges = new BlockList();
+const nonPublicRanges = {
+  ipv4: new BlockList(),
+  ipv6: new BlockList(),
+};
 for (const [address, prefix, type] of [
   ["0.0.0.0", 8, "ipv4"], ["10.0.0.0", 8, "ipv4"], ["100.64.0.0", 10, "ipv4"],
   ["127.0.0.0", 8, "ipv4"], ["169.254.0.0", 16, "ipv4"], ["172.16.0.0", 12, "ipv4"],
@@ -13,12 +16,12 @@ for (const [address, prefix, type] of [
   ["64:ff9b::", 96, "ipv6"], ["64:ff9b:1::", 48, "ipv6"], ["100::", 64, "ipv6"], ["2001::", 23, "ipv6"],
   ["2001:db8::", 32, "ipv6"], ["2002::", 16, "ipv6"], ["3fff::", 20, "ipv6"],
   ["fc00::", 7, "ipv6"], ["fe80::", 10, "ipv6"], ["ff00::", 8, "ipv6"],
-]) nonPublicRanges.addSubnet(address, prefix, type);
+]) nonPublicRanges[type].addSubnet(address, prefix, type);
 
 export const isPublicAddress = (address) => {
   const family = isIP(address);
-  if (family === 4) return !nonPublicRanges.check(address, "ipv4");
-  if (family === 6) return /^[23]/.test(address) && !nonPublicRanges.check(address, "ipv6");
+  if (family === 4) return !nonPublicRanges.ipv4.check(address, "ipv4");
+  if (family === 6) return /^[23]/.test(address) && !nonPublicRanges.ipv6.check(address, "ipv6");
   return false;
 };
 

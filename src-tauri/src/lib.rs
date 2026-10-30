@@ -2,13 +2,17 @@
 
 use tauri::{Manager, RunEvent};
 use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-struct LocalAccessToken(String);
+struct LocalAccessToken {
+    value: String,
+    api_ready: Arc<AtomicBool>,
+}
 struct BackendProcess(Mutex<Option<Child>>);
 
 fn load_or_create_secret_key(secret_path: &Path) -> Result<String, Box<dyn std::error::Error>> {
@@ -66,11 +70,16 @@ fn app_info() -> &'static str {
 }
 
 #[tauri::command]
-fn local_access_token(token: tauri::State<'_, LocalAccessToken>) -> String {
+fn local_access_token(token: tauri::State<'_, LocalAccessToken>) -> Result<String, String> {
     #[cfg(debug_assertions)]
-    { let _ = token; String::new() }
+    { let _ = token; Ok(String::new()) }
     #[cfg(not(debug_assertions))]
-    { token.0.clone() }
+    {
+        if !token.api_ready.load(Ordering::Acquire) {
+            return Err("The local API is not ready yet".into());
+        }
+        Ok(token.value.clone())
+    }
 }
 
 #[tauri::command]
@@ -95,7 +104,8 @@ pub fn run() {
             let mut token_bytes = [0u8; 32];
             getrandom::fill(&mut token_bytes).map_err(|error| format!("Could not create the local access token: {error}"))?;
             let local_access_token = token_bytes.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
-            app.manage(LocalAccessToken(local_access_token.clone()));
+            let api_ready = Arc::new(AtomicBool::new(false));
+            app.manage(LocalAccessToken { value: local_access_token.clone(), api_ready: Arc::clone(&api_ready) });
             app.manage(BackendProcess(Mutex::new(None)));
             #[cfg(not(debug_assertions))]
             {
@@ -120,8 +130,23 @@ pub fn run() {
                     .env("FOOD_SYSTEM_PARENT_PID", std::process::id().to_string())
                     .env("FOOD_SYSTEM_TAURI_CONTROL", "1")
                     .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::inherit())
                     .spawn()
                     .map_err(|error| format!("Could not start the local backend: {error}"))?;
+                let launcher_stdout = child.stdout.take().ok_or("Could not monitor local API startup")?;
+                let readiness = Arc::clone(&api_ready);
+                std::thread::spawn(move || {
+                    for line in BufReader::new(launcher_stdout).lines() {
+                        match line {
+                            Ok(line) if line.trim() == "FOOD_SYSTEM_API_LISTENING" => readiness.store(true, Ordering::Release),
+                            Ok(line) if line.trim() == "FOOD_SYSTEM_API_STOPPING" => readiness.store(false, Ordering::Release),
+                            Ok(_) => {},
+                            Err(_) => break,
+                        }
+                    }
+                    readiness.store(false, Ordering::Release);
+                });
                 if let Some(state) = app.try_state::<BackendProcess>() {
                     if let Ok(mut process) = state.0.lock() {
                         *process = Some(child);

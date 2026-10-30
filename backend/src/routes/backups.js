@@ -1,6 +1,6 @@
 import { execFile, fork } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, readdir, stat, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, lstat, stat, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -74,9 +74,14 @@ export default async function backupRoutes(app) {
     if (!(await requireLocalAdmin(request, reply))) return;
     if (!hasSecretKey()) return reply.code(503).send({ error: "Backup encryption key is not configured" });
     await mkdir(backupDir, { recursive: true });
-    const names = (await readdir(backupDir)).filter(isSafeBackupName);
-    const backups = await Promise.all(names.map(async (name) => { const info = await stat(path.join(backupDir, name)); return { name, size: info.size, created_at: info.mtime.toISOString() }; }));
-    return { backups: backups.sort((a, b) => b.created_at.localeCompare(a.created_at)) };
+    const entries = await readdir(backupDir, { withFileTypes: true });
+    const names = entries.filter((entry) => entry.isFile() && isSafeBackupName(entry.name)).map((entry) => entry.name);
+    const backups = await Promise.all(names.map(async (name) => {
+      const info = await lstat(path.join(backupDir, name));
+      if (!info.isFile()) return null;
+      return { name, size: info.size, created_at: info.mtime.toISOString() };
+    }));
+    return { backups: backups.filter(Boolean).sort((a, b) => b.created_at.localeCompare(a.created_at)) };
   });
 
   app.post("/api/v1/businesses/:businessId/backups", async (request, reply) => {
@@ -94,11 +99,16 @@ export default async function backupRoutes(app) {
     if (isRestoreInProgress()) return reply.conflict("A database restore is already in progress");
     const user = await requireRole(request, reply);
     if (!user) return;
-    const name = String(request.body?.name || "");
+    const name = request.body && typeof request.body === "object" && !Array.isArray(request.body) && typeof request.body.name === "string" ? request.body.name : "";
     if (!isSafeBackupName(name)) return reply.badRequest("Invalid backup name");
     if (user.local !== true) return reply.forbidden("Database backup operations are available only to the local desktop administrator");
+    if (!hasSecretKey()) return reply.code(503).send({ error: "Backup encryption key is not configured" });
     const file = path.resolve(backupDir, name);
     if (path.dirname(file) !== backupDir) return reply.badRequest("Invalid backup path");
+    let sourceInfo;
+    try { sourceInfo = await lstat(file); }
+    catch (error) { if (error.code === "ENOENT") return reply.notFound("Backup not found"); throw error; }
+    if (!sourceInfo.isFile() || sourceInfo.size === 0) return reply.badRequest("Backup file is empty or invalid");
     if (!(await beginRestore())) return reply.conflict("A database restore is already in progress");
     let plaintextFile = null;
     let safetyPlaintextFile = null;
@@ -115,8 +125,6 @@ export default async function backupRoutes(app) {
       await writeFile(recoveryMarker, `${JSON.stringify({ state: "in_progress", backup: name, safety_backup: safetyBackupName, created_at: new Date().toISOString() })}\n`, { mode: 0o600, flag: "wx" });
       recoveryMarkerOwned = true;
       notifyLauncher("restore-start");
-      const sourceInfo = await stat(file);
-      if (!sourceInfo.isFile() || sourceInfo.size === 0) return reply.badRequest("Backup file is empty or invalid");
       plaintextFile = path.join(backupDir, `.restore-${process.pid}-${randomUUID()}.sql`);
       await decryptFile(file, plaintextFile);
       const plaintextInfo = await stat(plaintextFile);
@@ -146,7 +154,7 @@ export default async function backupRoutes(app) {
         }
         throw restoreError;
       }
-      await audit(request, user, "backup.restored", "backup", name, { safety_backup_created: true });
+      await audit(request, user, "backup.restored", "backup", null, { backup_name: name, safety_backup_created: true });
       return { restored: true, name, safety_backup_created: true };
     } catch (error) {
       request.log.error(error);

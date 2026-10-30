@@ -614,6 +614,28 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
 .user-edit-panel__settings-grid .field:last-child{
   grid-column:1 / -1;
 }
+.user-edit-panel--compact-view .user-edit-panel__settings-shell{
+  grid-template-columns:minmax(0,1fr);
+}
+.user-edit-panel--compact-view .user-edit-panel__settings-avatar{
+  grid-template-columns:minmax(100px,140px) minmax(0,1fr);
+  align-items:center;
+}
+.user-edit-panel--compact-view .user-edit-panel__settings-avatar-frame{
+  grid-column:1;
+  grid-row:1 / span 3;
+}
+.user-edit-panel--compact-view .user-edit-panel__settings-avatar-copy,
+.user-edit-panel--compact-view .user-edit-panel__settings-avatar [data-settings-avatar],
+.user-edit-panel--compact-view .user-edit-panel__settings-avatar [data-settings-avatar-remove]{
+  grid-column:2;
+}
+.user-edit-panel--compact-view .user-edit-panel__settings-grid{
+  grid-template-columns:minmax(0,1fr);
+}
+.user-edit-panel--compact-view .user-edit-panel__settings-grid .field:last-child{
+  grid-column:auto;
+}
 .user-edit-panel__feedback{
   margin:0;
   padding:12px 14px;

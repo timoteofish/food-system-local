@@ -14,6 +14,7 @@ import {
 import { escapeHtml, formatPrice, parsePrice, safeImageUrl } from "../../../shared/utils/utils.js";
 import { getLanguage, translate } from "../../../shared/i18n/i18n.js";
 import { initAppShell, showToast } from "../../../shared/ui/ui.js";
+import qrcode from "../../../shared/vendor/qrcode-generator.js";
 
 let settings = getMenuSettings();
 let products = [];
@@ -272,8 +273,10 @@ const renderQrCode = async () => {
   }
 
   const targetUrl = await getCustomerMenuUrl();
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(targetUrl)}`;
-  if (qrCodeImage) qrCodeImage.src = qrUrl;
+  const code = qrcode(0, "M");
+  code.addData(targetUrl);
+  code.make();
+  if (qrCodeImage) qrCodeImage.src = code.createDataURL(8, 4);
   if (qrCodeLink) qrCodeLink.value = targetUrl;
 };
 
@@ -302,8 +305,6 @@ const loadQrImageForCanvas = async () => {
   }
 
   const image = new Image();
-  image.crossOrigin = "anonymous";
-  image.referrerPolicy = "no-referrer";
 
   await new Promise((resolve, reject) => {
     image.onload = resolve;

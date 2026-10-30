@@ -63,25 +63,21 @@
           <div>
             <p class="eyebrow">Acessos</p>
             <h1>Equipe</h1>
-            <p class="team-intro">Defina quem pode acessar o sistema e o que cada pessoa pode fazer</p>
+            <p class="team-intro">Mantenha o cadastro das pessoas da equipe. Como o sistema é local e não tem login individual, estas funções são apenas informativas.</p>
           </div>
         </div>
         <section class="team-layout">
           <form class="panel team-invite" id="teamInviteForm">
             <div class="team-invite__intro">
               <h2>Adicionar pessoa</h2>
-              <p>Para adicionar alguém, a pessoa precisa ter uma conta no Food System</p>
+              <p>Cadastre sua equipe sem criar contas ou senhas de acesso.</p>
             </div>
             <label class="field">
               <span>Nome</span>
-              <input id="memberName" autocomplete="name" placeholder="Nome completo" required />
+              <input id="memberName" autocomplete="name" placeholder="Nome completo" minlength="2" maxlength="160" required />
             </label>
             <label class="field">
-              <span>E-mail</span>
-              <input id="memberEmail" type="email" autocomplete="email" placeholder="email@restaurante.com" required />
-            </label>
-            <label class="field">
-              <span>Papel de acesso</span>
+              <span>Função (informativa)</span>
               <select id="memberRole" required>
                 <option value="staff" selected>Membro da equipe</option>
                 <option value="manager">Gerente</option>
@@ -91,7 +87,7 @@
           </form>
           <section class="panel team-list" aria-labelledby="teamListTitle">
             <div class="team-list__head">
-              <h2 id="teamListTitle">Pessoas com acesso</h2>
+              <h2 id="teamListTitle">Pessoas cadastradas</h2>
               <span id="teamCount">—</span>
             </div>
             <div class="team-list__items" id="teamList" aria-live="polite" aria-busy="true">
