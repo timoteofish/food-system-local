@@ -4,6 +4,7 @@ import { requireBusinessAccess, requireRole } from "./auth.js";
 import { audit } from "../audit.js";
 import { canTransitionOrderStatus } from "../order-status.js";
 import { hasDecimalScale, toMinorUnits } from "../numbers.js";
+import { hydrateOrders } from "../order-hydration.js";
 
 const statuses = new Set(["pending", "confirmed", "preparing", "ready", "out_for_delivery", "completed", "cancelled"]);
 const number = (value) => Number(Number(value).toFixed(2));
@@ -51,13 +52,7 @@ export default async function orderRoutes(app) {
     if (status) { if (!statuses.has(status)) throw app.httpErrors.badRequest("Invalid order status"); where += " AND o.status = ?"; params.push(status); }
     if (stationId) { where += " AND EXISTS (SELECT 1 FROM order_items soi JOIN products sop ON sop.id = soi.product_id WHERE soi.order_id = o.id AND sop.kitchen_station_id = ? AND sop.business_id = ?)"; params.push(stationId, request.params.businessId); }
     const [orders] = await pool.query(`SELECT o.*, t.name AS table_name, dt.status AS tab_status FROM orders o LEFT JOIN restaurant_tables t ON t.id = o.restaurant_table_id LEFT JOIN dining_tabs dt ON dt.id = o.dining_tab_id WHERE ${where} ORDER BY COALESCE(o.scheduled_for, o.created_at) DESC`, params);
-    for (const order of orders) {
-      const [items] = await pool.query("SELECT * FROM order_items WHERE order_id = ? ORDER BY created_at", [order.id]);
-      order.items = items;
-      const [payments] = await pool.query("SELECT op.*, pm.name AS payment_method_name FROM order_payments op JOIN payment_methods pm ON pm.id = op.payment_method_id WHERE op.order_id = ? ORDER BY op.created_at", [order.id]);
-      order.payments = payments;
-    }
-    return { orders };
+    return { orders: await hydrateOrders(orders, pool.query.bind(pool)) };
   });
 
   app.post("/api/v1/businesses/:businessId/orders", async (request, reply) => {
