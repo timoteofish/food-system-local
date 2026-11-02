@@ -19,10 +19,6 @@ The project includes working local workflows for restaurant management, ordering
 
 The product is intended to reduce recurring software costs while remaining maintainable and extendable. Local operation depends on the application and its local data services being available. Features used by customer devices over a restaurant network require suitable network access.
 
-## Project information
-
-This repository contains the Food System Local application. See [RELEASE_READINESS.md](RELEASE_READINESS.md) for the current release-validation status.
-
 ## License
 
 See [LICENSE](LICENSE).
