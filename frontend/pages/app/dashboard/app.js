@@ -1,6 +1,6 @@
 import { getSession } from "../../../shared/data/storage.js";
 import { formatPrice, formatTime } from "../../../shared/utils/utils.js";
-import { getLanguage, getLocale, translate } from "../../../shared/i18n/i18n.js";
+import { getLocale, translate } from "../../../shared/i18n/i18n.js";
 import { initAppShell } from "../../../shared/ui/ui.js";
 import { loadDashboardData } from "../../../shared/features/dashboard/index.js";
 
@@ -16,8 +16,8 @@ let hasLoadedDashboard = false;
 const showDashboardError = () => {
   dashboardStats.setAttribute("aria-busy", "false");
   recentOrders.setAttribute("aria-busy", "false");
-  recentOrders.innerHTML = `<p class="dashboard-empty" role="status">${translate("Pedidos recentes indisponíveis")}</p>`;
-  feedback.textContent = translate("Não foi possível carregar o painel Verifique a conexão e tente novamente");
+  recentOrders.innerHTML = `<p class="dashboard-empty" role="status">${translate("Recent orders are unavailable")}</p>`;
+  feedback.textContent = translate("Could not load the dashboard Check your connection and try again");
   feedback.hidden = false;
   retryButton.hidden = false;
 };
@@ -28,7 +28,7 @@ const renderRecentOrders = (orders) => {
     const empty = document.createElement("p");
     empty.className = "dashboard-empty";
     empty.setAttribute("role", "status");
-    empty.textContent = translate("Nenhum pedido para mostrar");
+    empty.textContent = translate("No orders to show");
     recentOrders.append(empty);
     return;
   }
@@ -38,12 +38,10 @@ const renderRecentOrders = (orders) => {
     row.className = "recent-order";
     const identity = document.createElement("div");
     const title = document.createElement("strong");
-    title.textContent = `${translate("Pedido")} #${order.orderCode || String(order.id).slice(-6)}`;
+    title.textContent = `${translate("Order")} #${order.orderCode || String(order.id).slice(-6)}`;
     const detail = document.createElement("span");
     const itemCount = Array.isArray(order.items) ? order.items.length : 0;
-    const itemWord = itemCount === 1
-      ? translate("item")
-      : translate(getLanguage() === "en" ? "items" : "itens");
+    const itemWord = translate(itemCount === 1 ? "item" : "items");
     const createdAt = order.createdAt ? new Date(order.createdAt) : null;
     const time = createdAt && Number.isFinite(createdAt.getTime()) ? formatTime(createdAt) : "";
     detail.textContent = `${numberFormat.format(itemCount)} ${itemWord}${time ? ` · ${time}` : ""}`;
@@ -64,7 +62,7 @@ const loadDashboard = async () => {
   dashboardStats.setAttribute("aria-busy", "true");
   recentOrders.setAttribute("aria-busy", "true");
   if (!hasLoadedDashboard) {
-    recentOrders.innerHTML = `<p class="dashboard-empty" role="status">${translate("Carregando pedidos")}</p>`;
+    recentOrders.innerHTML = `<p class="dashboard-empty" role="status">${translate("Loading orders")}</p>`;
   }
 
   try {

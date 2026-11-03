@@ -112,7 +112,7 @@
   text-align: center;
 }
 
-.integration-card .operation-card__status--connected {
+.integration-card .operation-card__status--reachable {
   border-color: rgba(197, 34, 54, .16);
   background: var(--accent-soft);
   color: var(--accent-dark);

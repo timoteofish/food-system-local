@@ -29,6 +29,8 @@ import {
   disableTeamMember,
   checkForUpdates,
 } from "../api/client.js";
+import { legacyOrderNoteLabels, legacyPaymentMethodEntries } from "../compatibility/legacy-portuguese-data.js";
+import { PAYMENT_METHODS } from "../domain/payment-methods.js";
 import { isApiEnabled } from "../api/config.js";
 import {
   clearPendingRegistration,
@@ -41,11 +43,25 @@ import {
   getBusiness,
 } from "../data/storage.js";
 import { formatOrderLocation } from "../utils/utils.js";
+import { getLocale, translate } from "../i18n/i18n.js";
 import { signInWithFirebaseGoogle, signOutFirebaseSession } from "./firebase.js";
 
 // This is an installed, single-computer application. The local profile is
 // created automatically; there is no login, password or subscription flow.
 const LOCAL_MODE = true;
+const BUSINESS_TYPE_LABELS = {
+  restaurant: "Restaurant",
+  snack_bar: "Snack bar",
+  pizzeria: "Pizzeria",
+  burger_restaurant: "Burger restaurant",
+  coffee_shop: "Coffee shop",
+};
+const SERVICE_MODEL_LABELS = {
+  table_service: "Table service",
+  counter_pickup: "Counter and pickup",
+  delivery_pickup: "Delivery and pickup",
+  mixed: "Mixed service",
+};
 
 const ensureLocalSession = () => {
   const existing = getSession();
@@ -54,7 +70,7 @@ const ensureLocalSession = () => {
   const localSession = {
     id: "local-user",
     email: "local@food-system.local",
-    name: "Administrador",
+    name: translate("Administrator"),
     businessId: "00000000-0000-4000-8000-000000000001",
     role: "owner",
     provider: "local",
@@ -64,7 +80,7 @@ const ensureLocalSession = () => {
   setSession(localSession);
   saveBusiness({
     id: localSession.businessId,
-    name: getBusiness()?.name || "Meu comércio",
+    name: getBusiness()?.name || translate("My business"),
     email: "local@food-system.local",
     onboardingCompleted: true,
   });
@@ -102,13 +118,13 @@ export const isLocalMode = () => LOCAL_MODE;
 
 const requireBusinessId = () => {
   const businessId = getSession()?.businessId;
-  if (!businessId) throw new Error("Sessão inválida Faça login novamente");
+  if (!businessId) throw new Error("Session expired Sign in again");
   return businessId;
 };
 
 export const login = async ({ email, password }) => {
   await checkApiAvailability();
-  if (!isUsingApi()) throw new Error("API indisponível Verifique o backend antes de entrar");
+  if (!isUsingApi()) throw new Error("API unavailable Check the backend before signing in");
 
   const data = await loginRequest(email, password);
   persistAuthSession({ user: data.user, business: data.business, token: data.token });
@@ -116,14 +132,14 @@ export const login = async ({ email, password }) => {
 };
 
 export const loginWithGoogle = async () => {
-  throw new Error("Use loginWithFirebaseGoogle para login com Google");
+  throw new Error("Use loginWithFirebaseGoogle to sign in with Google");
 };
 
 export const loginWithFirebaseGoogle = async () => {
   await checkApiAvailability();
 
   if (!isUsingApi()) {
-    throw new Error("Login com Firebase exige a API ativa");
+    throw new Error("Firebase sign-in requires the API to be active");
   }
 
   const { idToken } = await signInWithFirebaseGoogle();
@@ -176,15 +192,15 @@ export const saveRegistrationStep = ({ name, email, password }) => {
 export const completeRegistration = async () => {
   const pending = getPendingRegistration();
   if (!pending?.email || !pending?.password) {
-    throw new Error("Cadastro incompleto Volte e preencha seus dados");
+    throw new Error("Registration is incomplete Go back and complete your details");
   }
   if (!pending?.businessName) {
-    throw new Error("Informe os dados do comércio antes de concluir o cadastro");
+    throw new Error("Enter the business details before completing registration");
   }
 
   await checkApiAvailability();
 
-  if (!isUsingApi()) throw new Error("API indisponível Não é possível cadastrar sem backend");
+  if (!isUsingApi()) throw new Error("API unavailable You cannot register without the backend");
 
   const data = await registerRequest(pending);
   persistAuthSession({
@@ -222,16 +238,18 @@ export const completeBusinessOnboarding = async (payload) => {
   const serviceModel = String(payload.serviceModel || "").trim();
 
   if (!businessName || !businessType || !city) {
-    throw new Error("Preencha os dados principais do comércio para continuar");
+    throw new Error("Complete the main business details to continue");
   }
 
   await checkApiAvailability();
-  if (!isUsingApi()) throw new Error("API indisponível Não foi possível salvar o comércio");
+  if (!isUsingApi()) throw new Error("API unavailable Could not save the business");
 
   const businessId = requireBusinessId();
+  const businessTypeLabel = translate(BUSINESS_TYPE_LABELS[businessType] || businessType);
+  const serviceModelLabel = translate(SERVICE_MODEL_LABELS[serviceModel] || serviceModel);
   await updateBusiness(businessId, {
     name: businessName,
-    description: `${businessType} • ${serviceModel}`,
+    description: `${businessTypeLabel} • ${serviceModelLabel}`,
     phone,
     city,
   });
@@ -349,7 +367,7 @@ export const removeCategoryRemote = async (name) => {
 };
 
 export const saveMenuSettingsRemote = async (settings) => {
-  if (!isUsingApi()) throw new Error("API indisponível Não foi possível salvar o cardápio");
+  if (!isUsingApi()) throw new Error("API unavailable Could not save the menu");
 
   const businessId = requireBusinessId();
   const currentBusiness = await fetchBusiness(businessId);
@@ -383,9 +401,9 @@ export const saveMenuSettingsRemote = async (settings) => {
 export const placeOrderRemote = async ({
   items,
   total,
-  paymentMethod = "balcao",
-  customerName = "Cliente balcão",
-  tableName = "Mesa não informada",
+  paymentMethod = PAYMENT_METHODS.COUNTER,
+  customerName = translate("Walk-in customer"),
+  tableName = translate("Table not specified"),
   notes = "",
 }) => {
   const businessId = requireBusinessId();
@@ -398,7 +416,7 @@ export const placeOrderRemote = async ({
     businessId,
     {
       customer_name: customerName,
-      notes: `Mesa: ${tableName} | Pagamento: ${paymentMethod}${notes ? ` | ${notes}` : ""}`,
+      notes: `${translate("orderTableNoteLabel")}${tableName} | ${translate("orderPaymentNoteLabel")}${paymentMethod}${notes ? ` | ${notes}` : ""}`,
     },
     orderItems
   );
@@ -415,7 +433,7 @@ export const loadOrdersRemote = async () => {
     createdAt: order.created_at,
     updatedAt: order.updated_at,
     items: order.items || [],
-    customerName: order.customer_name || "Cliente balcão",
+    customerName: order.customer_name || translate("Walk-in customer"),
     tableName: formatOrderLocation(order.table_name || order.restaurant_table_name || order.delivery_address) || extractTableName(order.notes),
     notes: order.notes || "",
     paymentMethod: extractPaymentMethod(order.notes),
@@ -432,7 +450,7 @@ export const updateOrderStatusRemote = async (orderId, status) => {
     createdAt: updated.created_at,
     updatedAt: updated.updated_at,
     items: updated.items || [],
-    customerName: updated.customer_name || "Cliente balcão",
+    customerName: updated.customer_name || translate("Walk-in customer"),
     tableName: formatOrderLocation(updated.table_name || updated.restaurant_table_name || updated.delivery_address) || extractTableName(updated.notes),
     notes: updated.notes || "",
     paymentMethod: extractPaymentMethod(updated.notes),
@@ -441,26 +459,24 @@ export const updateOrderStatusRemote = async (orderId, status) => {
 };
 
 const extractTableName = (notes = "") => {
-  const match = String(notes).match(/Mesa:\s*([^|]+)/i);
-  return match ? match[1].trim() : "Mesa não informada";
+  const match = String(notes).match(new RegExp(`(?:Table|${legacyOrderNoteLabels.table}):\\s*([^|]+)`, "i"));
+  return match ? match[1].trim() : translate("Table not specified");
 };
 
 const extractPaymentMethod = (notes = "") => {
-  const match = String(notes).match(/\b(?:Pagamento|Payment):\s*([^|]+)/i);
-  if (!match) return "balcao";
+  const match = String(notes).match(new RegExp(`\\b(?:${legacyOrderNoteLabels.payment}|Payment):\\s*([^|]+)`, "i"));
+  if (!match) return PAYMENT_METHODS.COUNTER;
   const value = match[1].trim();
   const normalized = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const methods = new Map([
-    ["dinheiro_balcao", "dinheiro_balcao"],
-    ["dinheiro no balcao", "dinheiro_balcao"],
-    ["cash at counter", "dinheiro_balcao"],
-    ["pix", "pix"],
-    ["credito", "credito"],
-    ["cartao de credito", "credito"],
-    ["credit card", "credito"],
-    ["debito", "debito"],
-    ["cartao de debito", "debito"],
-    ["debit card", "debito"],
+    ...legacyPaymentMethodEntries,
+    [PAYMENT_METHODS.CASH_AT_COUNTER, PAYMENT_METHODS.CASH_AT_COUNTER],
+    ["cash at counter", PAYMENT_METHODS.CASH_AT_COUNTER],
+    [PAYMENT_METHODS.CREDIT_CARD, PAYMENT_METHODS.CREDIT_CARD],
+    ["credit card", PAYMENT_METHODS.CREDIT_CARD],
+    [PAYMENT_METHODS.DEBIT_CARD, PAYMENT_METHODS.DEBIT_CARD],
+    ["debit card", PAYMENT_METHODS.DEBIT_CARD],
+    [PAYMENT_METHODS.PIX, PAYMENT_METHODS.PIX],
   ]);
   return methods.get(normalized) || value;
 };
@@ -496,7 +512,7 @@ export const loadDashboardData = async () => {
     (orders || [])
       .filter((order) => ["confirmed", "pending", "preparing", "ready"].includes(String(order.status || "").toLowerCase()))
       .map((order) => formatOrderLocation(order.table_name || order.restaurant_table_name || order.delivery_address) || extractTableName(order.notes))
-      .filter((location) => location && location !== "Mesa não informada")
+      .filter((location) => location && location !== translate("Table not specified"))
       .map((location) => location.toLocaleLowerCase(getLocale()))
   );
 
@@ -534,8 +550,8 @@ export const loadCashierData = async () => {
     const amount = Number(movement.amount ?? movement.value ?? 0);
     const value = Number.isFinite(amount) ? amount : 0;
     const fallbackLabel = originalType === "sale"
-      ? "Venda registrada"
-      : type === "exit" ? "Saída de caixa" : "Entrada de caixa";
+      ? translate("Sale recorded")
+      : type === "exit" ? translate("Cash outflow") : translate("Cash inflow");
     const label = movement.description || movement.label || fallbackLabel;
     return {
       ...movement,
@@ -560,7 +576,7 @@ export const loadCashierData = async () => {
       total: order.total,
       paymentMethod: extractPaymentMethod(order.notes),
       paymentStatus: order.status === "completed" ? "paid" : "pending",
-      customerName: order.customer_name || "Cliente",
+      customerName: order.customer_name || translate("Customer"),
       tableName: formatOrderLocation(order.table_name || order.restaurant_table_name || order.delivery_address) || extractTableName(order.notes),
       createdAt: order.created_at,
     })),
@@ -586,7 +602,7 @@ export const bootstrapApi = checkApiAvailability;
 
 export const checkForSystemUpdates = async () => {
   await checkApiAvailability();
-  if (!isUsingApi()) throw new Error("API indisponível Não foi possível verificar atualizações");
+  if (!isUsingApi()) throw new Error("API unavailable Could not check for updates");
   const businessId = requireBusinessId();
   return checkForUpdates(businessId);
 };

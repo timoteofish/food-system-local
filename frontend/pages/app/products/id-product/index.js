@@ -20,14 +20,14 @@ export const initProductDetailsPanel = ({ onToggleStatus } = {}) => {
   backdrop.className = "id-product-backdrop";
   backdrop.type = "button";
   backdrop.hidden = true;
-  backdrop.setAttribute("aria-label", translate("Fechar detalhes do produto"));
+  backdrop.setAttribute("aria-label", translate("Close product details"));
 
   const panel = document.createElement("aside");
   panel.className = "id-product-panel";
   panel.hidden = true;
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "true");
-  panel.setAttribute("aria-label", translate("Detalhes do produto"));
+  panel.setAttribute("aria-label", translate("Product details"));
 
   document.body.append(backdrop, panel);
 
@@ -46,7 +46,7 @@ export const initProductDetailsPanel = ({ onToggleStatus } = {}) => {
   const render = (product) => {
     if (!product) return;
     currentProduct = product;
-    const name = escapeHtml(product.name || translate("Produto sem nome"));
+    const name = escapeHtml(product.name || translate("Unnamed product"));
     const safeImage = safeImageUrl(product.image);
     const image = safeImage
       ? `<img class="id-product-panel__image" src="${escapeHtml(safeImage)}" alt="${name}" />`
@@ -56,26 +56,26 @@ export const initProductDetailsPanel = ({ onToggleStatus } = {}) => {
       <div class="id-product-panel__handle" aria-hidden="true"></div>
       <header class="id-product-panel__header">
         <div>
-          <p>${translate("Produto")}</p>
+          <p>${translate("Product")}</p>
           <h2>${name}</h2>
         </div>
-        <button class="id-product-panel__close" type="button" data-id-product-close aria-label="${escapeHtml(translate("Fechar"))}">×</button>
+        <button class="id-product-panel__close" type="button" data-id-product-close aria-label="${escapeHtml(translate("Close"))}">×</button>
       </header>
       <div class="id-product-panel__body">
         ${image}
         <div class="id-product-panel__price">${formatProductPrice(product.price)}</div>
-        <p class="id-product-panel__description">${escapeHtml(product.description || translate("Sem descrição cadastrada"))}</p>
+        <p class="id-product-panel__description">${escapeHtml(product.description || translate("No description provided"))}</p>
         <dl class="id-product-panel__data">
-          <div><dt>${translate("Código")}</dt><dd>${escapeHtml(product.id || "-")}</dd></div>
-          <div><dt>${translate("Categoria")}</dt><dd>${escapeHtml(product.category || translate("Não informada"))}</dd></div>
-          <div><dt>${translate("Situação")}</dt><dd><span class="id-product-panel__status ${product.active ? "is-active" : "is-inactive"}">${translate(product.active ? "Ativo" : "Inativo")}</span></dd></div>
+          <div><dt>${translate("Code")}</dt><dd>${escapeHtml(product.id || "-")}</dd></div>
+          <div><dt>${translate("Category")}</dt><dd>${escapeHtml(product.category || translate("Not specified"))}</dd></div>
+          <div><dt>${translate("Status")}</dt><dd><span class="id-product-panel__status ${product.active ? "is-active" : "is-inactive"}">${translate(product.active ? "Active" : "Inactive")}</span></dd></div>
         </dl>
       </div>
       <footer class="id-product-panel__actions">
         <button class="btn ${product.active ? "btn--secondary" : "btn--primary"}" type="button" data-id-product-toggle="${escapeHtml(product.id)}">
-          ${translate(product.active ? "Desativar produto" : "Ativar produto")}
+          ${translate(product.active ? "Deactivate product" : "Activate product")}
         </button>
-        <button class="btn btn--secondary" type="button" data-id-product-close>${translate("Fechar")}</button>
+        <button class="btn btn--secondary" type="button" data-id-product-close>${translate("Close")}</button>
       </footer>
     `;
   };

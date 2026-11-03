@@ -3,11 +3,11 @@ import { API_BASE_URL } from "../api/config.js";
 let firebaseClientPromise = null;
 
 const FIREBASE_ERROR_MESSAGES = {
-  "auth/unauthorized-domain": "O login com o Google não está disponível neste endereço Acesse pelo localhost ou entre em contato com o suporte",
-  "auth/popup-blocked": "O navegador bloqueou a janela de login Libere pop-ups e tente novamente",
-  "auth/popup-closed-by-user": "O login com o Google foi cancelado antes da conclusão",
-  "auth/cancelled-popup-request": "Já existe uma tentativa de login em andamento",
-  "auth/network-request-failed": "Falha de conexão ao iniciar o login com o Google Verifique sua internet e tente novamente",
+  "auth/unauthorized-domain": "Google sign-in is unavailable at this address Open the app through localhost or contact support",
+  "auth/popup-blocked": "The browser blocked the sign-in window Allow pop-ups and try again",
+  "auth/popup-closed-by-user": "Google sign-in was canceled before it finished",
+  "auth/cancelled-popup-request": "A sign-in attempt is already in progress",
+  "auth/network-request-failed": "Connection failed while starting Google sign-in Check your internet connection and try again",
 };
 
 const loadFirebaseModules = async () => {
@@ -27,11 +27,11 @@ const loadFirebaseRuntimeConfig = async () => {
   const payload = await response.json();
 
   if (!response.ok) {
-    throw new Error(payload.error || "Falha ao carregar a configuração do Firebase");
+    throw new Error(payload.error || "Could not load the Firebase configuration");
   }
 
   if (!payload.enabled) {
-    throw new Error(payload.error || "Firebase não configurado");
+    throw new Error(payload.error || "Firebase is not configured");
   }
 
   return payload.config;
@@ -75,7 +75,7 @@ export const signInWithFirebaseGoogle = async () => {
     const code = error?.code ? String(error.code) : "";
     const normalizedMessage =
       FIREBASE_ERROR_MESSAGES[code] ||
-      "Não foi possível concluir o login com o Google Tente novamente";
+      "Could not complete Google sign-in Try again";
 
     throw new Error(normalizedMessage);
   }

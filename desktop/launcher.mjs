@@ -10,6 +10,7 @@ import { extname, isAbsolute, join, normalize, relative as relativePath, resolve
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { removeStalePlaintextBackups } from "./cleanup-backups.mjs";
+import { configuredMariaRoot as readConfiguredMariaRoot } from "./mariadb-config.mjs";
 
 const execFile = promisify(execFileCallback);
 let startedDatabase = null;
@@ -26,17 +27,6 @@ const desktopRoot = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const root = resolve(desktopRoot, "..");
 const frontendRoot = join(root, "frontend");
 const backendRoot = join(root, "backend");
-const configuredMariaRoot = process.env.MARIADB_ROOT || "";
-const mariaRoots = [configuredMariaRoot, "C:\\Program Files\\MariaDB 11.8", "C:\\Program Files\\MariaDB 13.0"].filter(Boolean);
-const mariaRoot = mariaRoots.find((candidate) => existsSync(join(candidate, "bin", "mariadbd.exe"))) || mariaRoots[0];
-const mariaServer = join(mariaRoot, "bin", "mariadbd.exe");
-const mariaDefaults = join(mariaRoot, "data", "my.ini");
-const frontendPort = Number(process.env.FRONTEND_PORT || 4173);
-const frontendHost = process.env.FRONTEND_HOST || "127.0.0.1";
-const nodeEnvironment = process.env.NODE_ENV || "production";
-const localAccessToken = nodeEnvironment === "development"
-  ? ""
-  : process.env.FOOD_SYSTEM_LOCAL_ACCESS_TOKEN || randomBytes(32).toString("base64url");
 const defaultDataDir = process.env.APPDATA
   ? join(process.env.APPDATA, "com.foodsystem.local")
   : process.env.LOCALAPPDATA
@@ -48,6 +38,17 @@ const defaultDataDir = process.env.APPDATA
         : join(homedir(), ".local", "share", "com.foodsystem.local");
 const dataDir = process.env.FOOD_SYSTEM_DATA_DIR || defaultDataDir;
 const environmentFile = process.env.FOOD_SYSTEM_ENV_FILE || join(dataDir, "config.env");
+const configuredMariaRoot = readConfiguredMariaRoot({ environmentRoot: process.env.MARIADB_ROOT || "", environmentFile });
+const mariaRoots = [configuredMariaRoot, "C:\\Program Files\\MariaDB 11.8", "C:\\Program Files\\MariaDB 13.0"].filter(Boolean);
+const mariaRoot = mariaRoots.find((candidate) => existsSync(join(candidate, "bin", "mariadbd.exe"))) || mariaRoots[0];
+const mariaServer = join(mariaRoot, "bin", "mariadbd.exe");
+const mariaDefaults = join(mariaRoot, "data", "my.ini");
+const frontendPort = Number(process.env.FRONTEND_PORT || 4173);
+const frontendHost = process.env.FRONTEND_HOST || "127.0.0.1";
+const nodeEnvironment = process.env.NODE_ENV || "production";
+const localAccessToken = nodeEnvironment === "development"
+  ? ""
+  : process.env.FOOD_SYSTEM_LOCAL_ACCESS_TOKEN || randomBytes(32).toString("base64url");
 const backupDir = join(dataDir, "backups");
 const recoveryMarker = resolve(backupDir, "..", "restore-recovery-required");
 if (existsSync(recoveryMarker)) {
@@ -82,7 +83,7 @@ if (!existsSync(frontendRoot) || !existsSync(join(backendRoot, "src", "server.js
 const tlsKeyPath = process.env.FRONTEND_TLS_KEY || "";
 const tlsCertPath = process.env.FRONTEND_TLS_CERT || "";
 if (!["127.0.0.1", "localhost", "::1"].includes(frontendHost) && (!tlsKeyPath || !tlsCertPath)) {
-  throw new Error("FRONTEND_TLS_KEY and FRONTEND_TLS_CERT are required when the cardapio is exposed on the network");
+  throw new Error("FRONTEND_TLS_KEY and FRONTEND_TLS_CERT are required when the menu is exposed on the network");
 }
 
 const contentTypes = {
@@ -117,7 +118,8 @@ const canConnectDatabase = () => new Promise((resolveConnection) => {
 const ensureDatabase = async () => {
   if (await canConnectDatabase()) return;
   if (!existsSync(mariaServer) || !existsSync(mariaDefaults)) {
-    throw new Error("MariaDB is unavailable. Install and start MariaDB 11.8, or set MARIADB_ROOT to its installation directory, then provision the Food System database credentials.");
+    const setupScript = join(desktopRoot, "setup-mariadb.ps1");
+    throw new Error(`Food System database setup is incomplete. Close the app, open PowerShell as Administrator under the same Windows account that runs Food System, and run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${setupScript}". The guided setup installs verified MariaDB 11.8 LTS when needed, restricts it to 127.0.0.1, and provisions protected local credentials. If MariaDB is already installed in a different folder, pass -MariaRoot '<MariaDB install folder>'.`);
   }
   startedDatabase = spawn(mariaServer, [`--defaults-file=${mariaDefaults}`, "--console"], {
     cwd: mariaRoot,

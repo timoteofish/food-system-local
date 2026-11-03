@@ -152,30 +152,11 @@
 }
 
 .fiscal-document__status--draft,
-.fiscal-document__status--cancelled,
+.fiscal-document__status--legacy,
 .fiscal-document__status--unknown {
   border-color: var(--line);
   background: var(--surface-soft);
   color: var(--muted);
-}
-
-.fiscal-document__status--pending {
-  border-color: rgba(197, 34, 54, .12);
-  background: var(--accent-soft);
-  color: var(--accent-dark);
-}
-
-.fiscal-document__status--authorized,
-.fiscal-document__status--issued {
-  border-color: rgba(197, 34, 54, .18);
-  background: var(--accent-soft);
-  color: var(--accent-dark);
-}
-
-.fiscal-document__status--rejected {
-  border-color: rgba(180, 35, 24, .18);
-  background: var(--danger-soft);
-  color: var(--danger);
 }
 
 .fiscal-document__error {

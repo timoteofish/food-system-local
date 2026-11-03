@@ -14,6 +14,8 @@ $ErrorActionPreference = "Stop"
 if ($Database -notmatch '^[A-Za-z0-9_]{1,64}$') { throw "Database must contain only letters, digits, and underscores (up to 64 characters)." }
 if ($AppUser -notmatch '^[A-Za-z0-9_]{1,32}$') { throw "AppUser must contain only letters, digits, and underscores (up to 32 characters)." }
 if ($MaintenanceUser -notmatch '^[A-Za-z0-9_]{1,32}$' -or $MaintenanceUser -eq $AppUser) { throw "MaintenanceUser must be a distinct SQL identifier (up to 32 characters)." }
+$MariaRoot = [System.IO.Path]::GetFullPath($MariaRoot)
+if ($MariaRoot -match '["\r\n]') { throw "MariaRoot must not contain quotes or line breaks." }
 $client = Join-Path $MariaRoot "bin\mariadb.exe"
 if (-not (Test-Path -LiteralPath $client)) { throw "MariaDB client not found at $client" }
 
@@ -32,10 +34,33 @@ $process = $null
 $acl = $null
 $configTempPath = $null
 $configLines = @()
+$reuseProvisionedPasswords = $false
 try {
   if ($AppPassword) {
     $appBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($AppPassword)
     $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($appBstr)
+  } elseif (Test-Path -LiteralPath $ConfigPath) {
+    $existingCredentials = @{}
+    foreach ($line in [System.IO.File]::ReadAllLines($ConfigPath)) {
+      if ($line -match '^\s*(?<key>MYSQL_PASSWORD|MYSQL_MAINTENANCE_PASSWORD)\s*=\s*(?<value>.*?)\s*$') {
+        $value = $Matches.value.Trim()
+        if ($value.Length -ge 2 -and $value.StartsWith('"') -and $value.EndsWith('"')) { $value = $value.Substring(1, $value.Length - 2) }
+        $existingCredentials[$Matches.key] = $value
+      }
+    }
+    $existingAppPassword = [string]$existingCredentials["MYSQL_PASSWORD"]
+    $existingMaintenancePassword = [string]$existingCredentials["MYSQL_MAINTENANCE_PASSWORD"]
+    if ($existingAppPassword -match '^[a-f0-9]{64}$' -and $existingMaintenancePassword -match '^[a-f0-9]{64}$') {
+      $plainPassword = $existingAppPassword
+      $maintenancePassword = $existingMaintenancePassword
+      $reuseProvisionedPasswords = $true
+    }
+    if (-not $reuseProvisionedPasswords) {
+      $appPasswordBytes = New-Object byte[] 32
+      $randomGenerator = [Security.Cryptography.RandomNumberGenerator]::Create()
+      $randomGenerator.GetBytes($appPasswordBytes)
+      $plainPassword = [BitConverter]::ToString($appPasswordBytes).Replace("-", "").ToLowerInvariant()
+    }
   } else {
     $appPasswordBytes = New-Object byte[] 32
     $randomGenerator = [Security.Cryptography.RandomNumberGenerator]::Create()
@@ -63,16 +88,18 @@ try {
   if (-not $hasMySqlDGroup -or $serverBindAddress -ne "127.0.0.1") {
     throw "MariaDB is not explicitly configured with bind-address=127.0.0.1. Run harden-mariadb.ps1 and restart the intended server before provisioning."
   }
-  $maintenanceBytes = New-Object byte[] 32
-  if (-not $randomGenerator) { $randomGenerator = [Security.Cryptography.RandomNumberGenerator]::Create() }
-  $randomGenerator.GetBytes($maintenanceBytes)
-  $maintenancePassword = [BitConverter]::ToString($maintenanceBytes).Replace("-", "").ToLowerInvariant()
+  if (-not $reuseProvisionedPasswords) {
+    $maintenanceBytes = New-Object byte[] 32
+    if (-not $randomGenerator) { $randomGenerator = [Security.Cryptography.RandomNumberGenerator]::Create() }
+    $randomGenerator.GetBytes($maintenanceBytes)
+    $maintenancePassword = [BitConverter]::ToString($maintenanceBytes).Replace("-", "").ToLowerInvariant()
+  }
   # Recreate both dedicated accounts so stale grants cannot survive provisioning.
   $sql = "CREATE DATABASE IF NOT EXISTS ``$Database`` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; DROP USER IF EXISTS '$AppUser'@'$HostName'; DROP USER IF EXISTS '$MaintenanceUser'@'$HostName'; CREATE USER '$AppUser'@'$HostName' IDENTIFIED BY '$escapedPassword'; CREATE USER '$MaintenanceUser'@'$HostName' IDENTIFIED BY '$maintenancePassword'; GRANT SELECT, INSERT, UPDATE, DELETE ON ``$Database``.* TO '$AppUser'@'$HostName'; GRANT ALL PRIVILEGES ON ``$Database``.* TO '$MaintenanceUser'@'$HostName'; GRANT SHUTDOWN ON *.* TO '$MaintenanceUser'@'$HostName'; FLUSH PRIVILEGES;"
   # Validate and stage the protected config before changing database accounts.
   $parent = Split-Path -Parent $ConfigPath
   New-Item -ItemType Directory -Force -Path $parent | Out-Null
-  $managedConfigKeys = @("MYSQL_HOST", "MYSQL_PORT", "MYSQL_DATABASE", "MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_MAINTENANCE_USER", "MYSQL_MAINTENANCE_PASSWORD")
+  $managedConfigKeys = @("MARIADB_ROOT", "MYSQL_HOST", "MYSQL_PORT", "MYSQL_DATABASE", "MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_MAINTENANCE_USER", "MYSQL_MAINTENANCE_PASSWORD")
   if (Test-Path -LiteralPath $ConfigPath) {
     foreach ($line in [System.IO.File]::ReadAllLines($ConfigPath)) {
       $isManagedKey = $false
@@ -93,6 +120,7 @@ try {
   }
   if (Test-Path -LiteralPath $ConfigPath) { Set-Acl -LiteralPath $ConfigPath -AclObject $acl }
   $configLines += @(
+    "MARIADB_ROOT=`"$MariaRoot`"",
     "MYSQL_HOST=$HostName",
     "MYSQL_PORT=3306",
     "MYSQL_DATABASE=$Database",
@@ -133,6 +161,20 @@ try {
   $process.WaitForExit()
   if ($process.ExitCode -ne 0) { throw "MariaDB provisioning failed. Authenticate as root and rerun this script." }
 
+  $env:MYSQL_PWD = $plainPassword
+  $runtimeProbe = @(& $client --protocol=tcp "--host=$HostName" --port=3306 "--user=$AppUser" "--database=$Database" --batch --skip-column-names --execute "SELECT DATABASE()")
+  $runtimeProbeExitCode = $LASTEXITCODE
+  if ($runtimeProbeExitCode -ne 0 -or $runtimeProbe.Count -ne 1 -or ([string]$runtimeProbe[0]).Trim() -ne $Database) {
+    throw "The provisioned application user could not connect to database '$Database'. The previous application config was preserved; rerun setup after resolving the database account issue."
+  }
+
+  $env:MYSQL_PWD = $maintenancePassword
+  $maintenanceProbe = @(& $client --protocol=tcp "--host=$HostName" --port=3306 "--user=$MaintenanceUser" "--database=$Database" --batch --skip-column-names --execute "SELECT DATABASE()")
+  $maintenanceProbeExitCode = $LASTEXITCODE
+  if ($maintenanceProbeExitCode -ne 0 -or $maintenanceProbe.Count -ne 1 -or ([string]$maintenanceProbe[0]).Trim() -ne $Database) {
+    throw "The provisioned maintenance user could not connect to database '$Database'. The previous application config was preserved; rerun setup after resolving the database account issue."
+  }
+
   if (Test-Path -LiteralPath $ConfigPath) {
     [System.IO.File]::Replace($configTempPath, $ConfigPath, $null)
   } else {
@@ -159,4 +201,4 @@ try {
   if ($rootBstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($rootBstr) }
 }
 
-Write-Output "Database '$Database', restricted runtime user '$AppUser@$HostName', and separate maintenance user '$MaintenanceUser@$HostName' are ready. The maintenance user also has the global SHUTDOWN privilege required for clean local server shutdown. Tauri configuration written to '$ConfigPath'. Restart Food System to run migrations."
+Write-Output "Database '$Database', restricted runtime user '$AppUser@$HostName', and separate maintenance user '$MaintenanceUser@$HostName' were provisioned and authenticated successfully. The maintenance user also has the global SHUTDOWN privilege required for clean local server shutdown. Tauri configuration written to '$ConfigPath'. Restart Food System to run migrations."

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ffffff" />
-    <title>Boas-vindas · Food System</title>
+    <title>Welcome · Food System</title>
     <link rel="icon" href="./assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="./styles/base.css" />
     <link rel="stylesheet" href="./styles/app-responsive.css" />
@@ -12,38 +12,38 @@
     <link rel="stylesheet" href="./styles/first-run.css" />
   </head>
   <body>
-    <main class="first-run" aria-label="Configuração inicial do Food System">
+    <main class="first-run" aria-label="Initial Food System setup">
       <section class="first-run__intro">
         <a class="first-run__brand" href="./index.html" aria-label="Food System">
           <img class="first-run__brand-mark" src="./assets/favicon.webp" alt="" /><span>Food System</span>
         </a>
         <div class="first-run__intro-copy">
-          <h1 data-copy="headline">Organize seu<br />restaurante</h1>
-          <p data-copy="intro">Pedidos, cardápio e operação em um só lugar</p>
+          <h1 data-copy="headline">Organize your<br />restaurant</h1>
+          <p data-copy="intro">Orders, menu and operations in one place</p>
         </div>
       </section>
       <section class="first-run__setup" aria-labelledby="setupTitle">
         <div class="first-run__form-wrap">
-          <h2 id="setupTitle" data-copy="title">Configure seu negócio</h2>
-          <p class="first-run__description" data-copy="description">Informe o nome do seu negócio e escolha o idioma</p>
+          <h2 id="setupTitle" data-copy="title">Set up your business</h2>
+          <p class="first-run__description" data-copy="description">Enter your business name and choose a language</p>
           <form id="firstRunForm">
             <label class="first-run__field" for="businessName">
-              <span data-copy="businessLabel">Nome do comércio</span>
-              <input id="businessName" name="businessName" type="text" autocomplete="organization" placeholder="Ex.: Café da Praça" minlength="2" maxlength="160" required />
+              <span data-copy="businessLabel">Business name</span>
+              <input id="businessName" name="businessName" type="text" autocomplete="organization" placeholder="e.g. Market Street Cafe" minlength="2" maxlength="160" required />
             </label>
             <label class="first-run__field" for="businessLanguage">
-              <span data-copy="languageLabel">Idioma</span>
+              <span data-copy="languageLabel">Language</span>
               <span class="first-run__select-wrap">
-                <select id="businessLanguage" name="language" autocomplete="language" aria-label="Idioma">
-                  <option value="pt" lang="pt-BR" selected>Português</option>
+                <select id="businessLanguage" name="language" autocomplete="language" aria-label="Language">
+                  <option value="pt" lang="pt-BR" selected>Portuguese</option>
                   <option value="en" lang="en">English</option>
                 </select>
               </span>
             </label>
             <p id="setupError" class="first-run__error" role="alert" tabindex="-1" hidden></p>
-            <button class="first-run__submit" type="submit"><span data-copy="submit">Continuar</span></button>
+            <button class="first-run__submit" type="submit"><span data-copy="submit">Continue</span></button>
           </form>
-          <p class="first-run__note" data-copy="note">Você poderá alterar essas informações nas configurações</p>
+          <p class="first-run__note" data-copy="note">You can change this information later in settings</p>
         </div>
       </section>
     </main>

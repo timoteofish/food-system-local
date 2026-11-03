@@ -1,3 +1,5 @@
+import { getLegacyTranslationCandidates } from "../i18n/i18n.js";
+
 const KEYS = {
   MENU_SETTINGS: "food-system-menu-settings",
   CART: "food-system-menu-cart",
@@ -21,13 +23,12 @@ const defaultMenuSettings = {
   deliveryFee: 0,
   showAllProducts: true,
   selectedCategories: [],
-  category: "Todos",
 };
 
 const legacyMenuText = {
-  businessName: "Sabor da Serra",
-  menuName: "Peça à mesa sem instalar o aplicativo",
-  menuBanner: "Aponte a câmera, escolha seus itens e envie o pedido direto para a equipe",
+  businessName: "Mountain Flavor",
+  menuName: "Order at your table without installing an app",
+  menuBanner: "Scan the code, choose your items, and send the order directly to the team",
 };
 
 const defaultBusiness = {
@@ -56,7 +57,8 @@ const writeJson = (key, value) => {
 export const getMenuSettings = () => {
   const settings = { ...defaultMenuSettings, ...readJson(KEYS.MENU_SETTINGS, defaultMenuSettings) };
   Object.entries(legacyMenuText).forEach(([key, value]) => {
-    if (settings[key] === value) settings[key] = "";
+    const legacyValues = getLegacyTranslationCandidates(value, "pt");
+    if (settings[key] === value || legacyValues.includes(settings[key])) settings[key] = "";
   });
   return settings;
 };

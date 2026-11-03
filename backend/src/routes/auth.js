@@ -63,11 +63,11 @@ export const requireBusinessAccess = async (request, reply) => {
   }
   const user = await authenticate(request);
   if (!user) {
-    reply.unauthorized("Sessão inválida");
+    reply.unauthorized("Invalid session");
     return null;
   }
   if (user.business_id !== request.params.businessId && user.business_id !== request.params.id) {
-    reply.forbidden("Acesso negado");
+    reply.forbidden("Access denied");
     return null;
   }
   request.user = user;
@@ -78,7 +78,7 @@ export const requireRole = async (request, reply, roles = ["owner", "manager"]) 
   const user = await requireBusinessAccess(request, reply);
   if (!user) return null;
   if (!user.local && !roles.includes(user.role)) {
-    reply.forbidden("Permissão insuficiente");
+    reply.forbidden("Insufficient permissions");
     return null;
   }
   return user;
@@ -101,7 +101,7 @@ export default async function authRoutes(app) {
     const settings = JSON.stringify({ currency: "BRL" });
     await pool.query(
       "INSERT INTO businesses (id, name, description, settings) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)",
-      [LOCAL_BUSINESS_ID, name, "Aplicação local", settings],
+      [LOCAL_BUSINESS_ID, name, "Local application", settings],
     );
     const [rows] = await pool.query("SELECT id, name, description, primary_color, settings FROM businesses WHERE id = ? LIMIT 1", [LOCAL_BUSINESS_ID]);
     return { business: rows[0] };
@@ -117,13 +117,13 @@ export default async function authRoutes(app) {
       const name = (input.business_name ?? input.name).trim();
       const password = input.password;
       if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254 || name.length < 2 || name.length > 120 || password.length < 8 || Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) {
-        return reply.badRequest("Email válido, nome de 2 a 120 caracteres e senha de 8 a 1024 bytes são obrigatórios");
+        return reply.badRequest("A valid email, a name between 2 and 120 characters, and a password between 8 and 1024 bytes are required");
       }
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
         const [existing] = await connection.query("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
-        if (existing.length) { await connection.rollback(); return reply.conflict("Email já cadastrado"); }
+        if (existing.length) { await connection.rollback(); return reply.conflict("Email is already registered"); }
         const userId = randomUUID();
         const businessId = randomUUID();
         await connection.query("INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)", [userId, email, name, await hashPassword(password)]);
@@ -138,12 +138,12 @@ export default async function authRoutes(app) {
 
     app.post("/api/v1/auth/login", async (request, reply) => {
       const input = getAuthInput(request.body);
-      if (!input || typeof input.email !== "string" || typeof input.password !== "string") return reply.unauthorized("Email ou senha inválidos");
+      if (!input || typeof input.email !== "string" || typeof input.password !== "string") return reply.unauthorized("Invalid email or password");
       const email = input.email.trim().toLowerCase();
       const password = input.password;
-      if (email.length > 254 || Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) return reply.unauthorized("Email ou senha inválidos");
+      if (email.length > 254 || Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) return reply.unauthorized("Invalid email or password");
       const [rows] = await pool.query("SELECT * FROM users WHERE email = ? LIMIT 1", [email]);
-      if (!rows.length || !(await verifyPassword(password, rows[0].password_hash))) return reply.unauthorized("Email ou senha inválidos");
+      if (!rows.length || !(await verifyPassword(password, rows[0].password_hash))) return reply.unauthorized("Invalid email or password");
       const [memberships] = await pool.query("SELECT b.id, b.name, m.role FROM business_memberships m JOIN businesses b ON b.id = m.business_id WHERE m.user_id = ? LIMIT 1", [rows[0].id]);
       const token = randomBytes(32).toString("base64url");
       await pool.query("UPDATE sessions SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL", [rows[0].id]);
@@ -153,7 +153,7 @@ export default async function authRoutes(app) {
 
     app.get("/api/v1/auth/profile", async (request, reply) => {
       const user = await authenticate(request);
-      if (!user) return reply.unauthorized("Sessão inválida");
+      if (!user) return reply.unauthorized("Invalid session");
       return { user: publicUser(user), business: { id: user.business_id } };
     });
 

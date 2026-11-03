@@ -1,11 +1,11 @@
 {
-  "name": "Food System Entregador",
-  "short_name": "Entregas",
+  "name": "Food System Courier",
+  "short_name": "Courier",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f7f7f6",
   "theme_color": "#b4232f",
-  "lang": "pt-BR",
+  "lang": "en",
   "icons": [
     {
       "src": "../../assets/favicon.webp",

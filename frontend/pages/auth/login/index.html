@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Entrar | Food System</title>
+    <title>Sign in | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
 <link rel="stylesheet" href="../../../styles/base.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -17,32 +17,32 @@
       <section class="login-panel">
         <div class="auth-copy">
           <p class="eyebrow">Food System</p>
-          <h1>Entrar</h1>
-          <p class="subtitle">Acesse o painel do seu comércio</p>
+          <h1>Sign in</h1>
+          <p class="subtitle">Sign in to your business dashboard</p>
         </div>
         <form class="auth-form" id="loginForm">
           <div class="field">
-            <label for="usuario">E-mail</label>
-            <input id="usuario" type="email" placeholder="seu@email.com" autocomplete="username" required />
+            <label for="email">Email</label>
+            <input id="email" type="email" placeholder="you@example.com" autocomplete="username" required />
           </div>
           <div class="field">
-            <label for="senha">Senha</label>
-            <input id="senha" type="password" placeholder="Digite sua senha" autocomplete="current-password" required />
+            <label for="password">Password</label>
+            <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" required />
           </div>
           <div class="login-options">
-            <label><input type="checkbox" id="lembrar" /> Lembrar-me</label>
-            <a href="../forgot-password/index.html" class="forgot-link">Esqueceu a senha?</a>
+            <label><input type="checkbox" id="rememberMe" /> Remember me</label>
+            <a href="../forgot-password/index.html" class="forgot-link">Forgot password?</a>
           </div>
           <p id="loginFeedback" class="form-feedback form-feedback--error" role="alert" aria-live="polite" hidden></p>
-          <button class="btn btn--primary" type="submit">Entrar no painel</button>
+          <button class="btn btn--primary" type="submit">Sign in to dashboard</button>
           <div class="social-row">
-            <div class="divider">ou</div>
+            <div class="divider">or</div>
             <div id="googleSignInBtn" class="social-icon"></div>
           </div>
         </form>
         <div class="auth-switch">
-          <span>Não tem conta?</span>
-          <a href="../register/index.html">Cadastre-se</a>
+          <span>Don't have an account?</span>
+          <a href="../register/index.html">Create an account</a>
         </div>
       </section>
     </main>

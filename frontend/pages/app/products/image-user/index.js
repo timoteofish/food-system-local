@@ -32,38 +32,38 @@ const ensurePanel = () => {
   panel.hidden = true;
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "true");
-  panel.setAttribute("aria-label", translate("Editar imagem do produto"));
+  panel.setAttribute("aria-label", translate("Edit product image"));
   panel.innerHTML = `
-    <button type="button" class="image-user-panel__close" data-image-user-close aria-label="${translate("Fechar")}">×</button>
+    <button type="button" class="image-user-panel__close" data-image-user-close aria-label="${translate("Close")}">×</button>
     <div class="image-user-panel__header">
-      <p class="image-user-panel__eyebrow">${translate("Imagem")}</p>
-      <h3>${translate("Imagem do produto")}</h3>
-      <p class="image-user-panel__subtitle">${translate("Ajuste o enquadramento")}</p>
+      <p class="image-user-panel__eyebrow">${translate("Image")}</p>
+      <h3>${translate("Product image")}</h3>
+      <p class="image-user-panel__subtitle">${translate("Adjust the crop")}</p>
     </div>
     <div class="image-user-panel__body">
       <div class="image-user-panel__stage">
         <div class="image-user-panel__canvas" data-image-user-canvas>
-          <img class="image-user-panel__image" data-image-user-image alt="${translate("Pré-visualização da imagem")}" draggable="false" />
+          <img class="image-user-panel__image" data-image-user-image alt="${translate("Image preview")}" draggable="false" />
           <div class="image-user-panel__empty" data-image-user-empty>
-            ${translate("Selecione uma imagem")}
+            ${translate("Select an image")}
           </div>
         </div>
       </div>
       <div class="image-user-panel__controls">
         <label class="image-user-panel__field">
-          <span>${translate("Imagem")}</span>
+          <span>${translate("Image")}</span>
           <input type="file" accept="image/png,image/jpeg,image/webp" data-image-user-file />
         </label>
         <label class="image-user-panel__field">
           <span>${translate("Zoom")}</span>
           <input type="range" min="0.5" max="2" step="0.01" value="1" data-image-user-zoom />
         </label>
-        <div class="image-user-panel__hint">${translate("Arraste para reposicionar")}</div>
+        <div class="image-user-panel__hint">${translate("Drag to reposition")}</div>
         <p class="image-user-panel__hint" data-image-user-feedback role="status" hidden></p>
       </div>
       <div class="image-user-panel__actions">
-        <button type="button" class="btn btn--secondary" data-image-user-cancel>${translate("Cancelar")}</button>
-        <button type="button" class="btn btn--primary" data-image-user-save>${translate("Aplicar imagem")}</button>
+        <button type="button" class="btn btn--secondary" data-image-user-cancel>${translate("Cancel")}</button>
+        <button type="button" class="btn btn--primary" data-image-user-save>${translate("Apply image")}</button>
       </div>
     </div>
   `;
@@ -139,7 +139,7 @@ export const initImageUserPanel = ({ onApply } = {}) => {
         image.removeAttribute("src");
         render();
         if (feedback) {
-          feedback.textContent = translate("Não foi possível processar a imagem");
+          feedback.textContent = translate("Could not process the image");
           feedback.hidden = false;
           feedback.setAttribute("role", "alert");
         }
@@ -177,7 +177,7 @@ export const initImageUserPanel = ({ onApply } = {}) => {
     if (!file) return;
     if (!supportedImageTypes.has(file.type) || file.size > MAX_IMAGE_FILE_BYTES) {
       if (feedback) {
-        feedback.textContent = translate("Selecione um arquivo PNG, JPEG ou WebP de até 8 MB");
+        feedback.textContent = translate("Choose a PNG, JPEG, or WebP file up to 8 MB");
         feedback.hidden = false;
         feedback.setAttribute("role", "alert");
       }
@@ -197,7 +197,7 @@ export const initImageUserPanel = ({ onApply } = {}) => {
         image.removeAttribute("src");
         render();
         if (feedback) {
-          feedback.textContent = translate("Não foi possível processar a imagem");
+          feedback.textContent = translate("Could not process the image");
           feedback.hidden = false;
           feedback.setAttribute("role", "alert");
         }
@@ -207,7 +207,7 @@ export const initImageUserPanel = ({ onApply } = {}) => {
     };
     reader.onerror = () => {
       if (feedback) {
-        feedback.textContent = translate("Não foi possível processar a imagem");
+        feedback.textContent = translate("Could not process the image");
         feedback.hidden = false;
         feedback.setAttribute("role", "alert");
       }

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 const read = (file) => fs.readFile(new URL(`../${file}`, import.meta.url), "utf8");
@@ -80,7 +82,7 @@ test("schema contains operational management tables", async () => {
 test("frontend contains a kitchen display workflow", async () => {
   const page = await readFrontend("pages/app/kitchen/index.html");
   const app = await readFrontend("pages/app/kitchen/app.js");
-  assert.match(page, /Painel da cozinha/);
+  assert.match(page, /Kitchen display/);
   assert.match(app, /update_status/);
   assert.match(app, /preparing/);
 });
@@ -89,7 +91,7 @@ test("frontend contains customer and supplier registration", async () => {
   const page = await readFrontend("pages/app/contacts/index.html");
   const app = await readFrontend("pages/app/contacts/app.js");
   const suppliersPage = await readFrontend("pages/app/suppliers/index.html");
-  assert.match(page, /Clientes e parceiros/);
+  assert.match(page, /Customers and partners/);
   assert.match(app, /\/customers/);
   assert.match(app, /suppliers: \[/);
   assert.match(suppliersPage, /supplierForm/);
@@ -145,12 +147,12 @@ test("team labels and public menu empty state escape stored text in HTML context
   const publicMenu = await readFrontend("pages/qr-code-final/app.js");
   const products = await readFrontend("pages/app/products/app.js");
   const productPanel = await readFrontend("pages/app/products/id-product/index.js");
-  assert.match(team, /aria-label="\$\{escapeHtml\(translate\("Função de"\)\)\} \$\{name\}"/);
-  assert.match(team, /aria-label="\$\{escapeHtml\(translate\("Remover pessoa"\)\)\} \$\{name\}"/);
+  assert.match(team, /aria-label="\$\{escapeHtml\(translate\("teamRoleLabel"\)\)\} \$\{name\}"/);
+  assert.match(team, /aria-label="\$\{escapeHtml\(translate\("teamRemovePerson"\)\)\} \$\{name\}"/);
   assert.match(publicMenu, /\.replace\("\$1", escapeHtml\(selectedCategory\)\)/);
-  assert.match(publicMenu, /\$\{escapeHtml\(translate\("ao pedido"\)\)\}/);
+  assert.match(publicMenu, /\$\{escapeHtml\(translate\("to your order"\)\)\}/);
   assert.match(products, /const statusAction = escapeHtml\(translate\(/);
-  assert.match(productPanel, /aria-label="\$\{escapeHtml\(translate\("Fechar"\)\)\}"/);
+  assert.match(productPanel, /aria-label="\$\{escapeHtml\(translate\("Close"\)\)\}"/);
 });
 
 test("backend registers discount and loyalty routes", async () => {
@@ -174,7 +176,9 @@ test("profitability report aggregates revenue separately from recipe costs", asy
 test("frontend contains a courier mobile workflow", async () => {
   const page = await readFrontend("pages/courier/index.html");
   const app = await readFrontend("pages/courier/app.js");
-  assert.match(page, /Minhas entregas/);
+  const translations = await readFrontend("pages/courier/translations.js");
+  assert.match(page, /data-courier-i18n="My deliveries"/);
+  assert.match(translations, /"My deliveries": \{ en: "My deliveries", pt: "[^"]+" \}/);
   assert.match(app, /X-Courier-Token/);
   assert.match(app, /courier\/deliveries/);
   assert.match(page, /manifest\.webmanifest/);
@@ -367,7 +371,9 @@ test("desktop startup stores the launcher child and creates a private encryption
   assert.match(launcher, /LOCALAPPDATA, "com\.foodsystem\.local"/);
   assert.match(launcher, /XDG_DATA_HOME, "com\.foodsystem\.local"/);
   assert.doesNotMatch(launcher, /FOOD_SYSTEM_DATA_DIR \|\| join\(desktopRoot, "runtime"\)/);
-  assert.match(launcher, /MariaDB is unavailable/);
+  assert.match(launcher, /Food System database setup is incomplete/);
+  assert.match(launcher, /configuredMariaRoot = readConfiguredMariaRoot\(\{ environmentRoot: process\.env\.MARIADB_ROOT \|\| "", environmentFile \}\)/);
+  assert.match(launcher, /join\(desktopRoot, "setup-mariadb\.ps1"\)/);
   assert.match(launcher, /MariaDB did not accept connections within 5 seconds/);
   assert.match(launcher, /MariaDB exited before becoming ready/);
   assert.doesNotMatch(launcher.slice(launcher.indexOf("const ensureDatabase"), launcher.indexOf("const waitForChildExit")), /startedDatabaseReady = true/);
@@ -438,23 +444,32 @@ test("Tauri does not bundle an unused shell plugin", async () => {
 
 test("MariaDB provisioning protects its config file before writing credentials", async () => {
   const provision = await readRoot("desktop/provision-mariadb.ps1");
-  const readme = await readRoot("README.md");
   assert.match(provision, /Join-Path \$env:APPDATA "com\.foodsystem\.local\\config\.env"/);
   assert.ok(provision.indexOf('WriteAllText($configTempPath, ""') < provision.indexOf("Set-Acl -LiteralPath $configTempPath") && provision.indexOf("Set-Acl -LiteralPath $configTempPath") < provision.indexOf("WriteAllText($configTempPath, $configContent"));
   assert.ok(provision.indexOf("WriteAllText($configTempPath, $configContent") < provision.indexOf("[System.IO.File]::Replace($configTempPath, $ConfigPath, $null)"));
   assert.ok(provision.indexOf("WriteAllText($configTempPath, $configContent") < provision.indexOf("[Diagnostics.Process]::Start($processInfo)"));
   assert.ok(provision.indexOf("[Diagnostics.Process]::Start($processInfo)") < provision.indexOf("[System.IO.File]::Replace($configTempPath, $ConfigPath, $null)"));
+  assert.ok(provision.indexOf("$runtimeProbe = @(") < provision.indexOf("$maintenanceProbe = @("));
+  assert.ok(provision.indexOf("$maintenanceProbe = @(") < provision.indexOf("[System.IO.File]::Replace($configTempPath, $ConfigPath, $null)"));
+  assert.match(provision, /runtimeProbeExitCode/);
+  assert.match(provision, /maintenanceProbeExitCode/);
   assert.match(provision, /Set-Acl -LiteralPath \$ConfigPath -AclObject \$acl/);
   assert.match(provision, /ReadAllLines\(\$ConfigPath\)/);
   assert.match(provision, /foreach \(\$key in \$managedConfigKeys\)/);
   assert.match(provision, /MYSQL_MAINTENANCE_PASSWORD/);
+  assert.match(provision, /existingAppPassword -match '\^\[a-f0-9\]\{64\}\$' -and \$existingMaintenancePassword -match '\^\[a-f0-9\]\{64\}\$'/);
+  assert.match(provision, /\$plainPassword = \$existingAppPassword/);
+  assert.match(provision, /\$maintenancePassword = \$existingMaintenancePassword/);
+  assert.match(provision, /if \(-not \$reuseProvisionedPasswords\)/);
+  assert.match(provision, /MARIADB_ROOT=`"\$MariaRoot`"/);
+  assert.match(provision, /managedConfigKeys = @\("MARIADB_ROOT"/);
+  assert.match(provision, /\$MariaRoot = \[System\.IO\.Path\]::GetFullPath\(\$MariaRoot\)/);
   assert.match(provision, /\[SecureString\]\$AppPassword,/);
   assert.match(provision, /\$appPasswordBytes = New-Object byte\[\] 32/);
   assert.match(provision, /\$randomGenerator\.GetBytes\(\$appPasswordBytes\)/);
   assert.match(provision, /ToString\(\$appPasswordBytes\)\.Replace\("-", ""\)\.ToLowerInvariant\(\)/);
   assert.match(provision, /\[Array\]::Clear\(\$appPasswordBytes, 0, \$appPasswordBytes\.Length\)/);
   assert.match(provision, /MYSQL_PASSWORD=`"\$plainPassword`"/);
-  assert.match(readme, /generates a 256-bit random application password by default/);
   assert.match(provision, /LocalSystemSid/);
   assert.match(provision, /rootPlainPassword/);
   assert.match(provision, /Join-Path \$MariaRoot "data\\my\.ini"/);
@@ -478,6 +493,17 @@ test("MariaDB provisioning protects its config file before writing credentials",
   assert.match(provision, /GRANT SHUTDOWN ON \*\.\* TO '\$MaintenanceUser'@'\$HostName'/);
   assert.match(provision, /MYSQL_MAINTENANCE_USER=\$MaintenanceUser/);
   assert.match(provision, /MYSQL_MAINTENANCE_PASSWORD=\$maintenancePassword/);
+});
+
+test("launcher reads the provisioned MariaDB path and prioritizes an explicit override", async (t) => {
+  const { configuredMariaRoot } = await import("../../desktop/mariadb-config.mjs");
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "food-system-mariadb-config-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const environmentFile = path.join(directory, "config.env");
+  await fs.writeFile(environmentFile, 'MYSQL_USER=food_system\nMARIADB_ROOT="C:\\Program Files\\MariaDB 11.8"\n', "utf8");
+  assert.equal(configuredMariaRoot({ environmentFile }), "C:\\Program Files\\MariaDB 11.8");
+  assert.equal(configuredMariaRoot({ environmentRoot: "D:\\MariaDB", environmentFile }), "D:\\MariaDB");
+  assert.equal(configuredMariaRoot({ environmentFile: path.join(directory, "missing.env") }), "");
 });
 
 test("Tauri build preparation installs backend production dependencies before bundling", async () => {
@@ -608,7 +634,7 @@ test("reports backend is registered", async () => {
 test("reports frontend exists", async () => {
   const page = await readFrontend("pages/app/reports/index.html");
   const app = await readFrontend("pages/app/reports/app.js");
-  assert.match(page, /Relatórios/);
+  assert.match(page, /Reports/);
   assert.match(app, /reports\/sales/);
 });
 
@@ -618,7 +644,7 @@ test("backup routes validate safe backup names", async () => {
   assert.match(routes, /isSafeBackupName/);
   assert.match(routes, /"backup\.restored", "backup", null, \{ backup_name: name, safety_backup_created: true \}/);
   assert.match(routes, /Restore failed/);
-  assert.match(page, /Criar backup/);
+  assert.match(page, /Criar backup|Create backup/);
 });
 
 test("concurrent backups use unique names and publish only completed encrypted files", async () => {
@@ -698,8 +724,8 @@ test("restore enters API maintenance and uses an exclusive plaintext file", asyn
 test("inventory frontend exposes movement and recipe workflows", async () => {
   const page = await readFrontend("pages/app/inventory/index.html");
   const app = await readFrontend("pages/app/inventory/app.js");
-  assert.match(page, /Ajuste ou perda/);
-  assert.match(page, /Ficha técnica/);
+  assert.match(page, /Adjustment or waste/);
+  assert.match(page, /Recipe/);
   assert.match(app, /inventory\/items/);
   assert.match(app, /\/recipe/);
 });
@@ -734,10 +760,14 @@ test("cashier frontend exposes supply and withdrawal controls", async () => {
 test("cashier recognizes QR counter payments across locales and legacy labels", async () => {
   const auth = await readFrontend("shared/auth/auth.js");
   const qrMenu = await readFrontend("pages/qr-code-final/app.js");
-  assert.match(auth, /\(\?:Pagamento\|Payment\)/);
-  assert.match(auth, /\["dinheiro no balcao", "dinheiro_balcao"\]/);
-  assert.match(auth, /\["cash at counter", "dinheiro_balcao"\]/);
-  assert.match(qrMenu, /translate\("Pagamento: "\)\}\$\{paymentMethod\}/);
+  const legacyData = await readFrontend("shared/compatibility/legacy-portuguese-data.js");
+  assert.match(auth, /legacyOrderNoteLabels\.payment/);
+  assert.match(auth, /legacyPaymentMethodEntries/);
+  assert.match(legacyData, /legacyOrderNoteLabels = Object\.freeze/);
+  assert.match(legacyData, /legacyPaymentMethodEntries = Object\.freeze/);
+  assert.match(auth, /PAYMENT_METHODS\.CASH_AT_COUNTER/);
+  assert.match(qrMenu, /translate\("orderPaymentNoteLabel"\)\}\$\{paymentMethod\}/);
+  assert.match(qrMenu, /legacyMenuQueryParams/);
 });
 
 test("backend registers the required route groups", async () => {
@@ -752,7 +782,7 @@ test("dining tabs provide advanced table service controls", async () => {
   assert.match(routes, /dining-tabs/);
   assert.match(routes, /transfer/);
   assert.match(routes, /close/);
-  assert.match(page, /Acompanhe as comandas e o atendimento de cada mesa/);
+  assert.match(page, /Track tabs and service at each table/);
   assert.match(app, /openDiningTab/);
 });
 
@@ -760,12 +790,23 @@ test("fiscal workflow saves drafts and keeps unimplemented issuance disabled", a
   const server = await read("src/server.js");
   const routes = await read("src/routes/fiscal.js");
   const page = await readFrontend("pages/app/fiscal/index.html");
+  const app = await readFrontend("pages/app/fiscal/app.js");
+  const styles = await readFrontend("pages/app/fiscal/styles.css");
+  const i18n = await readFrontend("shared/i18n/locales/en.js");
   assert.match(server, /register\(fiscalRoutes\)/);
   assert.match(routes, /Fiscal issuance is disabled until a certified provider integration/);
   assert.match(routes, /configuration: \{ issuanceAvailable: false \}/);
   assert.doesNotMatch(routes, /node:https|resolvePublicHttpsAddress|fiscal\/credentials/);
-  assert.match(page, /Documentos fiscais/);
-  assert.match(page, /A emissão está desativada/);
+  assert.match(page, /Tax documents/);
+  assert.match(page, /Drafts for reference only/);
+  assert.match(page, /Issuance status/);
+  assert.match(page, /valid tax documents cannot be issued/);
+  assert.match(page, /New draft with no tax validity/);
+  assert.match(app, /document\.status === "draft" \? "draft" : "legacy"/);
+  assert.match(app, /fiscalLegacyStatus/);
+  assert.doesNotMatch(app, /authorized:|issued:|rejected:/);
+  assert.doesNotMatch(styles, /status--authorized|status--issued|status--rejected/);
+  assert.doesNotMatch(i18n, /issueDocument|providerAuthorizedDocument/);
 });
 
 test("legacy screens expose a persistent language control", async () => {
@@ -786,7 +827,8 @@ test("integration routes expose connection and event boundaries", async () => {
   assert.match(routes, /external-orders/);
   assert.match(routes, /order\.received/);
   assert.match(routes, /external_order_id/);
-  assert.match(routes, /secure storage is configured/);
+  assert.match(routes, /Credentials must be submitted through the encrypted credentials endpoint/);
+  assert.match(routes, /only the generic webhook signing secret can be stored/);
   assert.match(routes, /const linkedOrderId = orderId \|\| externalOrders\[0\]\.order_id \|\| null/);
   assert.match(routes, /SELECT id, status FROM orders WHERE id = \? AND business_id = \? LIMIT 1 FOR UPDATE/);
   assert.match(routes, /if \(linkedOrderId && status\)/);
@@ -798,8 +840,36 @@ test("integration routes expose connection and event boundaries", async () => {
   assert.match(routes, /Integration event payload must be an object no larger than 256 KB/);
   assert.match(routes, /Integration settings must be an object no larger than 32 KB/);
   assert.match(routes, /Credentials exceed the 32 KB storage limit/);
+  assert.match(routes, /typeof credentials\.webhook_secret !== "string"/);
   assert.match(routes, /Webhook secrets must contain 16 to 512 characters/);
   assert.match(routes, /status: "processed", duplicate: true/);
+  assert.match(routes, /connectionStatuses = new Set\(\["disconnected", "pending", "error", "disabled"\]\)/);
+  assert.match(routes, /const reachable = status >= 200 && status < 300/);
+  assert.match(routes, /reachable \? "reachable" : "error"/);
+  assert.match(routes, /return \{ reachable, status, provider:/);
+  assert.match(routes, /Object\.keys\(credentials\)\.some\(\(key\) => key !== "webhook_secret"\)/);
+  assert.doesNotMatch(routes, /credentials\.api_token/);
+  assert.doesNotMatch(routes, /success: connected|return \{ connected,/);
+  const migration = await read("sql/024_integration_reachability_status.sql");
+  assert.match(migration, /UPDATE integration_connections SET status = 'reachable' WHERE status = 'connected'/);
+  assert.match(migration, /ENUM\('disconnected','pending','reachable','error','disabled'\)/);
+  const timestampMigration = await read("sql/025_integration_last_checked_at.sql");
+  assert.match(timestampMigration, /CHANGE COLUMN last_synced_at last_checked_at DATETIME NULL/);
+  assert.match(routes, /last_checked_at/);
+  assert.doesNotMatch(routes, /last_synced_at/);
+  const page = await readFrontend("pages/app/integrations/index.html");
+  const app = await readFrontend("pages/app/integrations/app.js");
+  assert.match(page, /Connectors for iFood, 99Food, Keeta, payments, and logistics are not implemented/);
+  assert.match(page, /signed order\.received events as external orders/);
+  assert.match(page, /does not authenticate with provider APIs, send orders, or sync statuses/);
+  assert.doesNotMatch(page, /Token da API/);
+  assert.match(app, /Test URL response/);
+  assert.match(app, /URL responded · provider not verified/);
+  assert.match(app, /result\.reachable/);
+  assert.match(app, /Provider connector is not implemented yet/);
+  assert.match(app, /credentials: \{ webhook_secret: webhookSecret \}/);
+  assert.doesNotMatch(app, /api_token|Token da API/);
+  assert.doesNotMatch(app, /Integration and credentials saved"/);
 });
 
 test("business-scoped public routes have explicit security boundaries", async () => {
@@ -1123,7 +1193,7 @@ test("local app shell collapses navigation to icon rail and opens its profile pa
   assert.match(shell, /const scheduleSidebarNavigationScrollSave =/);
   assert.match(shell, /addEventListener\("scroll", scheduleSidebarNavigationScrollSave/);
   assert.match(shell, /toggle\.setAttribute\("aria-expanded", String\(!collapsed\)\)/);
-  assert.match(shell, /toggle\.setAttribute\("aria-label", translate\(collapsed \? "Expandir menu" : "Minimizar menu"\)\)/);
+  assert.match(shell, /toggle\.setAttribute\("aria-label", translate\(collapsed \? "Expand menu" : "Collapse menu"\)\)/);
   assert.match(shell, /link\.setAttribute\("aria-label", translatedLabel\)/);
   assert.match(shell, /aria-haspopup", "dialog"/);
   assert.match(shell, /data-profile-view="settings"/);
@@ -1131,7 +1201,7 @@ test("local app shell collapses navigation to icon rail and opens its profile pa
   assert.match(responsive, /flex-basis:84px !important/);
   assert.match(responsive, /--app-rail:64px/);
   assert.match(responsive, /menu-sidebar__profile \.profile-label/);
-  assert.match(dashboard, /class="profile-btn" type="button" aria-label="Perfil"/);
+  assert.match(dashboard, /class="profile-btn" type="button" aria-label="(Perfil|Profile)"/);
   assert.match(entry, /DEFAULT_TARGET = "\/pages\/app\/dashboard\/index\.html"/);
   assert.match(firstRun, /minlength="2" maxlength="160" required/);
   assert.match(entry, /name\.length < 2 \|\| name\.length > 160/);
@@ -1180,14 +1250,18 @@ test("local team is a business-scoped roster and does not claim per-person acces
   const routes = await read("src/routes/platform.js");
   const page = await readFrontend("pages/app/team/index.html");
   const app = await readFrontend("pages/app/team/app.js");
+  const i18n = await readFrontend("shared/i18n/locales/en.js");
   assert.match(sql, /CREATE TABLE IF NOT EXISTS local_team_members/);
   assert.match(sql, /FOREIGN KEY \(business_id\) REFERENCES businesses\(id\) ON DELETE CASCADE/);
   assert.match(routes, /if \(user\.local\) \{\s+const \[members\] = await pool\.query\([\s\S]+?FROM local_team_members WHERE business_id = \?/);
   assert.match(routes, /INSERT INTO local_team_members \(id, business_id, name, role\)/);
   assert.match(routes, /UPDATE local_team_members SET role = \? WHERE id = \? AND business_id = \?/);
   assert.match(routes, /DELETE FROM local_team_members WHERE id = \? AND business_id = \?/);
-  assert.match(page, /não tem login individual, estas funções são apenas informativas/);
-  assert.doesNotMatch(page, /memberEmail|email@restaurante\.com|Papel de acesso/);
+  assert.match(page, /no individual sign-in, these roles are informational only/);
+  assert.match(page, /Team directory/);
+  assert.match(i18n, /teamEyebrow: "Team directory"/);
+  assert.doesNotMatch(i18n, /Choose who can access the system|Access role for|People with access/);
+  assert.doesNotMatch(page, /memberEmail|email@restaurant\.com|Access role/);
   assert.match(page, /minlength="2" maxlength="160"/);
   assert.doesNotMatch(app, /elements\.email/);
 });
@@ -1217,7 +1291,7 @@ test("menu QR codes are generated locally without sending the target URL to a QR
   assert.match(generator, /Licensed under the MIT license/);
   const { default: generateQr } = await import(new URL("../../frontend/shared/vendor/qrcode-generator.js", import.meta.url));
   const code = generateQr(0, "M");
-  code.addData("https://example.test/pages/qr-code-final/index.html?mesa=7");
+  code.addData("https://example.test/pages/qr-code-final/index.html?table=7");
   code.make();
   assert.match(code.createDataURL(8, 4), /^data:image\/gif;base64,/);
   assert.ok(code.getModuleCount() >= 21);
@@ -1235,7 +1309,7 @@ test("customer and supplier fields are bounded before database writes", async ()
 
 test("MariaDB hardening script restricts the local database to loopback", async () => {
   const script = await readRoot("desktop/harden-mariadb.ps1");
-  const readme = await readRoot("README.md");
+  const provision = await readRoot("desktop/provision-mariadb.ps1");
   assert.match(script, /bind-address=127\.0\.0\.1/);
   assert.match(script, /skip-name-resolve/);
   assert.match(script, /Copy-Item/);
@@ -1249,18 +1323,28 @@ test("MariaDB hardening script restricts the local database to loopback", async 
   assert.match(script, /\$_.PathName -match \$serviceExecutablePattern/);
   assert.doesNotMatch(script, /\$serviceRootPattern/);
   assert.match(script, /Restart-Service/);
-  assert.match(readme, /harden-mariadb\.ps1 -RestartService/);
-  assert.match(readme, /SELECT @@bind_address/);
+  assert.match(provision, /SELECT @@basedir, @@port, @@bind_address/);
 });
 
 test("desktop MariaDB defaults to the LTS series and discovers the prior supported install", async () => {
   const launcher = await readRoot("desktop/launcher.mjs");
+  const setup = await readRoot("desktop/setup-mariadb.ps1");
   const provision = await readRoot("desktop/provision-mariadb.ps1");
   const hardening = await readRoot("desktop/harden-mariadb.ps1");
   const backup = await read("src/backup.js");
   const restore = await read("src/restore.js");
   assert.match(launcher, /"C:\\\\Program Files\\\\MariaDB 11\.8", "C:\\\\Program Files\\\\MariaDB 13\.0"/);
-  assert.match(launcher, /Install and start MariaDB 11\.8/);
+  assert.match(launcher, /join\(desktopRoot, "setup-mariadb\.ps1"\)/);
+  assert.match(setup, /\$expectedVersion = "11\.8\.9"/);
+  assert.match(setup, /\$expectedHash = "[a-f0-9]{64}"/);
+  assert.match(setup, /Get-FileHash -LiteralPath \$InstallerPath -Algorithm SHA256/);
+  assert.match(setup, /Get-Process -Name "food-system-local", "Food System"/);
+  assert.ok(setup.indexOf("$runningApp.Count -gt 0") < setup.indexOf("harden-mariadb.ps1") && setup.indexOf("$runningApp.Count -gt 0") < setup.indexOf("provision-mariadb.ps1"));
+  assert.match(setup, /Close the app before setup so MariaDB can be hardened and restarted/);
+  assert.match(setup, /\$hasMariaServer -xor \$hasMariaConfig/);
+  assert.match(setup, /INSTALLDIR=/);
+  assert.match(setup, /harden-mariadb\.ps1.*-RestartService/);
+  assert.match(setup, /provision-mariadb\.ps1.*-RootPassword \$rootPassword/);
   assert.match(provision, /MariaDB 11\.8/);
   assert.match(hardening, /MariaDB 11\.8/);
   assert.match(backup, /MariaDB 11\.8.*MariaDB 13\.0/s);

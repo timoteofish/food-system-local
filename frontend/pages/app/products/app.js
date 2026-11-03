@@ -42,9 +42,9 @@ const ensureImageActions = () => {
   const actions = document.createElement("div");
   actions.className = "image-actions image-actions--overlay";
   actions.innerHTML = `
-    <button type="button" class="image-actions__item" data-image-action="edit">${translate("Editar imagem")}</button>
-    <button type="button" class="image-actions__item" data-image-action="replace">${translate("Trocar foto")}</button>
-    <button type="button" class="image-actions__item image-actions__item--danger" data-image-action="remove">${translate("Remover foto")}</button>
+    <button type="button" class="image-actions__item" data-image-action="edit">${translate("Edit image")}</button>
+    <button type="button" class="image-actions__item" data-image-action="replace">${translate("Replace photo")}</button>
+    <button type="button" class="image-actions__item image-actions__item--danger" data-image-action="remove">${translate("Remove photo")}</button>
   `;
   imagePreview?.append(actions);
   imageActions = actions;
@@ -54,10 +54,10 @@ const ensureImageActions = () => {
 const syncCategorySelect = () => {
   categorySelect.innerHTML = categoryNames.length
     ? categoryNames.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("")
-    : `<option value="">${translate("Selecione uma categoria")}</option>`;
+    : `<option value="">${translate("Select a category")}</option>`;
   if (!categoryNames.includes(categorySelect.value)) categorySelect.value = categoryNames[0] || "";
   if (productCategoryButton) {
-    productCategoryButton.textContent = categorySelect.value || translate("Escolher categoria");
+    productCategoryButton.textContent = categorySelect.value || translate("Choose category");
   }
 };
 
@@ -118,12 +118,12 @@ const imageUserPanel = initImageUserPanel({
       previewImg.hidden = !result;
     }
     if (imagePickerTitle) {
-      imagePickerTitle.textContent = translate(result ? "Foto pronta" : "Adicionar imagem");
+      imagePickerTitle.textContent = translate(result ? "Photo ready" : "Add image");
       imagePickerTitle.hidden = Boolean(result);
     }
     openImageUserPanelButton?.setAttribute(
       "aria-label",
-      translate(result ? "Editar imagem do produto" : "Adicionar imagem ao produto")
+      translate(result ? "Edit product image" : "Add an image to the product")
     );
     if (!result && imageActions) {
       imageActions.remove();
@@ -140,10 +140,10 @@ const clearProductImage = () => {
     previewImg.hidden = true;
   }
   if (imagePickerTitle) {
-    imagePickerTitle.textContent = translate("Adicionar imagem");
+    imagePickerTitle.textContent = translate("Add image");
     imagePickerTitle.hidden = false;
   }
-  openImageUserPanelButton?.setAttribute("aria-label", translate("Adicionar imagem ao produto"));
+  openImageUserPanelButton?.setAttribute("aria-label", translate("Add an image to the product"));
   if (imageActions) {
     imageActions.remove();
     imageActions = null;
@@ -189,20 +189,20 @@ const render = () => {
   if (productCount) {
     const total = products.length;
     if (productsLoadFailed) {
-      productCount.textContent = translate("Lista indisponível");
+      productCount.textContent = translate("List unavailable");
     } else if (query) {
-      productCount.textContent = translate("$1 de $2 produtos encontrados")
+      productCount.textContent = translate("$1 of $2 products found")
         .replace("$1", String(visible.length))
         .replace("$2", String(total));
     } else {
-      productCount.textContent = `${total} ${translate(total === 1 ? "produto" : "produtos")}`;
+      productCount.textContent = `${total} ${translate(total === 1 ? "productCountSingle" : "productCountPlural")}`;
     }
   }
 
   const productRows = visible.map((item) => {
-    const productName = escapeHtml(item.name || translate("Produto sem nome"));
-    const statusLabel = translate(item.active ? "Ativo" : "Inativo");
-    const statusAction = escapeHtml(translate(item.active ? "Desativar produto" : "Ativar produto"));
+    const productName = escapeHtml(item.name || translate("Unnamed product"));
+    const statusLabel = translate(item.active ? "Active" : "Inactive");
+    const statusAction = escapeHtml(translate(item.active ? "Deactivate product" : "Activate product"));
     return `
       <tr data-id="${escapeHtml(item.id)}">
         <td>${renderImage(item)}</td>
@@ -225,28 +225,28 @@ const render = () => {
 
   if (productsLoadFailed) {
     list.setAttribute("aria-busy", "false");
-    list.innerHTML = `<tr><td class="products-table-empty" colspan="6">${translate("A lista de produtos está indisponível.")}</td></tr>`;
+    list.innerHTML = `<tr><td class="products-table-empty" colspan="6">${translate("The product list is unavailable")}</td></tr>`;
   } else if (visible.length) {
     list.setAttribute("aria-busy", "false");
     list.innerHTML = productRows;
   } else {
     list.setAttribute("aria-busy", "false");
-    const message = translate(query ? "Nenhum produto corresponde à busca" : "Nenhum produto cadastrado");
+    const message = translate(query ? "No products match your search" : "No products added");
     list.innerHTML = `<tr><td class="products-table-empty" colspan="6">${message}</td></tr>`;
   }
 
   if (mobileList) {
     if (productsLoadFailed) {
-      mobileList.innerHTML = `<p class="mobile-product-list__empty">${translate("A lista de produtos está indisponível.")}</p>`;
+      mobileList.innerHTML = `<p class="mobile-product-list__empty">${translate("The product list is unavailable")}</p>`;
     } else if (visible.length) {
       mobileList.innerHTML = visible.map((item) => `
         <button class="mobile-product-list__item" type="button" data-product-detail="${escapeHtml(item.id)}">
-          <span>${escapeHtml(item.name || translate("Produto sem nome"))}</span>
+          <span>${escapeHtml(item.name || translate("Unnamed product"))}</span>
           <b class="mobile-product-list__arrow" aria-hidden="true">›</b>
         </button>
       `).join("");
     } else {
-      mobileList.innerHTML = `<p class="mobile-product-list__empty">${translate(query ? "Nenhum produto corresponde à busca" : "Nenhum produto cadastrado")}</p>`;
+      mobileList.innerHTML = `<p class="mobile-product-list__empty">${translate(query ? "No products match your search" : "No products added")}</p>`;
     }
   }
 };
@@ -259,7 +259,7 @@ const productDetailsPanel = initProductDetailsPanel({
       render();
       return updated;
     } catch {
-      showProductFeedback(translate("Não foi possível atualizar o status Tente novamente"));
+      showProductFeedback(translate("Could not update the status Try again"));
       return null;
     }
   },
@@ -275,7 +275,7 @@ list.addEventListener("click", async (event) => {
     render();
   } catch {
     button.disabled = false;
-    showProductFeedback(translate("Não foi possível atualizar o status Tente novamente"));
+    showProductFeedback(translate("Could not update the status Try again"));
   }
 });
 
@@ -291,11 +291,11 @@ form.addEventListener("submit", async (event) => {
   const name = document.getElementById("productName").value.trim();
   if (!name) {
     document.getElementById("productName").focus();
-    showProductFeedback(translate("Informe o nome do produto"));
+    showProductFeedback(translate("Enter the product name"));
     return;
   }
   if (!categorySelect.value) {
-    showProductFeedback(translate("Escolha uma categoria ou adicione uma nova"));
+    showProductFeedback(translate("Choose a category or add a new one"));
     productCategoryButton.focus();
     return;
   }
@@ -313,9 +313,9 @@ form.addEventListener("submit", async (event) => {
       active: true,
     });
     products.unshift(saved);
-    showProductFeedback(translate("Produto adicionado"), "success");
+    showProductFeedback(translate("Product added"), "success");
   } catch {
-    showProductFeedback(translate("Não foi possível adicionar o produto Verifique a conexão e tente novamente"));
+    showProductFeedback(translate("Could not add the product Check your connection and try again"));
     return;
   } finally {
     submitButton.disabled = false;
@@ -412,8 +412,8 @@ const initializeProducts = async () => {
   clearProductFeedback();
   list.setAttribute("aria-busy", "true");
   if (!products.length) {
-    list.innerHTML = `<tr><td class="products-table-empty" colspan="6" role="status">${translate("Carregando produtos")}</td></tr>`;
-    mobileList.innerHTML = `<p class="mobile-product-list__empty" role="status">${translate("Carregando produtos")}</p>`;
+    list.innerHTML = `<tr><td class="products-table-empty" colspan="6" role="status">${translate("Loading products")}</td></tr>`;
+    mobileList.innerHTML = `<p class="mobile-product-list__empty" role="status">${translate("Loading products")}</p>`;
   }
   let appShellFailed = false;
   try {
@@ -433,8 +433,8 @@ const initializeProducts = async () => {
     productsLoadFailed = true;
     render();
     showProductFeedback(translate(appShellFailed
-      ? "Não foi possível abrir a página de produtos"
-      : "Não foi possível carregar os produtos Verifique a conexão e tente novamente"));
+      ? "Could not open the products page"
+      : "Could not load products Check your connection and try again"));
     productsRetry.hidden = false;
   }
   if (!productsLoadFailed) {
@@ -445,7 +445,7 @@ const initializeProducts = async () => {
       productsRetry.hidden = true;
     } catch {
       categoryNames = [];
-      showProductFeedback(translate("Não foi possível carregar as categorias Você ainda pode adicionar uma categoria nova"));
+      showProductFeedback(translate("Could not load categories You can still add a new category"));
       productsRetry.hidden = false;
     }
     syncCategorySelect();

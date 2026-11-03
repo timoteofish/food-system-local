@@ -43,17 +43,17 @@ const renderList = (element, rows, emptyMessage, getDetails) => {
 const setListError = (element, message) => {
   if (!element) return;
   element.setAttribute("aria-busy", "false");
-  element.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(message)}</p><button class="btn btn--secondary" type="button" data-contact-retry>${translate("Tentar novamente")}</button></div>`;
+  element.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(message)}</p><button class="btn btn--secondary" type="button" data-contact-retry>${translate("Try again")}</button></div>`;
 };
 
 const load = async () => {
   if (loading) return;
   loading = true;
   const listConfigs = {
-    customers: ["customerList", "Carregando clientes", "customers", "Nenhum cliente cadastrado", (customer) => customer.phone || customer.email || ""],
-    suppliers: ["supplierList", "Carregando fornecedores", "suppliers", "Nenhum fornecedor cadastrado", (supplier) => supplier.phone || supplier.tax_id || ""],
-    discounts: ["discountList", "Carregando descontos", "discounts", "Nenhum desconto cadastrado", (discount) => {
-      const code = discount.code ? `${translate("Código: ")}${discount.code}` : translate("Sem código");
+    customers: ["customerList", "Loading customers", "customers", "No customers added", (customer) => customer.phone || customer.email || ""],
+    suppliers: ["supplierList", "Loading suppliers", "suppliers", "No suppliers added", (supplier) => supplier.phone || supplier.tax_id || ""],
+    discounts: ["discountList", "Loading discounts", "discounts", "No discounts added", (discount) => {
+      const code = discount.code ? `${translate("Code: ")}${discount.code}` : translate("No code");
       return `${code} · ${formatDiscount(discount)}`;
     }],
   };
@@ -71,10 +71,10 @@ const load = async () => {
     const result = await Promise.allSettled([apiRequest(`/businesses/${businessId}/${endpoint}`)]).then(([item]) => item);
 
     if (result.status === "rejected") {
-      const message = translate("Não foi possível carregar os cadastros");
+      const message = translate("Could not load records");
       setListError(list, message);
       if (customerSelect) {
-        customerSelect.innerHTML = `<option value="">${translate("Não foi possível carregar os clientes")}</option>`;
+        customerSelect.innerHTML = `<option value="">${translate("Could not load customers")}</option>`;
         customerSelect.disabled = true;
       }
       if (list || customerSelect) showToast(message, { type: "error" });
@@ -85,7 +85,7 @@ const load = async () => {
     if (config) renderList(list, rows, config[3], config[4]);
     if (customerSelect) {
       customerSelect.innerHTML = [
-        `<option value="">${translate("Selecione um cliente")}</option>`,
+        `<option value="">${translate("Select a customer")}</option>`,
         ...rows.map((customer) => `<option value="${escapeHtml(customer.id)}">${escapeHtml(customer.name)}</option>`),
       ].join("");
       customerSelect.disabled = false;
@@ -116,16 +116,16 @@ const bindCreateForm = ({ id, endpoint, resource, successMessage }) => {
       showToast(translate(successMessage));
       await load();
     } catch {
-      showToast(translate("Não foi possível salvar o cadastro"), { type: "error" });
+      showToast(translate("Could not save the record"), { type: "error" });
     } finally {
       button.disabled = false;
     }
   });
 };
 
-bindCreateForm({ id: "customerForm", endpoint: "customers", resource: "customer", successMessage: "Cliente cadastrado" });
-bindCreateForm({ id: "supplierForm", endpoint: "suppliers", resource: "supplier", successMessage: "Fornecedor cadastrado" });
-bindCreateForm({ id: "discountForm", endpoint: "discounts", resource: "discount", successMessage: "Desconto criado" });
+bindCreateForm({ id: "customerForm", endpoint: "customers", resource: "customer", successMessage: "Customer added" });
+bindCreateForm({ id: "supplierForm", endpoint: "suppliers", resource: "supplier", successMessage: "Supplier added" });
+bindCreateForm({ id: "discountForm", endpoint: "discounts", resource: "discount", successMessage: "Discount created" });
 
 document.getElementById("loyaltyForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -147,12 +147,12 @@ document.getElementById("loyaltyForm")?.addEventListener("submit", async (event)
       method: "POST",
       body: { points },
     });
-    status.textContent = `${translate("Saldo de pontos: ")}${number.format(data.points)}`;
+    status.textContent = `${translate("Points balance: ")}${number.format(data.points)}`;
     status.hidden = false;
     form.reset();
     await load();
   } catch {
-    showToast(translate("Não foi possível atualizar os pontos"), { type: "error" });
+    showToast(translate("Could not update points"), { type: "error" });
   } finally {
     if (button) button.disabled = false;
   }
@@ -172,7 +172,7 @@ const start = async () => {
     await load();
   } catch {
     if (contactsLoadError) {
-      contactsLoadError.textContent = translate("Não foi possível abrir os cadastros");
+      contactsLoadError.textContent = translate("Could not open records");
       contactsLoadError.hidden = false;
     }
     if (contactsLoadRetry) contactsLoadRetry.hidden = false;

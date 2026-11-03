@@ -51,7 +51,7 @@ export default async function businessesRoutes(app) {
 
   app.post("/api/v1/businesses", async (request, reply) => {
     const user = await authenticate(request);
-    if (!user) return reply.unauthorized("Sessão inválida");
+    if (!user) return reply.unauthorized("Invalid session");
     const { name, description = "", primary_color = "#0f766e" } = request.body || {};
     if (!hasValidBusinessName(name)) return reply.badRequest("Business name must be between 2 and 160 characters");
     if (!hasValidBusinessDescription(description)) return reply.badRequest("Business description must be text no longer than 65535 bytes");

@@ -663,7 +663,7 @@ body.modal-open{overflow:hidden}
   }
 }
 
-/* Cardápio-specific responsive content. The shared app shell owns the sidebar. */
+/* Menu-specific responsive content. The shared app shell owns the sidebar. */
 @media(max-width:767px){
   .menu-search{
     display:grid;

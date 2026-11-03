@@ -25,7 +25,7 @@ const findDumpTool = async () => {
   for (const candidate of candidates) {
     try { await access(candidate); return candidate; } catch { }
   }
-  throw new Error("mariadb-dump/mysqldump não encontrado. Instale MariaDB ou defina MARIADB_DUMP_PATH.");
+  throw new Error("mariadb-dump/mysqldump was not found. Install MariaDB or set MARIADB_DUMP_PATH.");
 };
 
 const backupName = process.argv[2] || createBackupName();
@@ -57,4 +57,4 @@ try {
     rm(temporaryOutput, { force: true }),
   ]);
 }
-console.log(`Backup criado: ${output}`);
+console.log(`Backup created: ${output}`);

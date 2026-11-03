@@ -1,5 +1,6 @@
 import { completeRegistration } from "../../../shared/auth/auth.js";
 import { getPendingRegistration, savePendingRegistration } from "../../../shared/data/storage.js";
+import { translate } from "../../../shared/i18n/i18n.js";
 
 const pending = getPendingRegistration();
 
@@ -18,7 +19,7 @@ let companyPhoto = pending?.businessAvatar || "";
 
 const showFeedback = (message) => {
   if (!feedback) return;
-  feedback.textContent = message;
+  feedback.textContent = translate(message);
   feedback.hidden = false;
 };
 
@@ -47,7 +48,7 @@ photoInput.addEventListener("change", () => {
   if (!file) return;
 
   if (!file.type.startsWith("image/")) {
-    showFeedback("Escolha um arquivo de imagem");
+    showFeedback("Choose an image file");
     photoInput.value = "";
     return;
   }
@@ -66,7 +67,7 @@ form.addEventListener("submit", async (event) => {
 
   const businessName = businessNameInput.value.trim();
   if (!businessName) {
-    showFeedback("Informe o nome do comércio para continuar");
+    showFeedback("Enter your business name to continue");
     businessNameInput.focus();
     return;
   }
@@ -82,6 +83,6 @@ form.addEventListener("submit", async (event) => {
     await completeRegistration();
     window.location.href = "../../app/dashboard/index.html";
   } catch (error) {
-    showFeedback(error?.message || "Não foi possível concluir o cadastro");
+    showFeedback(error?.message || "Could not complete registration");
   }
 });

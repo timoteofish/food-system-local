@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <title>Entregas | Food System</title>
+    <title data-courier-i18n="My deliveries">My deliveries</title>
     <link rel="icon" href="../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../styles/base.css" />
     <link rel="stylesheet" href="../../styles/theme.css" />
@@ -13,12 +13,12 @@
   </head>
   <body>
     <main>
-      <h1>Minhas entregas</h1>
-      <p>Informe o token fornecido pelo estabelecimento para acessar suas entregas</p>
+      <h1 data-courier-i18n="My deliveries">My deliveries</h1>
+      <p data-courier-i18n="Enter the token provided by the restaurant to access your deliveries">Enter the token provided by the restaurant to access your deliveries</p>
       <form id="tokenForm">
-        <label for="courierToken">Token do entregador</label>
+        <label for="courierToken" data-courier-i18n="Courier token">Courier token</label>
         <input id="courierToken" type="password" autocomplete="off" required />
-        <div class="actions"><button type="submit">Acessar entregas</button><button class="secondary" id="sendLocation" type="button">Enviar minha localização</button><button class="secondary" id="clearToken" type="button">Sair</button></div>
+        <div class="actions"><button type="submit" data-courier-i18n="Access deliveries">Access deliveries</button><button class="secondary" id="sendLocation" type="button" data-courier-i18n="Send my location">Send my location</button><button class="secondary" id="clearToken" type="button" data-courier-i18n="Sign out">Sign out</button></div>
       </form>
       <p id="message" role="status"></p>
       <section id="deliveries" aria-live="polite"></section>

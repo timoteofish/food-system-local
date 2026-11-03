@@ -10,7 +10,7 @@ if (-not (Test-Path -LiteralPath $configPath)) { throw "MariaDB configuration no
 
 $content = Get-Content -LiteralPath $configPath -Raw
 if ($content -notmatch '(?im)^\[mysqld\]') { throw "The MariaDB configuration has no [mysqld] section" }
-$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmssfff"
 $backupPath = "$configPath.food-system-backup-$timestamp"
 if ($PSCmdlet.ShouldProcess($configPath, "Create a backup at $backupPath and restrict MariaDB to loopback")) {
   Copy-Item -LiteralPath $configPath -Destination $backupPath -Force

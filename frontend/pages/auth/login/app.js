@@ -17,9 +17,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const form = document.getElementById("loginForm");
-  const emailInput = document.getElementById("usuario");
-  const passwordInput = document.getElementById("senha");
-  const rememberInput = document.getElementById("lembrar");
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+  const rememberInput = document.getElementById("rememberMe");
   const feedback = document.getElementById("loginFeedback");
   const submitButton = form?.querySelector('[type="submit"]');
 
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (googleBtnContainer) {
     const button = document.createElement("button");
     button.type = "button";
-    button.setAttribute("aria-label", translate("Entrar com Google"));
+    button.setAttribute("aria-label", translate("continueWithGoogle"));
     button.className = "google-icon-btn";
     button.innerHTML = `
       <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false" width="22" height="22">
@@ -56,7 +56,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loginWithFirebaseGoogle();
         goWithLoading("/pages/app/dashboard/index.html");
       } catch (error) {
-        showFeedback(error.message || "Não foi possível entrar com o Google");
+        showFeedback(error.message || "Could not sign in with Google");
         button.disabled = false;
       }
     });
@@ -70,7 +70,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const password = passwordInput.value;
 
     if (!email || !password) {
-      showFeedback("Preencha e-mail e senha");
+      showFeedback("Enter your email and password");
       return;
     }
 
@@ -81,7 +81,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       setRememberedUser(rememberInput?.checked ? email : "");
       goWithLoading("/pages/app/dashboard/index.html");
     } catch (error) {
-      showFeedback(error.message || "Não foi possível entrar");
+      showFeedback(error.message || "Could not sign in");
       if (submitButton) submitButton.disabled = false;
     }
   });

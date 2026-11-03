@@ -16,16 +16,16 @@ let appShellReady = false;
 let couriers = [];
 
 const statusLabels = {
-  requested: "Aguardando entregador",
-  assigned: "Aguardando coleta",
-  picked_up: "Em trânsito",
-  delivered: "Entregue",
-  cancelled: "Cancelada",
-  failed: "Entrega com problema",
+  requested: "Waiting for a driver",
+  assigned: "Waiting for pickup",
+  picked_up: "In transit",
+  delivered: "Delivered",
+  cancelled: "Canceled",
+  failed: "Delivery issue",
 };
 const nextStatus = {
-  assigned: { value: "picked_up", label: "Saiu para entrega" },
-  picked_up: { value: "delivered", label: "Concluir entrega" },
+  assigned: { value: "picked_up", label: "Out for delivery" },
+  picked_up: { value: "delivered", label: "Complete delivery" },
 };
 
 const setMessage = (element, message, type = "success") => {
@@ -52,13 +52,13 @@ const formatAddress = (delivery) => {
   return [address.street, address.number, address.neighborhood, address.city]
     .filter(Boolean)
     .map(escapeHtml)
-    .join(", ") || translate("Endereço não informado");
+    .join(", ") || translate("Address not provided");
 };
 
 const renderCouriers = (couriers) => {
   courierList.setAttribute("aria-busy", "false");
   if (!couriers.length) {
-    courierList.innerHTML = renderEmpty("Nenhum entregador cadastrado");
+    courierList.innerHTML = renderEmpty("No drivers registered");
     return;
   }
 
@@ -73,28 +73,28 @@ const renderCouriers = (couriers) => {
 const renderDeliveries = (deliveries) => {
   deliveryList.setAttribute("aria-busy", "false");
   if (!deliveries.length) {
-    deliveryList.innerHTML = renderEmpty("Nenhuma entrega registrada");
+    deliveryList.innerHTML = renderEmpty("No deliveries yet");
     return;
   }
 
   deliveryList.innerHTML = deliveries.map((delivery) => {
     const status = statusLabels[delivery.status] ? delivery.status : "unknown";
-    const label = translate(statusLabels[status] || "Situação desconhecida");
+    const label = translate(statusLabels[status] || "Unknown status");
     const next = nextStatus[delivery.status];
     const orderNumber = String(delivery.order_id || "").slice(-6).toUpperCase() || "—";
     const courierDetail = delivery.status === "requested"
       ? ""
-      : `<p class="delivery-card__courier">${translate("Entregador: ")}${escapeHtml(delivery.courier_name || translate("Não atribuído"))}</p>`;
+      : `<p class="delivery-card__courier">${translate("Driver: ")}${escapeHtml(delivery.courier_name || translate("Unassigned"))}</p>`;
     const assignmentControls = delivery.status === "requested"
       ? couriers.length
-        ? `<div class="delivery-assignment"><label for="courier-${escapeHtml(delivery.id)}">${translate("Entregador")}</label><select id="courier-${escapeHtml(delivery.id)}" data-courier-for-delivery><option value="">${translate("Selecione um entregador")}</option>${couriers.map((courier) => `<option value="${escapeHtml(courier.id)}">${escapeHtml(courier.name)}</option>`).join("")}</select><button class="btn btn--primary" data-assign-delivery="${escapeHtml(delivery.id)}" data-order-id="${escapeHtml(delivery.order_id)}" type="button" disabled>${translate("Atribuir e iniciar entrega")}</button></div>`
-        : `<p class="delivery-card__courier">${translate("Cadastre um entregador para iniciar esta entrega.")}</p>`
+        ? `<div class="delivery-assignment"><label for="courier-${escapeHtml(delivery.id)}">${translate("Driver")}</label><select id="courier-${escapeHtml(delivery.id)}" data-courier-for-delivery><option value="">${translate("Select a driver")}</option>${couriers.map((courier) => `<option value="${escapeHtml(courier.id)}">${escapeHtml(courier.name)}</option>`).join("")}</select><button class="btn btn--primary" data-assign-delivery="${escapeHtml(delivery.id)}" data-order-id="${escapeHtml(delivery.order_id)}" type="button" disabled>${translate("Assign and start delivery")}</button></div>`
+        : `<p class="delivery-card__courier">${translate("Add a driver to start this delivery")}</p>`
       : "";
 
     return `
       <article class="operation-card delivery-card delivery-card--${status}">
         <div class="operation-card__head delivery-card__head">
-          <strong>${translate("Pedido ")}${escapeHtml(orderNumber)}</strong>
+          <strong>${translate("Order ")}${escapeHtml(orderNumber)}</strong>
           <span class="operation-card__status operation-card__status--${status}">${label}</span>
         </div>
         <p class="operation-card__meta delivery-card__address">${formatAddress(delivery)}</p>
@@ -129,14 +129,14 @@ const load = async () => {
   } else {
     couriers = [];
     courierList.setAttribute("aria-busy", "false");
-    courierList.innerHTML = `<div class="operation-empty" role="alert"><p>${translate("Não foi possível carregar os entregadores.")}</p><button class="btn btn--secondary" type="button" data-delivery-retry>${translate("Tentar novamente")}</button></div>`;
+    courierList.innerHTML = `<div class="operation-empty" role="alert"><p>${translate("Could not load drivers")}</p><button class="btn btn--secondary" type="button" data-delivery-retry>${translate("Try again")}</button></div>`;
   }
   if (deliveryResult.status === "fulfilled") {
     const deliveries = Array.isArray(deliveryResult.value.deliveries) ? deliveryResult.value.deliveries : [];
     renderDeliveries(deliveries);
   } else {
     deliveryList.setAttribute("aria-busy", "false");
-    deliveryList.innerHTML = `<div class="operation-empty" role="alert"><p>${translate("Não foi possível carregar as entregas.")}</p><button class="btn btn--secondary" type="button" data-delivery-retry>${translate("Tentar novamente")}</button></div>`;
+    deliveryList.innerHTML = `<div class="operation-empty" role="alert"><p>${translate("Could not load deliveries")}</p><button class="btn btn--secondary" type="button" data-delivery-retry>${translate("Try again")}</button></div>`;
   }
   return courierResult.status === "fulfilled" && deliveryResult.status === "fulfilled";
 };
@@ -161,7 +161,7 @@ courierForm.addEventListener("submit", async (event) => {
   const name = document.getElementById("courierName").value.trim();
   if (!name) {
     document.getElementById("courierName").focus();
-    setMessage(courierMessage, "Informe o nome do entregador", "error");
+    setMessage(courierMessage, "Enter the driver's name", "error");
     return;
   }
 
@@ -177,10 +177,10 @@ courierForm.addEventListener("submit", async (event) => {
       },
     });
     form.reset();
-    setMessage(courierMessage, "Entregador cadastrado");
+    setMessage(courierMessage, "Driver added");
     await load();
   } catch (error) {
-    setMessage(courierMessage, "Não foi possível cadastrar o entregador", "error");
+    setMessage(courierMessage, "Could not add the driver", "error");
   } finally {
     button.disabled = false;
   }
@@ -200,11 +200,11 @@ deliveryList.addEventListener("click", async (event) => {
         method: "POST",
         body: { courier_id: courierId },
       });
-      setMessage(deliveryMessage, "Entrega atribuída");
+      setMessage(deliveryMessage, "Delivery assigned");
       await load();
     } catch (error) {
       assignButton.disabled = false;
-      setMessage(deliveryMessage, "Não foi possível atribuir a entrega", "error");
+      setMessage(deliveryMessage, "Could not assign the delivery", "error");
     }
     return;
   }
@@ -220,11 +220,11 @@ deliveryList.addEventListener("click", async (event) => {
       method: "PATCH",
       body: { status: button.dataset.nextStatus },
     });
-    setMessage(deliveryMessage, "Entrega atualizada");
+    setMessage(deliveryMessage, "Delivery updated");
     await load();
   } catch (error) {
     button.disabled = false;
-    setMessage(deliveryMessage, "Não foi possível atualizar a entrega", "error");
+    setMessage(deliveryMessage, "Could not update the delivery", "error");
   }
 });
 
@@ -239,7 +239,7 @@ const start = async () => {
     }
     await load();
   } catch (error) {
-    deliveryLoadError.textContent = translate("Não foi possível abrir as entregas");
+    deliveryLoadError.textContent = translate("Could not open deliveries");
     deliveryLoadError.hidden = false;
     deliveryLoadRetry.hidden = false;
   } finally {

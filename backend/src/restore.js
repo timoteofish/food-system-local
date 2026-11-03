@@ -8,7 +8,7 @@ import { config } from "./config.js";
 
 const execFileAsync = promisify(execFile);
 const input = process.argv[2];
-if (!input) throw new Error("Uso: npm run db:restore -- caminho\\backup.sql");
+if (!input) throw new Error("Usage: npm run db:restore -- path\\backup.sql");
 await access(input);
 
 const candidates = [
@@ -23,7 +23,7 @@ let client;
 for (const candidate of candidates) {
   try { await execFileAsync(candidate, ["--version"]); client = candidate; break; } catch { }
 }
-if (!client) throw new Error("mariadb/mysql não encontrado. Instale MariaDB ou defina MARIADB_CLIENT_PATH.");
+if (!client) throw new Error("mariadb/mysql was not found. Install MariaDB or set MARIADB_CLIENT_PATH.");
 
 const mysql = config.mysqlMaintenance;
 const clientArgs = ["--host", mysql.host, "--port", String(mysql.port), "--user", mysql.user, mysql.database];
@@ -56,11 +56,11 @@ try {
   ]);
   if (processResult.status === "rejected") throw processResult.reason;
   if (timedOut) throw new Error("Database restore exceeded the 120-second limit");
-  if (processResult.value.code !== 0) throw new Error(`Restauração falhou com código ${processResult.value.code ?? processResult.value.signal}`);
+  if (processResult.value.code !== 0) throw new Error(`Database restore failed with code ${processResult.value.code ?? processResult.value.signal}`);
   if (inputResult.status === "rejected") throw inputResult.reason;
 } finally {
   clearTimeout(timeout);
   if (child.exitCode === null && !child.killed) child.kill();
   await closePromise.catch(() => {});
 }
-console.log(`Backup restaurado: ${input}`);
+console.log(`Backup restored: ${input}`);

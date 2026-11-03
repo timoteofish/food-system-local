@@ -7,7 +7,7 @@ import { requestPublicHttps } from "../outbound-request.js";
 import { canTransitionOrderStatus } from "../order-status.js";
 
 const providers = new Set(["ifood", "99food", "keeta", "delivery_logistics", "payment"]);
-const connectionStatuses = new Set(["disconnected", "pending", "connected", "error", "disabled"]);
+const connectionStatuses = new Set(["disconnected", "pending", "error", "disabled"]);
 const externalStatuses = new Set(["received", "accepted", "preparing", "ready", "out_for_delivery", "completed", "cancelled", "failed"]);
 const MAX_INTEGRATION_SETTINGS_BYTES = 32 * 1024;
 const MAX_INTEGRATION_EVENT_BYTES = 256 * 1024;
@@ -36,7 +36,7 @@ export default async function integrationRoutes(app) {
     const user = await requireRole(request, reply);
     if (!user) return;
     const [connections] = await pool.query(
-      "SELECT id, business_id, provider, display_name, status, settings, last_error, last_synced_at, created_at, updated_at FROM integration_connections WHERE business_id = ? ORDER BY display_name",
+      "SELECT id, business_id, provider, display_name, status, settings, last_error, last_checked_at, created_at, updated_at FROM integration_connections WHERE business_id = ? ORDER BY display_name",
       [request.params.businessId],
     );
     return { connections };
@@ -49,7 +49,7 @@ export default async function integrationRoutes(app) {
     if (!isJsonObject(body)) return reply.badRequest("Integration data must be an object");
     const provider = typeof body.provider === "string" ? body.provider : "";
     if (!providers.has(provider)) return reply.badRequest("Invalid integration provider");
-    if (body.credentials !== undefined) return reply.badRequest("Integration credentials are not available until secure storage is configured");
+    if (body.credentials !== undefined) return reply.badRequest("Credentials must be submitted through the encrypted credentials endpoint");
     if (body.display_name !== undefined && (typeof body.display_name !== "string" || !body.display_name.trim() || body.display_name.trim().length > 120)) return reply.badRequest("Integration name must contain 1 to 120 characters");
     const settings = body.settings === undefined ? {} : body.settings;
     if (!isJsonObject(settings) || Buffer.byteLength(JSON.stringify(settings), "utf8") > MAX_INTEGRATION_SETTINGS_BYTES) return reply.badRequest("Integration settings must be an object no larger than 32 KB");
@@ -68,11 +68,11 @@ export default async function integrationRoutes(app) {
     const body = request.body;
     if (!isJsonObject(body)) return reply.badRequest("Integration update must be an object");
     const status = body.status === undefined ? "" : typeof body.status === "string" ? body.status : null;
-    if (status === null || (body.status !== undefined && !connectionStatuses.has(status))) return reply.badRequest("Invalid integration status");
+    if (status === null || (body.status !== undefined && !connectionStatuses.has(status))) return reply.badRequest("Invalid integration status; reachability can only be set by the URL test");
     if (body.display_name !== undefined && (typeof body.display_name !== "string" || !body.display_name.trim() || body.display_name.trim().length > 120)) return reply.badRequest("Integration name must contain 1 to 120 characters");
     if (body.settings !== undefined && (!isJsonObject(body.settings) || Buffer.byteLength(JSON.stringify(body.settings), "utf8") > MAX_INTEGRATION_SETTINGS_BYTES)) return reply.badRequest("Integration settings must be an object no larger than 32 KB");
     const [result] = await pool.query(
-      "UPDATE integration_connections SET display_name = COALESCE(?, display_name), status = COALESCE(?, status), settings = COALESCE(?, settings), last_error = CASE WHEN ? = 'connected' THEN NULL ELSE last_error END WHERE id = ? AND business_id = ?",
+      "UPDATE integration_connections SET display_name = COALESCE(?, display_name), status = COALESCE(?, status), settings = COALESCE(?, settings), last_error = CASE WHEN ? IN ('disconnected','disabled') THEN NULL ELSE last_error END WHERE id = ? AND business_id = ?",
       [body.display_name === undefined ? null : body.display_name.trim(), status || null, body.settings === undefined ? null : JSON.stringify(body.settings), status || null, request.params.id, request.params.businessId],
     );
     if (!result.affectedRows) return reply.notFound("Integration not found");
@@ -86,9 +86,12 @@ export default async function integrationRoutes(app) {
     if (!hasSecretKey()) return reply.code(503).send({ error: "FOOD_SYSTEM_SECRET_KEY is not configured" });
     const credentials = request.body?.credentials;
     if (!credentials || typeof credentials !== "object" || Array.isArray(credentials)) return reply.badRequest("Credentials are required");
+    if (Object.keys(credentials).some((key) => key !== "webhook_secret")) {
+      return reply.badRequest("Provider API credentials are not supported; only the generic webhook signing secret can be stored");
+    }
     const serializedCredentials = JSON.stringify(credentials);
     if (Buffer.byteLength(serializedCredentials, "utf8") > 32 * 1024) return reply.badRequest("Credentials exceed the 32 KB storage limit");
-    if (credentials.webhook_secret !== undefined && (typeof credentials.webhook_secret !== "string" || credentials.webhook_secret.length < 16 || credentials.webhook_secret.length > 512)) {
+    if (typeof credentials.webhook_secret !== "string" || credentials.webhook_secret.length < 16 || credentials.webhook_secret.length > 512) {
       return reply.badRequest("Webhook secrets must contain 16 to 512 characters");
     }
     const [connections] = await pool.query("SELECT id FROM integration_connections WHERE id = ? AND business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
@@ -119,10 +122,10 @@ export default async function integrationRoutes(app) {
     }
     try {
       const status = await requestPublicHttps(testUrl);
-      const connected = status >= 200 && status < 300;
-      await pool.query("UPDATE integration_connections SET status = ?, last_error = ?, last_synced_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ?", [connected ? "connected" : "error", connected ? null : `HTTP ${status}`, request.params.id, request.params.businessId]);
-      await audit(request, user, "integration.tested", "integration", request.params.id, { provider: connections[0].provider, http_status: status, success: connected });
-      return { connected, status, provider: connections[0].provider };
+      const reachable = status >= 200 && status < 300;
+      await pool.query("UPDATE integration_connections SET status = ?, last_error = ?, last_checked_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ?", [reachable ? "reachable" : "error", reachable ? null : `HTTP ${status}`, request.params.id, request.params.businessId]);
+      await audit(request, user, "integration.tested", "integration", request.params.id, { provider: connections[0].provider, http_status: status, url_reachable: reachable });
+      return { reachable, status, provider: connections[0].provider };
     } catch {
       await pool.query("UPDATE integration_connections SET status = 'error', last_error = 'Connection failed' WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
       await audit(request, user, "integration.test_failed", "integration", request.params.id, { provider: connections[0].provider });

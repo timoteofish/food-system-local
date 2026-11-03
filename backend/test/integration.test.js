@@ -31,7 +31,7 @@ test("API completes the local restaurant operation flow", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const registered = await request("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email: `integration-${suffix}@example.test`, name: "Integration Owner", password: "SenhaSegura123" }),
+    body: JSON.stringify({ email: `integration-${suffix}@example.test`, name: "Integration Owner", password: "SecurePassword123" }),
   });
   assert.ok(registered.token);
   const auth = { Authorization: `Bearer ${registered.token}` };
@@ -41,17 +41,17 @@ test("API completes the local restaurant operation flow", async () => {
   assert.equal(profile.user.email, registered.user.email);
 
   const category = await request(`/businesses/${businessId}/categories`, {
-    method: "POST", headers: auth, body: JSON.stringify({ name: "Integração" }),
+    method: "POST", headers: auth, body: JSON.stringify({ name: "Integration" }),
   });
   const product = await request(`/businesses/${businessId}/products`, {
-    method: "POST", headers: auth, body: JSON.stringify({ name: "Produto de teste", price: 12.5, category_id: category.category.id }),
+    method: "POST", headers: auth, body: JSON.stringify({ name: "Test product", price: 12.5, category_id: category.category.id }),
   });
   const table = await request(`/businesses/${businessId}/tables`, {
-    method: "POST", headers: auth, body: JSON.stringify({ name: "Mesa integração" }),
+    method: "POST", headers: auth, body: JSON.stringify({ name: "Integration table" }),
   });
   await request(`/businesses/${businessId}`, {
     method: "PATCH", headers: auth,
-    body: JSON.stringify({ settings: { gradient_start: "#112233", gradient_end: "#334455", gradient_angle: 45, menu_banner: "Bem-vindo", show_all_products: false, selected_categories: ["Integração"], api_token: "must-not-be-public" } }),
+    body: JSON.stringify({ settings: { gradient_start: "#112233", gradient_end: "#334455", gradient_angle: 45, menu_banner: "Welcome", show_all_products: false, selected_categories: ["Integration"], api_token: "must-not-be-public" } }),
   });
   const menu = await request(`/menu/${table.table.public_token}`);
   assert.equal(menu.table.id, table.table.id);
@@ -60,7 +60,7 @@ test("API completes the local restaurant operation flow", async () => {
   assert.equal(menu.business_name, registered.business.name);
   assert.equal(menu.products[0].id, product.product.id);
   assert.equal(menu.gradient_start, "#112233");
-  assert.deepEqual(menu.selected_categories, ["Integração"]);
+  assert.deepEqual(menu.selected_categories, ["Integration"]);
   assert.equal(menu.api_token, undefined);
   assert.equal(menu.settings, undefined);
   const directMenu = await request(`/businesses/${businessId}/public`);
@@ -74,7 +74,7 @@ test("API completes the local restaurant operation flow", async () => {
   });
   assert.equal(order.order.total, 25);
   const ticket = await request(`/businesses/${businessId}/orders/${order.order.id}/print`, { headers: auth });
-  assert.equal(ticket.ticket.items[0].name, "Produto de teste");
+  assert.equal(ticket.ticket.items[0].name, "Test product");
   const printJob = await request(`/businesses/${businessId}/orders/${order.order.id}/print-jobs`, { method: "POST", headers: auth, body: JSON.stringify({}) });
   assert.equal(printJob.job.status, "queued");
 
@@ -88,7 +88,7 @@ test("API completes the local restaurant operation flow", async () => {
   });
 
   const movement = await request(`/businesses/${businessId}/cash_movements`, {
-    method: "POST", headers: auth, body: JSON.stringify({ type: "entry", amount: 25, description: "Integração" }),
+    method: "POST", headers: auth, body: JSON.stringify({ type: "entry", amount: 25, description: "Integration" }),
   });
   assert.equal(movement.movement.amount, 25);
 
@@ -99,7 +99,7 @@ test("API completes the local restaurant operation flow", async () => {
 test("API rejects anonymous business creation and assigns the authenticated owner", async () => {
   await assert.rejects(request("/businesses", { method: "POST", body: JSON.stringify({ name: "Anonymous business" }) }), /401/);
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `business-${suffix}@example.test`, name: "Business Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `business-${suffix}@example.test`, name: "Business Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const invalidBusinesses = [
     { name: 12 },
@@ -119,9 +119,9 @@ test("API rejects anonymous business creation and assigns the authenticated owne
 
 test("managers can remove staff but cannot remove peer managers", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const owner = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `team-owner-${suffix}@example.test`, name: "Team Owner", password: "SenhaSegura123" }) });
-  const manager = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `team-manager-${suffix}@example.test`, name: "Team Manager", password: "SenhaSegura123" }) });
-  const staff = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `team-staff-${suffix}@example.test`, name: "Team Staff", password: "SenhaSegura123" }) });
+  const owner = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `team-owner-${suffix}@example.test`, name: "Team Owner", password: "SecurePassword123" }) });
+  const manager = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `team-manager-${suffix}@example.test`, name: "Team Manager", password: "SecurePassword123" }) });
+  const staff = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `team-staff-${suffix}@example.test`, name: "Team Staff", password: "SecurePassword123" }) });
   const ownerAuth = { Authorization: `Bearer ${owner.token}` };
   const managerAuth = { Authorization: `Bearer ${manager.token}` };
   const managerMember = await request(`/businesses/${owner.business.id}/team`, {
@@ -141,7 +141,7 @@ test("managers can remove staff but cannot remove peer managers", async () => {
 
 test("team invitations reject unsupported roles and values beyond identity column limits", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const owner = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `team-validation-${suffix}@example.test`, name: "Team Validation Owner", password: "SenhaSegura123" }) });
+  const owner = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `team-validation-${suffix}@example.test`, name: "Team Validation Owner", password: "SecurePassword123" }) });
   const path = `/businesses/${owner.business.id}/team`;
   const invalidInvitations = [
     { name: "Valid Name", email: `valid-${suffix}@example.test`, role: "administrator" },
@@ -160,7 +160,7 @@ test("team invitations reject unsupported roles and values beyond identity colum
 
 test("API allows only one concurrent cash register opening per business", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `cash-lock-${suffix}@example.test`, name: "Cash Lock Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `cash-lock-${suffix}@example.test`, name: "Cash Lock Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const path = `/businesses/${registered.business.id}/cash-register/open`;
   const attempts = await Promise.allSettled([
@@ -173,7 +173,7 @@ test("API allows only one concurrent cash register opening per business", async 
 
 test("API rejects orders beyond supported item and decimal limits", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `order-limit-${suffix}@example.test`, name: "Order Limit Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `order-limit-${suffix}@example.test`, name: "Order Limit Owner", password: "SecurePassword123" }) });
   const businessId = registered.business.id;
   const auth = { Authorization: `Bearer ${registered.token}` };
   const category = await request(`/businesses/${businessId}/categories`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Limit ${suffix}` }) });
@@ -194,7 +194,7 @@ test("API rejects orders beyond supported item and decimal limits", async () => 
 
 test("API validates and persists split order payments", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `split-${suffix}@example.test`, name: "Split Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `split-${suffix}@example.test`, name: "Split Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   const category = await request(`/businesses/${businessId}/categories`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Split ${suffix}` }) });
@@ -205,7 +205,7 @@ test("API validates and persists split order payments", async () => {
     { items: [{ product_id: product.product.id, quantity: 1.005 }] },
     { items: [{ product_id: product.product.id, quantity: 1 }], payments: [{ payment_method_id: pix.method.id, amount: 20.005 }] },
   ]) await assert.rejects(request(`/businesses/${businessId}/orders`, { method: "POST", body: JSON.stringify(body) }), /400/);
-  await assert.rejects(request(`/businesses/${businessId}/products`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Preço fracionário ${suffix}`, price: 1.005, category_id: category.category.id }) }), /400/);
+  await assert.rejects(request(`/businesses/${businessId}/products`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Fractional price ${suffix}`, price: 1.005, category_id: category.category.id }) }), /400/);
   await assert.rejects(request(`/businesses/${businessId}/cash-register/open`, { method: "POST", headers: auth, body: JSON.stringify({ opening_amount: 10.005 }) }), /400/);
   const order = await request(`/businesses/${businessId}/orders`, { method: "POST", body: JSON.stringify({ items: [{ product_id: product.product.id, quantity: 2 }], payments: [{ payment_method_id: pix.method.id, amount: 15 }, { payment_method_id: card.method.id, amount: 25 }] }) });
   const orders = await request(`/businesses/${businessId}/orders`, { headers: auth });
@@ -216,10 +216,10 @@ test("API validates and persists split order payments", async () => {
 
 test("API assigns and advances a local delivery", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `courier-${suffix}@example.test`, name: "Courier Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `courier-${suffix}@example.test`, name: "Courier Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
-  const courier = await request(`/businesses/${businessId}/couriers`, { method: "POST", headers: auth, body: JSON.stringify({ name: "João Entregador", phone: "71999999999" }) });
+  const courier = await request(`/businesses/${businessId}/couriers`, { method: "POST", headers: auth, body: JSON.stringify({ name: "Alex Driver", phone: "71999999999" }) });
   const category = await request(`/businesses/${businessId}/categories`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Courier ${suffix}` }) });
   const product = await request(`/businesses/${businessId}/products`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Delivery ${suffix}`, price: 18, category_id: category.category.id }) });
   const order = await request(`/businesses/${businessId}/orders`, { method: "POST", body: JSON.stringify({ items: [{ product_id: product.product.id, quantity: 1 }], delivery: { address: { street: "Rua A", number: "1", city: "Salvador" }, fee: 2 } }) });
@@ -256,12 +256,12 @@ test("API assigns and advances a local delivery", async () => {
   const locationsAfterDelivery = await request(`/businesses/${businessId}/couriers/locations`, { headers: auth });
   assert.equal(locationsAfterDelivery.locations.find((row) => row.courier_id === courier.courier.id).latitude, null);
   const listed = await request(`/businesses/${businessId}/deliveries`, { headers: auth });
-  assert.equal(listed.deliveries[0].courier_name, "João Entregador");
+  assert.equal(listed.deliveries[0].courier_name, "Alex Driver");
 });
 
 test("API creates a scheduled delivery with validated address and fee", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `delivery-${suffix}@example.test`, name: "Delivery Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `delivery-${suffix}@example.test`, name: "Delivery Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   await assert.rejects(request(`/businesses/${businessId}`, { method: "PATCH", headers: auth, body: JSON.stringify({ settings: { delivery_fee: 1.005 } }) }), /400/);
@@ -294,10 +294,10 @@ test("API creates a scheduled delivery with validated address and fee", async ()
 test("API rejects cross-business administrative access", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const first = await request("/auth/register", {
-    method: "POST", body: JSON.stringify({ email: `first-${suffix}@example.test`, name: "First Owner", password: "SenhaSegura123" }),
+    method: "POST", body: JSON.stringify({ email: `first-${suffix}@example.test`, name: "First Owner", password: "SecurePassword123" }),
   });
   const second = await request("/auth/register", {
-    method: "POST", body: JSON.stringify({ email: `second-${suffix}@example.test`, name: "Second Owner", password: "SenhaSegura123" }),
+    method: "POST", body: JSON.stringify({ email: `second-${suffix}@example.test`, name: "Second Owner", password: "SecurePassword123" }),
   });
   await assert.rejects(
     request(`/businesses/${second.business.id}/categories`, { headers: { Authorization: `Bearer ${first.token}` } }),
@@ -307,8 +307,8 @@ test("API rejects cross-business administrative access", async () => {
 
 test("API prevents products from referencing another business category or kitchen station", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const first = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `catalog-a-${suffix}@example.test`, name: "Catalog A", password: "SenhaSegura123" }) });
-  const second = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `catalog-b-${suffix}@example.test`, name: "Catalog B", password: "SenhaSegura123" }) });
+  const first = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `catalog-a-${suffix}@example.test`, name: "Catalog A", password: "SecurePassword123" }) });
+  const second = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `catalog-b-${suffix}@example.test`, name: "Catalog B", password: "SecurePassword123" }) });
   const firstAuth = { Authorization: `Bearer ${first.token}` };
   const secondAuth = { Authorization: `Bearer ${second.token}` };
   const firstBusiness = first.business.id;
@@ -337,7 +337,7 @@ test("API prevents products from referencing another business category or kitche
 
 test("API opens, transfers and closes dining tabs", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `tabs-${suffix}@example.test`, name: "Tabs Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `tabs-${suffix}@example.test`, name: "Tabs Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   const first = await request(`/businesses/${businessId}/tables`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Table A ${suffix}` }) });
@@ -360,7 +360,7 @@ test("API opens, transfers and closes dining tabs", async () => {
 test("API ingests an external order idempotently", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const registered = await request("/auth/register", {
-    method: "POST", body: JSON.stringify({ email: `external-${suffix}@example.test`, name: "External Owner", password: "SenhaSegura123" }),
+    method: "POST", body: JSON.stringify({ email: `external-${suffix}@example.test`, name: "External Owner", password: "SecurePassword123" }),
   });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
@@ -383,6 +383,12 @@ test("API ingests an external order idempotently", async () => {
     method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ credentials: { webhook_secret: "short" } }),
   });
   assert.equal(shortWebhookSecret.status, 400);
+  for (const invalidSecret of [null, 32, [], {}]) {
+    const invalidWebhookSecret = await fetch(`${base}/businesses/${businessId}/integrations/${connection.connection.id}/credentials`, {
+      method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ credentials: { webhook_secret: invalidSecret } }),
+    });
+    assert.equal(invalidWebhookSecret.status, 400);
+  }
   const event = { event_type: "order.received", external_order_id: `99food-${suffix}`, payload: { total: 42.5, items: [] } };
   const eventBody = JSON.stringify(event);
   const signature = `sha256=${createHmac("sha256", webhookSecret).update(eventBody).digest("hex")}`;
@@ -429,7 +435,7 @@ test("API ingests an external order idempotently", async () => {
 
   const invalidResponse = await fetch(`${base}/businesses/${businessId}/integrations/${connection.connection.id}/events`, { method: "POST", headers: { "Content-Type": "application/json", "X-Integration-Signature": `sha256=${"0".repeat(64)}` }, body: eventBody });
   assert.equal(invalidResponse.status, 401);
-  const registeredStaff = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `external-staff-${suffix}@example.test`, name: "External Staff", password: "SenhaSegura123" }) });
+  const registeredStaff = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `external-staff-${suffix}@example.test`, name: "External Staff", password: "SecurePassword123" }) });
   await request(`/businesses/${businessId}/team`, { method: "POST", headers: auth, body: JSON.stringify({ full_name: registeredStaff.user.name, email: registeredStaff.user.email, role: "staff" }) });
   const staffEvent = await fetch(`${base}/businesses/${businessId}/integrations/${connection.connection.id}/events`, {
     method: "POST",
@@ -446,7 +452,7 @@ test("API ingests an external order idempotently", async () => {
 test("API rejects oversized fiscal documents before storage", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const registered = await request("/auth/register", {
-    method: "POST", body: JSON.stringify({ email: `fiscal-${suffix}@example.test`, name: "Fiscal Owner", password: "SenhaSegura123" }),
+    method: "POST", body: JSON.stringify({ email: `fiscal-${suffix}@example.test`, name: "Fiscal Owner", password: "SecurePassword123" }),
   });
   const response = await fetch(`${base}/businesses/${registered.business.id}/fiscal/documents`, {
     method: "POST",
@@ -475,7 +481,7 @@ test("API rejects oversized fiscal documents before storage", async () => {
 test("API manages inventory movements and product recipes", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const registered = await request("/auth/register", {
-    method: "POST", body: JSON.stringify({ email: `stock-${suffix}@example.test`, name: "Stock Owner", password: "SenhaSegura123" }),
+    method: "POST", body: JSON.stringify({ email: `stock-${suffix}@example.test`, name: "Stock Owner", password: "SecurePassword123" }),
   });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
@@ -490,13 +496,13 @@ test("API manages inventory movements and product recipes", async () => {
   });
   assert.equal(oversizedItem.status, 400);
   const item = await request(`/businesses/${businessId}/inventory/items`, {
-    method: "POST", headers: auth, body: JSON.stringify({ name: `Carne ${suffix}`, unit: "g", current_quantity: 1000 }),
+    method: "POST", headers: auth, body: JSON.stringify({ name: `Meat ${suffix}`, unit: "g", current_quantity: 1000 }),
   });
   const category = await request(`/businesses/${businessId}/categories`, {
-    method: "POST", headers: auth, body: JSON.stringify({ name: `Estoque ${suffix}` }),
+    method: "POST", headers: auth, body: JSON.stringify({ name: `Inventory ${suffix}` }),
   });
   const product = await request(`/businesses/${businessId}/products`, {
-    method: "POST", headers: auth, body: JSON.stringify({ name: `Hambúrguer ${suffix}`, price: 25, category_id: category.category.id }),
+    method: "POST", headers: auth, body: JSON.stringify({ name: `Burger ${suffix}`, price: 25, category_id: category.category.id }),
   });
   const recipe = await request(`/businesses/${businessId}/products/${product.product.id}/recipe`, {
     method: "PUT", headers: auth, body: JSON.stringify({ ingredients: [{ inventory_item_id: item.item.id, quantity: 150 }] }),
@@ -555,7 +561,7 @@ test("API manages inventory movements and product recipes", async () => {
 
 test("API records purchases and updates weighted inventory cost", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `purchase-${suffix}@example.test`, name: "Purchase Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `purchase-${suffix}@example.test`, name: "Purchase Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   const item = await request(`/businesses/${businessId}/inventory/items`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Farinha ${suffix}`, unit: "kg", current_quantity: 10, cost_per_unit: 4 }) });
@@ -570,7 +576,7 @@ test("API records purchases and updates weighted inventory cost", async () => {
 test("API manages cash sessions, payment methods, customers and suppliers", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const registered = await request("/auth/register", {
-    method: "POST", body: JSON.stringify({ email: `operations-${suffix}@example.test`, name: "Operations Owner", password: "SenhaSegura123" }),
+    method: "POST", body: JSON.stringify({ email: `operations-${suffix}@example.test`, name: "Operations Owner", password: "SecurePassword123" }),
   });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
@@ -615,7 +621,7 @@ test("API manages cash sessions, payment methods, customers and suppliers", asyn
 
 test("API applies discounts and protects loyalty point redemption", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `value-${suffix}@example.test`, name: "Value Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `value-${suffix}@example.test`, name: "Value Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   const discount = await request(`/businesses/${businessId}/discounts`, { method: "POST", headers: auth, body: JSON.stringify({ discount: { name: "Ten percent", code: `TEN${suffix.slice(-6)}`, type: "percentage", value: 10 } }) });
@@ -645,7 +651,7 @@ test("API applies discounts and protects loyalty point redemption", async () => 
 
 test("API returns isolated sales and critical-stock reports", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `report-${suffix}@example.test`, name: "Report Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `report-${suffix}@example.test`, name: "Report Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   const sales = await request(`/businesses/${businessId}/reports/sales`, { headers: auth });
@@ -656,7 +662,7 @@ test("API returns isolated sales and critical-stock reports", async () => {
 
 test("API lists backups and rejects unsafe restore paths", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `backup-${suffix}@example.test`, name: "Backup Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `backup-${suffix}@example.test`, name: "Backup Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   await assert.rejects(request(`/businesses/${businessId}/backups`, { headers: auth }), /403/);
@@ -667,7 +673,7 @@ test("API lists backups and rejects unsafe restore paths", async () => {
 
 test("API returns CMV and gross margin from product recipes", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `margin-${suffix}@example.test`, name: "Margin Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `margin-${suffix}@example.test`, name: "Margin Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   const category = await request(`/businesses/${businessId}/categories`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Margin ${suffix}` }) });
@@ -704,7 +710,7 @@ test("API returns CMV and gross margin from product recipes", async () => {
 test("API audits administrative mutations and rotates sessions on login", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const email = `security-${suffix}@example.test`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email, name: "Security Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email, name: "Security Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   await request(`/businesses/${businessId}/categories`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Audit ${suffix}` }) });
@@ -714,7 +720,7 @@ test("API audits administrative mutations and rotates sessions on login", async 
   );
   assert.equal(auditRows.length, 1);
 
-  const login = await request("/auth/login", { method: "POST", body: JSON.stringify({ email, password: "SenhaSegura123" }) });
+  const login = await request("/auth/login", { method: "POST", body: JSON.stringify({ email, password: "SecurePassword123" }) });
   assert.notEqual(login.token, registered.token);
   const oldSession = await fetch(`${base}/businesses/${businessId}/categories`, { headers: auth });
   assert.equal(oldSession.status, 401);
@@ -724,7 +730,7 @@ test("API audits administrative mutations and rotates sessions on login", async 
 
 test("API routes kitchen orders by station", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `kitchen-${suffix}@example.test`, name: "Kitchen Owner", password: "SenhaSegura123" }) });
+  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `kitchen-${suffix}@example.test`, name: "Kitchen Owner", password: "SecurePassword123" }) });
   const auth = { Authorization: `Bearer ${registered.token}` };
   const businessId = registered.business.id;
   await assert.rejects(request(`/businesses/${businessId}/kitchen-stations`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Unsafe ${suffix}`, printer_url: "http://10.0.0.5:9100" }) }), /400/);

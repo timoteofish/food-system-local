@@ -47,7 +47,7 @@ const setUnavailableSales = () => {
   ["revenueTotal", "averageTicket"].forEach((id) => {
     document.getElementById(id).textContent = "—";
   });
-  productRows.innerHTML = `<tr><td class="report-empty" colspan="3">${translate("Dados indisponíveis")}</td></tr>`;
+  productRows.innerHTML = `<tr><td class="report-empty" colspan="3">${translate("reportUnavailable")}</td></tr>`;
 };
 
 const setUnavailableProfitability = () => {
@@ -58,7 +58,7 @@ const setUnavailableProfitability = () => {
 };
 
 const setUnavailableStock = () => {
-  criticalStock.innerHTML = `<p class="operation-empty">${translate("Dados indisponíveis")}</p>`;
+  criticalStock.innerHTML = `<p class="operation-empty">${translate("reportUnavailable")}</p>`;
 };
 
 const setUnavailableReport = () => {
@@ -70,7 +70,7 @@ const setUnavailableReport = () => {
 const renderProducts = (products) => {
   const body = productRows;
   if (!products.length) {
-    body.innerHTML = `<tr><td colspan="3">${translate("Sem vendas neste período")}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="3">${translate("reportNoSales")}</td></tr>`;
     return;
   }
 
@@ -86,12 +86,12 @@ const renderProducts = (products) => {
 const renderCriticalStock = (items) => {
   const list = criticalStock;
   if (!items.length) {
-    list.innerHTML = `<p class="operation-empty">${translate("Nenhum insumo em nível crítico")}</p>`;
+    list.innerHTML = `<p class="operation-empty">${translate("reportNoCriticalStock")}</p>`;
     return;
   }
 
   list.innerHTML = items.map((item) => {
-    const minimumLabel = translate("Mínimo").toLocaleLowerCase(getLocale());
+    const minimumLabel = translate("reportMinimum").toLocaleLowerCase(getLocale());
     return `
       <p>
         <strong>${escapeHtml(item.name)}</strong>
@@ -106,21 +106,21 @@ const loadReport = async () => {
   const start = fromDate.value;
   const end = toDate.value;
   if (!start || !end) {
-    setFeedback("Selecione as duas datas para gerar o relatório");
+    setFeedback("reportSelectBothDates");
     return;
   }
   if (start > end) {
-    setFeedback("A data inicial deve ser anterior ou igual à data final");
+    setFeedback("reportStartDateOrder");
     return;
   }
 
   reportLoading = true;
   loadButton.disabled = true;
-  loadButton.textContent = translate("Atualizando relatório");
+  loadButton.textContent = translate("reportUpdating");
   reportMetrics.setAttribute("aria-busy", "true");
   productRows.setAttribute("aria-busy", "true");
   criticalStock.setAttribute("aria-busy", "true");
-  setFeedback("Atualizando relatório", "loading");
+  setFeedback("reportUpdating", "loading");
 
   try {
     const query = new URLSearchParams({ from: start, to: end });
@@ -160,18 +160,18 @@ const loadReport = async () => {
       hasUnavailableData = true;
     }
 
-    if (hasUnavailableData) setFeedback("Alguns dados do relatório não puderam ser carregados", "error");
+    if (hasUnavailableData) setFeedback("reportPartialError", "error");
     else setFeedback();
   } catch (error) {
     setUnavailableReport();
-    setFeedback("Não foi possível carregar o relatório", "error");
+    setFeedback("reportLoadError", "error");
   } finally {
     reportLoading = false;
     reportMetrics.setAttribute("aria-busy", "false");
     productRows.setAttribute("aria-busy", "false");
     criticalStock.setAttribute("aria-busy", "false");
     loadButton.disabled = false;
-    loadButton.textContent = translate("Atualizar relatório");
+    loadButton.textContent = translate("reportUpdateButton");
   }
 };
 
@@ -192,7 +192,7 @@ const start = async () => {
     reportMetrics.setAttribute("aria-busy", "false");
     productRows.setAttribute("aria-busy", "false");
     criticalStock.setAttribute("aria-busy", "false");
-    setFeedback("Não foi possível abrir os relatórios", "error");
+    setFeedback("reportOpenError", "error");
   }
 };
 

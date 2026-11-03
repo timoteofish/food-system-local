@@ -1,4 +1,6 @@
-import { getLanguage, getLocale, translate } from "../../../shared/i18n/i18n.js";
+import { getLocale, translate } from "../../../shared/i18n/i18n.js";
+import { localizeSystemMessage } from "../../../shared/i18n/system-messages.js";
+import { PAYMENT_METHODS } from "../../../shared/domain/payment-methods.js";
 import { escapeHtml, formatPrice, formatTime } from "../../../shared/utils/utils.js";
 import { initAppShell } from "../../../shared/ui/ui.js";
 import { initCalendarPanel } from "./calendar-id/index.js";
@@ -63,24 +65,24 @@ const setMessage = (element, message, state = "") => {
 const renderRegister = () => {
   const open = Boolean(currentRegister);
   registerStatus.textContent = open
-    ? currentRegister.opened_at ? `${translate("Aberto desde ")}${formatDate(currentRegister.opened_at)}` : translate("Aberto")
-    : translate("Fechado");
+    ? currentRegister.opened_at ? translate("cashOpenSince").replace("$1", formatDate(currentRegister.opened_at)) : translate("cashOpened")
+    : translate("cashClosed");
   registerStatus.classList.toggle("is-open", open);
   registerStatus.classList.toggle("is-closed", !open);
-  registerAction.textContent = translate(open ? "Fechar caixa" : "Abrir caixa");
+  registerAction.textContent = translate(open ? "cashCloseRegister" : "cashOpenRegister");
   registerAction.disabled = registerBusy || !hasLoadedCash;
-  registerAmountLabel.textContent = translate(open ? "Valor contado no fechamento" : "Valor inicial do caixa");
+  registerAmountLabel.textContent = translate(open ? "cashCountedClosingValue" : "cashOpeningAmount");
   registerNotesField.hidden = !open;
   movementSubmit.disabled = !open || movementBusy || !hasLoadedCash;
   movementAvailability.hidden = open;
-  document.getElementById("cashRegisterTitle").textContent = translate(open ? "Turno em andamento" : "Iniciar turno");
+  document.getElementById("cashRegisterTitle").textContent = translate(open ? "cashShiftInProgress" : "cashStartShift");
   registerAmount.value = "";
   registerNotes.value = "";
 };
 
 const formatDate = (date) => {
   const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return translate("Horário indisponível");
+  if (Number.isNaN(parsed.getTime())) return translate("cashTimeUnavailable");
   return parsed.toLocaleDateString(getLocale(), {
     day: "2-digit",
     month: "2-digit",
@@ -97,12 +99,12 @@ const normalizeDateValue = (date = new Date()) => {
 };
 
 const getOrderCode = (order) =>
-  String(order.orderCode || order.order_code || order.order_number || order.id || translate("pedido"))
+  String(order.orderCode || order.order_code || order.order_number || order.id || translate("cashOrderFallback"))
     .slice(-6)
     .toUpperCase();
 
 const getPendingCounterPayments = () =>
-  orders.filter((order) => order.paymentMethod === "dinheiro_balcao" && order.paymentStatus !== "paid");
+  orders.filter((order) => order.paymentMethod === PAYMENT_METHODS.CASH_AT_COUNTER && order.paymentStatus !== "paid");
 
 const renderSummary = () => {
   entriesTotal.textContent = formatPrice(stats.entriesTotal);
@@ -139,12 +141,12 @@ const render = () => {
       (order) => `
       <div class="cash-row cash-row--pending">
         <div>
-          <strong>${translate("Código ")}${escapeHtml(getOrderCode(order))}</strong><br>
-          <span>${escapeHtml(order.customerName || translate("Cliente"))} • ${escapeHtml(order.tableName || translate("Balcão"))}</span>
+          <strong>${translate("cashCodeLabel")}${escapeHtml(getOrderCode(order))}</strong><br>
+          <span>${escapeHtml(order.customerName || translate("cashCustomerFallback"))} • ${escapeHtml(order.tableName || translate("cashCounterFallback"))}</span>
         </div>
         <div class="cash-row__actions">
           <strong>${escapeHtml(formatPrice(order.total || 0))}</strong>
-          <button class="btn btn--secondary" type="button" data-pay-order="${escapeHtml(order.id)}">${translate("Confirmar pagamento")}</button>
+          <button class="btn btn--secondary" type="button" data-pay-order="${escapeHtml(order.id)}">${translate("cashConfirmPayment")}</button>
         </div>
       </div>
     `
@@ -157,7 +159,7 @@ const render = () => {
           (item) => `
       <div class="cash-row">
         <div>
-          <strong>${escapeHtml(item.label)}</strong><br>
+          <strong>${escapeHtml(localizeSystemMessage(item.label))}</strong><br>
           <span>${escapeHtml(formatDate(item.createdAt || item.created_at))} • ${escapeHtml(formatTime(item.createdAt || item.created_at))}</span>
         </div>
         <strong class="${item.type === "exit" ? "cash-row--exit" : "cash-row--entry"}">
@@ -173,8 +175,8 @@ const render = () => {
     log.innerHTML = pendingHtml + movementHtml;
   } else {
     const message = query || dateQuery
-      ? "Nenhum resultado corresponde aos filtros"
-      : "Nenhum movimento registrado ainda";
+      ? "cashNoFilterResults"
+      : "cashNoMovements";
     log.innerHTML = `<div class="cash-empty">${translate(message)}</div>`;
   }
 
@@ -194,7 +196,7 @@ function applyDateFilter(value) {
   dateQuery = value;
   if (dateInput) dateInput.value = value;
   dateToggle?.classList.toggle("is-active", Boolean(value));
-  dateToggle?.setAttribute("aria-label", translate(value ? "Alterar ou remover filtro de data" : "Filtrar por data"));
+  dateToggle?.setAttribute("aria-label", translate(value ? "cashChangeRemoveDateFilter" : "cashFilterByDate"));
   render();
 };
 
@@ -223,22 +225,20 @@ registerForm?.addEventListener("submit", async (event) => {
   try {
     const amount = Number(registerAmount.value);
     if (currentRegister) {
-      const confirmation = getLanguage() === "en"
-        ? `Close the register with a counted balance of ${formatPrice(amount)}?`
-        : `Fechar o caixa com saldo contado de ${formatPrice(amount)}?`;
+      const confirmation = translate("cashConfirmClose").replace("$1", formatPrice(amount));
       if (!window.confirm(confirmation)) return;
       await closeCashRegister(businessId, currentRegister.id, amount, registerNotes.value.trim());
       currentRegister = null;
       renderRegister();
-      setMessage(registerMessage, translate("Caixa fechado"), "success");
+      setMessage(registerMessage, translate("cashRegisterClosed"), "success");
     } else {
       currentRegister = await openCashRegister(businessId, amount);
       renderRegister();
-      setMessage(registerMessage, translate("Caixa aberto"), "success");
+      setMessage(registerMessage, translate("cashRegisterOpened"), "success");
     }
     await refresh();
   } catch {
-    setMessage(registerMessage, translate("Não foi possível atualizar o caixa Confira o valor e tente novamente"), "error");
+    setMessage(registerMessage, translate("cashUpdateError"), "error");
   } finally {
     registerBusy = false;
     registerAction.disabled = !hasLoadedCash;
@@ -259,9 +259,9 @@ movementForm?.addEventListener("submit", async (event) => {
     });
     event.target.reset();
     await refresh();
-    setMessage(movementMessage, translate("Movimentação registrada"), "success");
+    setMessage(movementMessage, translate("cashMovementRecorded"), "success");
   } catch {
-    setMessage(movementMessage, translate("Não foi possível registrar a movimentação Confira os dados e tente novamente"), "error");
+    setMessage(movementMessage, translate("cashMovementError"), "error");
   } finally {
     movementBusy = false;
     movementSubmit.disabled = !currentRegister || !hasLoadedCash;
@@ -274,9 +274,7 @@ log?.addEventListener("click", async (event) => {
 
   const order = orders.find((item) => item.id === button.dataset.payOrder);
   if (!order) return;
-  const confirmation = getLanguage() === "en"
-    ? `Confirm payment for order ${getOrderCode(order)}?`
-    : `Confirmar o pagamento do pedido ${getOrderCode(order)}?`;
+  const confirmation = translate("cashConfirmOrderPayment").replace("$1", getOrderCode(order));
   if (!window.confirm(confirmation)) return;
 
   button.disabled = true;
@@ -284,9 +282,9 @@ log?.addEventListener("click", async (event) => {
   try {
     await updateOrderStatusRemote(order.id, "completed");
     await refresh();
-    setMessage(actionMessage, translate("Pagamento confirmado e pedido concluído"), "success");
+    setMessage(actionMessage, translate("cashPaymentCompleted"), "success");
   } catch {
-    setMessage(actionMessage, translate("Não foi possível confirmar o pagamento Tente novamente"), "error");
+    setMessage(actionMessage, translate("cashPaymentError"), "error");
     button.disabled = false;
   }
 });
@@ -297,7 +295,7 @@ const refresh = async () => {
   if (!hasLoadedCash) {
     cashSummary?.setAttribute("aria-busy", "true");
     log?.setAttribute("aria-busy", "true");
-    if (log) log.innerHTML = `<div class="cash-empty" role="status">${translate("Carregando movimentações")}</div>`;
+    if (log) log.innerHTML = `<div class="cash-empty" role="status">${translate("cashLoadingMovements")}</div>`;
   }
   loadRetry.hidden = true;
   loadRetry.disabled = true;
@@ -314,10 +312,10 @@ const refresh = async () => {
     render();
     setMessage(loadMessage, "");
   } catch {
-    setMessage(loadMessage, translate("Não foi possível atualizar os dados do caixa Verifique a conexão e tente novamente"), "error");
+    setMessage(loadMessage, translate("cashRefreshError"), "error");
     if (!hasLoadedCash) {
       cashSummary?.setAttribute("aria-busy", "false");
-      log.innerHTML = `<div class="cash-empty">${translate("Os dados do caixa não estão disponíveis.")}</div>`;
+      log.innerHTML = `<div class="cash-empty">${translate("cashDataUnavailable")}</div>`;
     }
     loadRetry.hidden = false;
   } finally {
@@ -340,11 +338,11 @@ const initializeCashier = async () => {
     }
     await refresh();
   } catch {
-    setMessage(loadMessage, translate("Não foi possível abrir o caixa"), "error");
+    setMessage(loadMessage, translate("cashOpenError"), "error");
     cashSummary?.setAttribute("aria-busy", "false");
     log?.setAttribute("aria-busy", "false");
     if (!hasLoadedCash && log) {
-      log.innerHTML = `<div class="cash-empty" role="alert">${translate("Os dados do caixa não estão disponíveis.")}</div>`;
+      log.innerHTML = `<div class="cash-empty" role="alert">${translate("cashDataUnavailable")}</div>`;
     }
     loadRetry.hidden = false;
   } finally {

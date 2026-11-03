@@ -1,0 +1,36 @@
+const translations = {
+  pt: {
+    ariaLabel: "Configuração inicial do Food System",
+    documentTitle: "Boas-vindas · Food System",
+    headline: "Organize seu<br />restaurante",
+    intro: "Pedidos, cardápio e operação em um só lugar",
+    title: "Configure seu negócio",
+    description: "Informe o nome do seu negócio e escolha o idioma",
+    businessLabel: "Nome do negócio",
+    languageLabel: "Idioma",
+    submit: "Continuar",
+    note: "Você poderá alterar essas informações nas configurações",
+    languageOptions: { pt: "Português", en: "Inglês" },
+    placeholder: "Ex.: Café da Praça",
+    error: "Não foi possível salvar as informações, tente novamente",
+    nameError: "O nome deve ter entre 2 e 160 caracteres.",
+  },
+  en: {
+    ariaLabel: "Initial Food System setup",
+    documentTitle: "Welcome · Food System",
+    headline: "Organize your<br />restaurant",
+    intro: "Orders, menu and operations in one place",
+    title: "Set up your business",
+    description: "Enter your business name and choose a language",
+    businessLabel: "Business name",
+    languageLabel: "Language",
+    submit: "Continue",
+    note: "You can change this information later in settings",
+    languageOptions: { pt: "Portuguese", en: "English" },
+    placeholder: "e.g. Market Street Cafe",
+    error: "Could not save your information, please try again",
+    nameError: "The name must contain 2 to 160 characters.",
+  },
+};
+
+export default translations;

@@ -10,19 +10,12 @@ const initializeLegacyLanguageControls = () => {
     if (host) {
       const wrapper = document.createElement("label");
       wrapper.className = "global-language-control";
-      wrapper.innerHTML = `<span>Idioma</span><select data-global-language aria-label="Idioma"><option value="en">English</option><option value="pt">Português</option></select>`;
+      wrapper.innerHTML = `<span>Language</span><select data-global-language aria-label="Language"><option value="en">English</option><option value="pt">Portuguese</option></select>`;
       host.append(wrapper);
     }
   }
   document.querySelectorAll("[data-global-language]").forEach((select) => {
     select.value = getLanguage();
-    const label = select.closest("label");
-    const labelText = label?.querySelector("span");
-    if (labelText) labelText.textContent = getLanguage() === "en" ? "Language" : "Idioma";
-    const portugueseOption = select.querySelector("option[value='pt']");
-    if (portugueseOption) portugueseOption.textContent = "Português";
-    const englishOption = select.querySelector("option[value='en']");
-    if (englishOption) englishOption.textContent = "English";
     if (select.dataset.languageBound === "true") return;
     select.dataset.languageBound = "true";
     select.addEventListener("change", () => { setLanguage(select.value); window.location.reload(); });

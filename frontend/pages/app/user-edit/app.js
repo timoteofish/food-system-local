@@ -73,7 +73,7 @@ checkUpdateButton?.addEventListener("click", async () => {
   checkUpdateButton.disabled = true;
   updateFeedback.hidden = false;
   updateFeedback.dataset.state = "loading";
-  updateFeedback.textContent = translate("Verificando atualizações");
+  updateFeedback.textContent = translate("updateCheckLoading");
   try {
     const result = await checkForSystemUpdates();
     const safeUpdateUrl = typeof result.download_url === "string" && /^https:\/\//i.test(result.download_url)
@@ -82,22 +82,22 @@ checkUpdateButton?.addEventListener("click", async () => {
     updateFeedback.dataset.state = result.update_available ? "available" : "success";
     if (result.update_available && safeUpdateUrl) {
       const message = document.createTextNode(
-        `${translate(`Versão ${result.available_version} disponível. Abra a página de download para instalar manualmente.`)} `
+        `${translate("updateAvailableManual").replace("$1", String(result.available_version))} `
       );
       const link = document.createElement("a");
       link.href = safeUpdateUrl;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
-      link.textContent = translate("Baixar atualização");
+      link.textContent = translate("downloadUpdate");
       updateFeedback.replaceChildren(message, link);
     } else {
       updateFeedback.textContent = result.update_available
-        ? translate(`A versão ${result.available_version} está registrada, mas o pacote ainda não foi publicado`)
-        : translate(`Você já está usando a versão ${result.current_version}`);
+        ? translate("updateListedUnpublished").replace("$1", String(result.available_version))
+        : translate("updateAlreadyCurrent").replace("$1", String(result.current_version));
     }
   } catch (error) {
     updateFeedback.dataset.state = "error";
-    updateFeedback.textContent = translate("Não foi possível verificar atualizações");
+    updateFeedback.textContent = translate("updateCheckError");
   } finally {
     checkUpdateButton.disabled = false;
   }

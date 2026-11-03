@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dados do comércio | Food System</title>
+    <title>Business details | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
 <link rel="stylesheet" href="../../../styles/base.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -17,32 +17,32 @@
       <section class="validation-panel">
         <div class="auth-copy">
           <p class="eyebrow">Food System</p>
-          <h1>Dados do comércio</h1>
-          <p class="subtitle">Confira como o nome do comércio aparecerá no sistema</p>
+          <h1>Business details</h1>
+          <p class="subtitle">Check how the business name will appear in the system</p>
         </div>
 
         <form class="validation-form" id="validationForm">
           <div class="company-photo">
             <div class="company-photo__frame">
-              <img id="companyPhotoPreview" alt="Foto do comércio" hidden />
+              <img id="companyPhotoPreview" alt="Business photo" hidden />
               <span id="companyPhotoPlaceholder">F</span>
             </div>
             <div class="company-photo__actions">
-              <label class="btn btn--secondary company-photo__button" for="companyPhoto">Escolher foto</label>
+              <label class="btn btn--secondary company-photo__button" for="companyPhoto">Choose photo</label>
               <input id="companyPhoto" name="companyPhoto" type="file" accept="image/*" hidden />
             </div>
           </div>
 
           <label class="field" for="businessName">
-            <span>Nome do comércio</span>
-            <input id="businessName" name="businessName" type="text" autocomplete="organization" placeholder="Ex.: Sabor da Serra" required />
+            <span>Business name</span>
+            <input id="businessName" name="businessName" type="text" autocomplete="organization" placeholder="e.g. Market Street Cafe" required />
           </label>
 
           <p id="validationFeedback" class="form-feedback form-feedback--error" hidden></p>
 
           <div class="validation-actions">
-            <a class="btn btn--secondary" href="../register/index.html">Voltar</a>
-            <button class="btn btn--primary" type="submit">Continuar</button>
+            <a class="btn btn--secondary" href="../register/index.html">Back</a>
+            <button class="btn btn--primary" type="submit">Continue</button>
           </div>
         </form>
       </section>

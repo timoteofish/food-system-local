@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Configurações | Food System</title>
+    <title>Settings | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
 <link rel="stylesheet" href="../../../styles/base.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
@@ -17,62 +17,62 @@
       <section class="user-edit-card panel">
         <div class="user-edit-card__header">
           <div>
-            <p class="eyebrow">Conta</p>
-            <h1>Minha conta</h1>
+            <p class="eyebrow">Account</p>
+            <h1>My account</h1>
           </div>
           <div class="user-edit-card__header-actions">
             <label class="global-language-control">
-              <span>Idioma</span>
-              <select data-global-language aria-label="Idioma">
-                <option value="pt" selected>Português</option>
+              <span>Language</span>
+              <select data-global-language aria-label="Language">
+                <option value="pt" selected>Portuguese</option>
                 <option value="en">English</option>
               </select>
             </label>
-            <a class="btn btn--secondary" href="../dashboard/index.html">Voltar</a>
+            <a class="btn btn--secondary" href="../dashboard/index.html">Back</a>
           </div>
         </div>
         <div class="user-edit-card__content">
-          <aside class="user-edit-card__avatar" aria-label="Resumo do perfil">
+          <aside class="user-edit-card__avatar" aria-label="Profile summary">
             <div class="user-edit-card__avatar-frame">
-              <img class="user-edit-card__avatar-image" id="userAvatarPreview" alt="Prévia da foto do perfil" hidden />
+              <img class="user-edit-card__avatar-image" id="userAvatarPreview" alt="Profile photo preview" hidden />
               <span class="user-edit-card__avatar-placeholder" id="userAvatarPlaceholder">U</span>
             </div>
             <div class="user-edit-card__avatar-meta">
-              <strong>Prévia do perfil</strong>
-              <p class="user-edit-card__avatar-help">A foto aparece apenas nesta prévia e não será salva</p>
+              <strong>Profile preview</strong>
+              <p class="user-edit-card__avatar-help">The photo appears in this preview only and will not be saved</p>
             </div>
             <input id="userAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-            <button class="btn btn--secondary" type="button" id="userAvatarButton">Escolher foto para prévia</button>
+            <button class="btn btn--secondary" type="button" id="userAvatarButton">Choose a photo to preview</button>
           </aside>
           <div class="user-edit-card__grid">
             <article class="user-edit-card__section user-edit-card__section--form">
-              <h2>Dados da conta</h2>
+              <h2>Account details</h2>
               <div class="user-edit-form">
                 <label class="field" for="userName">
-                  <span>Nome</span>
+                  <span>Name</span>
                   <input id="userName" type="text" autocomplete="name" readonly aria-readonly="true" />
                 </label>
                 <label class="field" for="userEmail">
-                  <span>E-mail</span>
+                  <span>Email</span>
                   <input id="userEmail" type="email" autocomplete="email" readonly aria-readonly="true" />
                 </label>
                 <label class="field" for="userPhone">
-                  <span>Telefone</span>
+                  <span>Phone</span>
                   <input id="userPhone" type="tel" autocomplete="tel" placeholder="(00) 00000-0000" readonly aria-readonly="true" />
                 </label>
               </div>
-              <p class="user-edit-card__readonly-note">Para alterar esses dados, fale com o suporte</p>
+              <p class="user-edit-card__readonly-note">To change these details, contact support</p>
             </article>
             <article class="user-edit-card__section">
-              <h2>Aplicativo instalado</h2>
-              <p>Consulte a versão instalada e veja se há atualizações disponíveis</p>
-              <button class="btn btn--secondary" type="button" id="checkUpdateButton">Verificar atualizações</button>
+              <h2>Installed application</h2>
+              <p>Check the installed version and see whether updates are available</p>
+              <button class="btn btn--secondary" type="button" id="checkUpdateButton">Check for updates</button>
               <p id="updateFeedback" role="status" hidden></p>
             </article>
             <article class="user-edit-card__section">
-              <h2>Sessão</h2>
-              <p>Feche o Food System neste computador</p>
-              <button class="btn btn--secondary" type="button" data-action="close-app">Fechar aplicativo</button>
+              <h2>Session</h2>
+              <p>Close Food System on this computer</p>
+              <button class="btn btn--secondary" type="button" data-action="close-app">Close app</button>
             </article>
           </div>
         </div>

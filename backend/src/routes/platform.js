@@ -74,12 +74,12 @@ export default async function platformRoutes(app) {
       return reply.code(201).send({ member: { id, role, status: "active", user: { id, name, email: "" } } });
     }
     if (!["owner", "manager", "staff"].includes(role)) return reply.badRequest("Invalid team role");
-    if (user.role !== "owner" && role !== "staff") return reply.forbidden("Somente um proprietário pode convidar gerentes ou proprietários");
+    if (user.role !== "owner" && role !== "staff") return reply.forbidden("Only an owner can invite managers or owners");
     if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 190 || name.length < 2 || name.length > 160) return reply.badRequest("Name must be 2 to 160 characters and email must be valid and no longer than 190 characters");
     const [users] = await pool.query("SELECT id, name, email FROM users WHERE email = ? LIMIT 1", [email]);
-    if (!users.length) return reply.badRequest("O usuário precisa se cadastrar antes do convite");
+    if (!users.length) return reply.badRequest("The user must register before receiving an invitation");
     const [existing] = await pool.query("SELECT id FROM business_memberships WHERE user_id = ? AND business_id = ? LIMIT 1", [users[0].id, request.params.businessId]);
-    if (existing.length) return reply.conflict("Usuário já pertence à empresa");
+    if (existing.length) return reply.conflict("The user already belongs to this business");
     const id = randomUUID();
     await pool.query("INSERT INTO business_memberships (id, user_id, business_id, role) VALUES (?, ?, ?, ?)", [id, users[0].id, request.params.businessId, role]);
     await audit(request, user, "team.member_added", "membership", id, { role, user_id: users[0].id });
@@ -107,20 +107,20 @@ export default async function platformRoutes(app) {
       }
       return { member: { id: request.params.membershipId, role } };
     }
-    if (user.role !== "owner") return reply.forbidden("Somente um proprietário pode alterar funções da equipe");
+    if (user.role !== "owner") return reply.forbidden("Only an owner can change team roles");
     const role = roleValue || "";
-    if (!["owner", "manager", "staff"].includes(role)) return reply.badRequest("Papel inválido");
+    if (!["owner", "manager", "staff"].includes(role)) return reply.badRequest("Invalid role");
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
       await connection.query("SELECT id FROM businesses WHERE id = ? FOR UPDATE", [request.params.businessId]);
       const [members] = await connection.query("SELECT role FROM business_memberships WHERE id = ? AND business_id = ? FOR UPDATE", [request.params.membershipId, request.params.businessId]);
-      if (!members.length) { await connection.rollback(); return reply.notFound("Membro não encontrado"); }
+      if (!members.length) { await connection.rollback(); return reply.notFound("Team member not found"); }
       if (members[0].role === "owner" && role !== "owner") {
         const [owners] = await connection.query("SELECT COUNT(*) AS count FROM business_memberships WHERE business_id = ? AND role = 'owner'", [request.params.businessId]);
         if (Number(owners[0].count) <= 1) {
           await connection.rollback();
-          return reply.conflict("O estabelecimento precisa manter pelo menos um proprietário");
+          return reply.conflict("The business must retain at least one owner");
         }
       }
       await connection.query("UPDATE business_memberships SET role = ? WHERE id = ? AND business_id = ?", [role, request.params.membershipId, request.params.businessId]);

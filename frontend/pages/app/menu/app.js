@@ -12,7 +12,7 @@ import {
   getSession,
 } from "../../../shared/data/storage.js";
 import { escapeHtml, formatPrice, parsePrice, safeImageUrl } from "../../../shared/utils/utils.js";
-import { getLanguage, translate } from "../../../shared/i18n/i18n.js";
+import { translate } from "../../../shared/i18n/i18n.js";
 import { initAppShell, showToast } from "../../../shared/ui/ui.js";
 import qrcode from "../../../shared/vendor/qrcode-generator.js";
 
@@ -103,12 +103,12 @@ const persistMenuSettings = async (sequence) => {
       selectedCategories: [...pendingSettings.selectedCategories],
     });
     if (sequence === saveSequence) {
-      setMenuSaveStatus(translate("Alterações salvas"), "success");
+      setMenuSaveStatus(translate("menuSaveSuccess"), "success");
       menuSaveRetry.hidden = true;
     }
   } catch {
     if (sequence === saveSequence) {
-      setMenuSaveStatus(translate("Não foi possível salvar as alterações do cardápio"), "error");
+      setMenuSaveStatus(translate("menuSaveError"), "error");
       menuSaveRetry.hidden = false;
     }
   } finally {
@@ -127,13 +127,13 @@ const getOrderCapacity = () => {
   if (!Number.isFinite(limit)) {
     return {
       state: "ok",
-      label: getLanguage() === "en" ? "No monthly order limit" : "Pedidos sem limite mensal",
+      label: translate("noMonthlyOrderLimit"),
     };
   }
 
   return {
     state: "ok",
-    label: getLanguage() === "en" ? `Monthly limit: ${limit} orders` : `Limite mensal: ${limit} pedidos`,
+    label: translate("monthlyOrderLimit").replace("$1", String(limit)),
   };
 };
 
@@ -142,7 +142,7 @@ const syncOrderCapacityDots = () => {
   const capacity = getOrderCapacity();
   browserBar.dataset.orderCapacity = capacity.state;
   browserBar.title = capacity.label;
-  browserBar.setAttribute("aria-label", translate(`Cardápio: ${capacity.label}`));
+  browserBar.setAttribute("aria-label", translate(`Menu: ${capacity.label}`));
 };
 
 const productImage = (item) => {
@@ -167,7 +167,8 @@ const productPriceHtml = (item) => {
   return formatPrice(parsePrice(item.price));
 };
 
-const getCategoryOptions = () => ["Todos", ...categoryNames];
+const ALL_CATEGORIES = "__all_categories__";
+const getCategoryOptions = () => [ALL_CATEGORIES, ...categoryNames];
 
 const syncCategoryField = () => {
   const selected = Array.isArray(settings.selectedCategories) ? settings.selectedCategories : [];
@@ -236,25 +237,25 @@ const getCustomerMenuUrl = async () => {
   if (publicBase) {
     let parsedBase;
     try { parsedBase = new URL(publicBase); }
-    catch { throw new Error("Endereço público do cardápio inválido"); }
+    catch { throw new Error("invalidPublicMenuUrl"); }
     if (parsedBase.protocol !== "https:" || parsedBase.username || parsedBase.password || parsedBase.search || parsedBase.hash || parsedBase.pathname !== "/") {
-      throw new Error("O endereço público do cardápio deve ser uma origem HTTPS, sem caminho adicional");
+      throw new Error("publicMenuUrlOriginOnly");
     }
     baseUrl = parsedBase.origin;
   } else if (["tauri.localhost", "localhost", "127.0.0.1", ""].includes(window.location.hostname)) {
-    throw new Error("Configure FOOD_SYSTEM_PUBLIC_MENU_URL com o endereço HTTPS acessível aos clientes");
+    throw new Error("publicMenuUrlRequired");
   } else if (window.location.protocol !== "https:") {
-    throw new Error("O endereço público do cardápio deve usar HTTPS");
+    throw new Error("publicMenuHttpsRequired");
   }
   const url = new URL("/pages/qr-code-final/index.html", baseUrl);
   const tableName = qrCodeTable?.value.trim();
   const table = restaurantTables.find((item) => item.name.toLowerCase() === tableName?.toLowerCase());
   if (table?.public_token) {
-    url.searchParams.set("mesa_token", table.public_token);
+    url.searchParams.set("table_token", table.public_token);
   } else {
     const businessId = getSession()?.businessId;
-    if (businessId) url.searchParams.set("negocio", businessId);
-    if (tableName) url.searchParams.set("mesa", tableName);
+    if (businessId) url.searchParams.set("business", businessId);
+    if (tableName) url.searchParams.set("table", tableName);
   }
   return url.href;
 };
@@ -291,24 +292,24 @@ const renderMenuLoadError = (message) => {
   menuLoadRetry.hidden = false;
   applyPreviewGradient();
   preview.business.textContent = settings.businessName || "Food System";
-  preview.title.textContent = settings.menuName || translate("Cardápio");
+  preview.title.textContent = settings.menuName || translate("menuTitle");
   preview.banner.textContent = settings.menuBanner || "";
   preview.banner.hidden = !settings.menuBanner?.trim();
   preview.categories.innerHTML = "";
-  preview.list.innerHTML = `<div class="menu-preview-empty">${translate("Não foi possível carregar os produtos e as categorias.")}</div>`;
+  preview.list.innerHTML = `<div class="menu-preview-empty">${translate("menuLoadingError")}</div>`;
   syncOrderCapacityDots();
 };
 
 const loadQrImageForCanvas = async () => {
   if (!qrCodeImage?.src) {
-    throw new Error("QR Code ainda não foi gerado");
+    throw new Error("qrNotGenerated");
   }
 
   const image = new Image();
 
   await new Promise((resolve, reject) => {
     image.onload = resolve;
-    image.onerror = () => reject(new Error("Não foi possível carregar o QR Code para download"));
+    image.onerror = () => reject(new Error("qrImageLoadError"));
     image.src = qrCodeImage.src;
   });
 
@@ -338,7 +339,7 @@ const buildQrCanvas = async (mimeType = "image/png") => {
 
   context.fillStyle = "#686868";
   context.font = "500 18px Inter, sans-serif";
-  context.fillText(translate("Escaneie para abrir o cardápio"), canvas.width / 2, finalSize + 68);
+  context.fillText(translate("scanToOpenMenu"), canvas.width / 2, finalSize + 68);
 
   return {
     canvas,
@@ -358,7 +359,7 @@ const triggerFileDownload = (href, filename) => {
 const downloadQrAsImage = async (format) => {
   const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
   const { dataUrl } = await buildQrCanvas(mimeType);
-  triggerFileDownload(dataUrl, `food-system-cardapio-qr.${format}`);
+  triggerFileDownload(dataUrl, `food-system-menu-qr.${format}`);
 };
 
 const escapePdfText = (value) =>
@@ -400,7 +401,7 @@ const downloadQrAsPdf = async () => {
 
   const blob = new Blob([pdf], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
-  triggerFileDownload(url, "food-system-cardapio-qr.pdf");
+  triggerFileDownload(url, "food-system-menu-qr.pdf");
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
@@ -414,7 +415,7 @@ const render = () => {
   preview.wrapper.dataset.density =
     densityValue < 34 ? "spacious" : densityValue > 66 ? "compact" : "balanced";
   preview.business.textContent = settings.businessName || "Food System";
-  preview.title.textContent = settings.menuName || translate("Cardápio digital");
+  preview.title.textContent = settings.menuName || translate("menuDigitalTitle");
   preview.banner.textContent = settings.menuBanner?.trim() || "";
   preview.banner.hidden = !settings.menuBanner?.trim();
   applyPreviewGradient();
@@ -422,7 +423,7 @@ const render = () => {
   preview.categories.innerHTML = getCategoryOptions()
     .map(
       (category) =>
-        `<button class="chip ${(settings.showAllProducts || (settings.selectedCategories || []).includes(category) || category === "Todos") ? "active" : ""}" type="button" data-category="${escapeHtml(category)}">${category === "Todos" ? escapeHtml(translate("all")) : escapeHtml(category)}</button>`
+        `<button class="chip ${(settings.showAllProducts || (settings.selectedCategories || []).includes(category) || category === ALL_CATEGORIES) ? "active" : ""}" type="button" data-category="${escapeHtml(category)}">${category === ALL_CATEGORIES ? escapeHtml(translate("all")) : escapeHtml(category)}</button>`
     )
     .join("");
 
@@ -440,14 +441,14 @@ const render = () => {
           <div class="menu-action">
             <div class="menu-action-wrapper">
               <span class="menu-price">${productPriceHtml(item)}</span>
-              <span class="choose-btn" aria-hidden="true">${translate("Adicionar")}</span>
+              <span class="choose-btn" aria-hidden="true">${translate("addToOrder")}</span>
             </div>
           </div>
         </article>
       `;
         })
         .join("")
-    : `<div class="menu-preview-empty">${translate("Nenhum produto ativo no cardápio")}</div>`;
+    : `<div class="menu-preview-empty">${translate("noActiveMenuProducts")}</div>`;
 
   syncOrderCapacityDots();
 };
@@ -476,7 +477,7 @@ const syncFromFields = () => {
   render();
   pendingSettings = { ...settings, selectedCategories: [...selectedCategories] };
   const sequence = ++saveSequence;
-  setMenuSaveStatus(translate("Salvando alterações"), "saving");
+  setMenuSaveStatus(translate("savingChanges"), "saving");
   menuSaveRetry.hidden = true;
   window.clearTimeout(saveSettingsTimer);
   saveSettingsTimer = window.setTimeout(() => void persistMenuSettings(sequence), 450);
@@ -514,7 +515,7 @@ Object.entries(fields).forEach(([key, field]) => {
 menuSaveRetry.addEventListener("click", () => {
   window.clearTimeout(saveSettingsTimer);
   const sequence = ++saveSequence;
-  setMenuSaveStatus(translate("Salvando alterações"), "saving");
+  setMenuSaveStatus(translate("savingChanges"), "saving");
   menuSaveRetry.hidden = true;
   void persistMenuSettings(sequence);
 });
@@ -527,10 +528,10 @@ tableShortcutList?.replaceChildren(
     button.className = "table-shortcut";
     button.textContent = tableNumber;
     button.addEventListener("click", () => {
-      if (qrCodeTable) qrCodeTable.value = `Mesa ${tableNumber}`;
+      if (qrCodeTable) qrCodeTable.value = `${translate("tableWord")} ${tableNumber}`;
       renderQrCode()
-        .then(() => showToast(translate(`QR da mesa ${tableNumber} pronto`)))
-        .catch((error) => showToast(translate(error.message || "Não foi possível criar o QR da mesa"), { type: "error" }));
+        .then(() => showToast(translate("qrTableReady").replace("$1", tableNumber)))
+        .catch((error) => showToast(translate(error.message || "createTableQrError"), { type: "error" }));
     });
     return button;
   })
@@ -552,7 +553,7 @@ preview.categories.addEventListener("click", (event) => {
   const button = event.target.closest("[data-category]");
   if (!button) return;
   const category = button.dataset.category;
-  if (category === "Todos") {
+  if (category === ALL_CATEGORIES) {
     fields.showAllProducts.checked = true;
     syncCategoryField();
     syncFromFields();
@@ -571,8 +572,8 @@ preview.categories.addEventListener("click", (event) => {
 
 generateQrCodeButton?.addEventListener("click", () => {
   renderQrCode()
-    .then(() => showToast(translate("QR Code gerado")))
-    .catch((error) => showToast(translate(error.message || "Não foi possível atualizar o QR Code"), { type: "error" }));
+    .then(() => showToast(translate("qrGenerated")))
+    .catch((error) => showToast(translate(error.message || "qrUpdateError"), { type: "error" }));
 });
 
 qrCodeTable?.addEventListener("change", () => {
@@ -588,41 +589,41 @@ qrCodeOpenPage?.addEventListener("click", () => {
     })
     .catch((error) => {
       popup?.close();
-      showToast(translate(error.message || "Não foi possível abrir a página"), { type: "error" });
+      showToast(translate(error.message || "publicMenuOpenError"), { type: "error" });
     });
 });
 copyQrCodeLink?.addEventListener("click", async () => {
   try {
     await renderQrCode();
     const value = qrCodeLink?.value || "";
-    if (!value) throw new Error("Gere o QR Code antes de copiar o link");
+    if (!value) throw new Error("generateQrBeforeCopy");
     await navigator.clipboard.writeText(value);
-    showToast(translate("Link copiado"));
+    showToast(translate("menuLinkCopied"));
   } catch {
     qrCodeLink?.focus();
     qrCodeLink?.select();
-    showToast(translate("Copie o link manualmente"), { type: "error" });
+    showToast(translate("copyMenuLinkManually"), { type: "error" });
   }
 });
 downloadQrPng?.addEventListener("click", async () => {
   try {
     await downloadQrAsImage("png");
   } catch (error) {
-      showToast(translate(error.message || "Não foi possível baixar o QR em PNG"), { type: "error" });
+      showToast(translate(error.message || "downloadQrPngError"), { type: "error" });
   }
 });
 downloadQrJpeg?.addEventListener("click", async () => {
   try {
     await downloadQrAsImage("jpeg");
   } catch (error) {
-      showToast(translate(error.message || "Não foi possível baixar o QR em JPEG"), { type: "error" });
+      showToast(translate(error.message || "downloadQrJpegError"), { type: "error" });
   }
 });
 downloadQrPdf?.addEventListener("click", async () => {
   try {
     await downloadQrAsPdf();
   } catch (error) {
-      showToast(translate(error.message || "Não foi possível baixar o QR em PDF"), { type: "error" });
+      showToast(translate(error.message || "downloadQrPdfError"), { type: "error" });
   }
 });
 
@@ -642,7 +643,7 @@ const initializeMenu = async () => {
     categoryNames = await loadCategories();
     restaurantTables = await loadRestaurantTablesRemote();
   } catch (error) {
-    renderMenuLoadError(translate(error.message || "Não foi possível carregar o cardápio pela API"));
+    renderMenuLoadError(translate(error.message || "menuLoadError"));
     return false;
   } finally {
     menuLoading = false;

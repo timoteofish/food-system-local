@@ -249,7 +249,7 @@ export default async function orderRoutes(app) {
           if (!inventory.length || Number(inventory[0].current_quantity) < required) throw app.httpErrors.conflict("Insufficient inventory to complete order");
           const movementId = randomUUID();
           await connection.query("UPDATE inventory_items SET current_quantity = current_quantity - ? WHERE id = ? AND business_id = ?", [required, inventoryItemId, request.params.businessId]);
-          await connection.query("INSERT INTO inventory_movements (id, business_id, inventory_item_id, order_id, type, quantity, description) VALUES (?, ?, ?, ?, 'sale', ?, ?)", [movementId, request.params.businessId, inventoryItemId, request.params.id, -required, "Baixa automática do pedido"]);
+          await connection.query("INSERT INTO inventory_movements (id, business_id, inventory_item_id, order_id, type, quantity, description) VALUES (?, ?, ?, ?, 'sale', ?, ?)", [movementId, request.params.businessId, inventoryItemId, request.params.id, -required, "Automatic order stock deduction"]);
         }
       }
       await connection.query("UPDATE orders SET status = ? WHERE id = ? AND business_id = ?", [status, request.params.id, request.params.businessId]);
@@ -258,7 +258,7 @@ export default async function orderRoutes(app) {
         if (!sales.length) {
           const [totalRows] = await connection.query("SELECT total FROM orders WHERE id = ? LIMIT 1", [request.params.id]);
           const [sessions] = await connection.query("SELECT id FROM cash_register_sessions WHERE business_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1 FOR UPDATE", [request.params.businessId]);
-          await connection.query("INSERT INTO cash_movements (id, business_id, session_id, order_id, type, amount, description) VALUES (?, ?, ?, ?, 'sale', ?, ?)", [randomUUID(), request.params.businessId, sessions[0]?.id || null, request.params.id, totalRows[0].total, "Venda concluída"]);
+          await connection.query("INSERT INTO cash_movements (id, business_id, session_id, order_id, type, amount, description) VALUES (?, ?, ?, ?, 'sale', ?, ?)", [randomUUID(), request.params.businessId, sessions[0]?.id || null, request.params.id, totalRows[0].total, "Sale completed"]);
         }
       }
       const [rows] = await connection.query("SELECT * FROM orders WHERE id = ? LIMIT 1", [request.params.id]);

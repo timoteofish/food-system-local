@@ -2,3 +2,4 @@ backend/.env
 state/backups/
 src-tauri/target/
 desktop/runtime/
+RELEASE_READINESS.md

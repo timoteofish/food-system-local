@@ -18,14 +18,14 @@ export const initCalendarPanel = ({ onSelect, onClear } = {}) => {
   backdrop.className = "calendar-id-backdrop";
   backdrop.type = "button";
   backdrop.hidden = true;
-  backdrop.setAttribute("aria-label", translate("Fechar calendário"));
+  backdrop.setAttribute("aria-label", translate("calendarClose"));
 
   const panel = document.createElement("aside");
   panel.className = "calendar-id-panel";
   panel.hidden = true;
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "true");
-  panel.setAttribute("aria-label", translate("Selecionar data do caixa"));
+  panel.setAttribute("aria-label", translate("calendarSelectCashDate"));
   document.body.append(backdrop, panel);
 
   let selectedValue = "";
@@ -68,19 +68,19 @@ export const initCalendarPanel = ({ onSelect, onClear } = {}) => {
     panel.innerHTML = `
       <div class="calendar-id-panel__handle" aria-hidden="true"></div>
       <header class="calendar-id-panel__header">
-        <div><p>${translate("Filtrar por data")}</p><h2>${translate("Selecionar data")}</h2></div>
-        <button class="calendar-id-panel__close" type="button" data-calendar-close aria-label="${translate("Fechar calendário")}">×</button>
+        <div><p>${translate("calendarFilterByDate")}</p><h2>${translate("calendarSelectDate")}</h2></div>
+        <button class="calendar-id-panel__close" type="button" data-calendar-close aria-label="${translate("calendarClose")}">×</button>
       </header>
       <div class="calendar-id-panel__month-nav">
-        <button type="button" data-calendar-month="previous" aria-label="${translate("Mês anterior")}">‹</button>
+        <button type="button" data-calendar-month="previous" aria-label="${translate("calendarPreviousMonth")}">‹</button>
         <strong>${monthName}</strong>
-        <button type="button" data-calendar-month="next" aria-label="${translate("Próximo mês")}">›</button>
+        <button type="button" data-calendar-month="next" aria-label="${translate("calendarNextMonth")}">›</button>
       </div>
       <div class="calendar-id-panel__weekdays" aria-hidden="true">${weekdays}</div>
       <div class="calendar-id-panel__days">${emptyDays}${days}</div>
       <footer class="calendar-id-panel__actions">
-        <button class="btn btn--secondary" type="button" data-calendar-today>${translate("Hoje")}</button>
-        <button class="btn btn--secondary" type="button" data-calendar-clear ${selectedValue ? "" : "disabled"}>${translate("Limpar filtro")}</button>
+        <button class="btn btn--secondary" type="button" data-calendar-today>${translate("today")}</button>
+        <button class="btn btn--secondary" type="button" data-calendar-clear ${selectedValue ? "" : "disabled"}>${translate("calendarClearFilter")}</button>
       </footer>
     `;
   };

@@ -13,12 +13,8 @@ const createForm = document.getElementById("fiscalForm");
 const createButton = createForm.querySelector("button[type='submit']");
 
 const statusLabels = {
-  draft: "Rascunho",
-  pending: "Em processamento",
-  authorized: "Autorizado",
-  issued: "Emitido",
-  rejected: "Rejeitado",
-  cancelled: "Cancelado",
+  draft: "fiscalDraft",
+  legacy: "fiscalLegacyStatus",
 };
 const documentTypeLabels = {
   nfce: "NFC-e",
@@ -27,9 +23,9 @@ const documentTypeLabels = {
 };
 
 const userFacingError = (error) => {
-  const raw = error?.message || "Não foi possível concluir a operação";
-  if (raw.includes("Fiscal issuance is disabled")) return "A emissão fiscal está desativada até haver integração certificada";
-  return "Não foi possível concluir a operação Verifique a conexão e tente novamente";
+  const raw = error?.message || "fiscalOperationError";
+  if (raw.includes("Fiscal issuance is disabled")) return "fiscalIssuanceDisabledError";
+  return "fiscalConnectionError";
 };
 
 const setMessage = (element, text = "", type = "success") => {
@@ -40,38 +36,38 @@ const setMessage = (element, text = "", type = "success") => {
 };
 
 const renderConfiguration = () => {
-  configState.innerHTML = `<span class="fiscal-config-state__item is-missing"><span aria-hidden="true">!</span>${translate("Emissão desativada até existir integração fiscal certificada")}</span>`;
+  configState.innerHTML = `<span class="fiscal-config-state__item is-missing"><span aria-hidden="true">!</span>${translate("fiscalIssuanceDisabled")}</span>`;
 };
 
 const renderDocuments = (documents) => {
   documentList.setAttribute("aria-busy", "false");
   if (!documents.length) {
-    documentList.innerHTML = `<p class="operation-empty">${translate("Nenhum documento fiscal cadastrado")}</p>`;
+    documentList.innerHTML = `<p class="operation-empty">${translate("fiscalNoDocuments")}</p>`;
     return;
   }
 
   documentList.innerHTML = documents.map((document) => {
-    const statusKey = Object.hasOwn(statusLabels, document.status) ? document.status : "unknown";
-    const status = translate(statusLabels[statusKey] || "Status desconhecido");
-    const documentType = translate(documentTypeLabels[document.document_type] || "Documento fiscal");
+    const statusKey = document.status === "draft" ? "draft" : "legacy";
+    const status = translate(statusLabels[statusKey]);
+    const documentType = translate(documentTypeLabels[document.document_type] || "fiscalUnknownDocument");
     const identifier = document.number || String(document.id || "").slice(0, 8).toUpperCase();
     const errorMessage = document.error_message
       ? `<p class="fiscal-document__error">${escapeHtml(translate(document.error_message))}</p>`
       : "";
-    const issueButton = document.status === "draft"
-      ? `<small>${translate("Rascunho salvo · emissão desativada até integração certificada")}</small>`
-      : "";
+    const issueState = document.status === "draft"
+      ? `<small>${translate("fiscalDraftSavedNotice")}</small>`
+      : `<small>${translate("fiscalLegacyNotice")}</small>`;
 
     return `
       <article class="operation-card fiscal-item">
         <div class="fiscal-document__main">
           <strong>${escapeHtml(documentType)}</strong>
-          <span>${escapeHtml(identifier || "Sem número")}</span>
-          ${document.order_id ? `<small>${translate("Pedido: ")}${escapeHtml(document.order_id)}</small>` : ""}
+          <span>${escapeHtml(identifier || translate("fiscalNoNumber"))}</span>
+          ${document.order_id ? `<small>${translate("fiscalOrderLabel")}${escapeHtml(document.order_id)}</small>` : ""}
         </div>
         <span class="operation-card__status fiscal-document__status fiscal-document__status--${statusKey}">${status}</span>
         ${errorMessage}
-        ${issueButton}
+        ${issueState}
       </article>
     `;
   }).join("");
@@ -79,7 +75,7 @@ const renderDocuments = (documents) => {
 
 const load = async () => {
   documentList.setAttribute("aria-busy", "true");
-  documentList.innerHTML = `<p class="operation-empty" role="status">${translate("Carregando documentos")}</p>`;
+  documentList.innerHTML = `<p class="operation-empty" role="status">${translate("fiscalLoading")}</p>`;
   try {
     const data = await apiRequest(`/businesses/${businessId}/fiscal/documents`);
     renderConfiguration();
@@ -87,7 +83,7 @@ const load = async () => {
     return true;
   } catch (error) {
     documentList.setAttribute("aria-busy", "false");
-    documentList.innerHTML = `<p class="operation-empty" role="alert">${escapeHtml(translate(userFacingError(error)))}</p><button class="btn btn--secondary fiscal-retry" type="button">${translate("Tentar novamente")}</button>`;
+    documentList.innerHTML = `<p class="operation-empty" role="alert">${escapeHtml(translate(userFacingError(error)))}</p><button class="btn btn--secondary fiscal-retry" type="button">${translate("fiscalRetry")}</button>`;
     renderConfiguration();
     return false;
   }
@@ -114,7 +110,7 @@ createForm.addEventListener("submit", async (event) => {
       },
     });
     createForm.reset();
-    setMessage(fiscalMessage, "Rascunho fiscal criado");
+    setMessage(fiscalMessage, "fiscalDraftCreated");
     await load();
   } catch (error) {
     setMessage(fiscalMessage, userFacingError(error), "error");

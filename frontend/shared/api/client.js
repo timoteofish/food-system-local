@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "./config.js";
 import { setSession } from "../data/storage.js";
+import { localizeApiError } from "./error-messages.js";
 
 const isLocalAdminApi = (() => {
   try {
@@ -19,8 +20,8 @@ const parseResponse = async (response) => {
   const data = text ? JSON.parse(text) : {};
 
   if (!response.ok) {
-    const message = data.error || data.message || "Erro na requisição";
-    throw new Error(message);
+    const message = data.error || data.message || "Request failed";
+    throw new Error(localizeApiError(message));
   }
 
   return data;
@@ -28,7 +29,7 @@ const parseResponse = async (response) => {
 
 export const apiRequest = async (path, { method = "GET", body, auth = true } = {}) => {
   if (!API_BASE_URL) {
-    throw new Error("URL da API não configurada Defina window.FOOD_SYSTEM_API_URL ou localStorage['food-system-api-url']");
+    throw new Error(localizeApiError("The API URL is not configured. Set window.FOOD_SYSTEM_API_URL or localStorage['food-system-api-url']"));
   }
 
   const needsAuthentication = auth !== false;
@@ -39,7 +40,7 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
     } catch {
       // Do not send stored session credentials to a service that has not passed
       // the desktop launcher readiness handshake on the trusted loopback API.
-      throw new Error("The local API is not ready yet. Try again shortly.");
+      throw new Error(localizeApiError("The local API is not ready yet. Try again shortly."));
     }
   }
   const developmentLocalMode = needsAuthentication && isLocalAdminApi && !localAccessToken && ["localhost", "127.0.0.1"].includes(window.location.hostname) && window.location.port === "4173";

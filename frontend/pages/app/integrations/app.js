@@ -15,35 +15,35 @@ const providerLabels = {
   ifood: "iFood",
   "99food": "99Food",
   keeta: "Keeta",
-  delivery_logistics: "Logística",
-  payment: "Pagamento",
+  delivery_logistics: "Delivery logistics",
+  payment: "Payments",
 };
 const statusLabels = {
-  disconnected: "Desconectada",
-  pending: "Credenciais salvas · aguardando teste",
-  connected: "Conectada",
-  error: "Falha na conexão",
-  disabled: "Desativada",
+  disconnected: "Disconnected",
+  pending: "Webhook secret saved · awaiting test",
+  reachable: "URL responded · provider not verified",
+  error: "Connection failed",
+  disabled: "Disabled",
 };
 
 const userFacingError = (error) => {
-  const raw = error?.message || "Não foi possível concluir a operação";
+  const raw = error?.message || "Could not complete the operation";
   if (raw.includes("FOOD_SYSTEM_SECRET_KEY")) {
-    return "O armazenamento seguro do servidor não está configurado Configure a chave de segurança antes de salvar tokens";
+    return "Server secret storage is not configured. Set the key before saving the webhook secret";
   }
   if (raw.includes("Integration credentials are not configured")) {
-    return "Salve o token da API antes de testar a conexão";
+    return "Set the generic webhook HMAC secret before receiving signed events";
   }
   if (raw.includes("Integration credentials are invalid")) {
-    return "As credenciais salvas não são válidas Salve o token novamente";
+    return "The saved HMAC secret is invalid. Update the webhook secret";
   }
   if (raw.includes("Integration test_url")) {
-    return "A URL de teste precisa ser HTTPS pública e usar a porta 443";
+    return "The test URL must be a public HTTPS URL on port 443";
   }
   if (raw.includes("Integration connection failed")) {
-    return "Não foi possível acessar o endereço configurado";
+    return "Could not reach the configured address";
   }
-  return "Não foi possível concluir a operação Verifique a conexão e tente novamente";
+  return "Could not complete the operation. Check the connection and try again";
 };
 
 const setMessage = (text = "", type = "success") => {
@@ -68,15 +68,15 @@ const parseSettings = (value) => {
 const renderConnections = (connections) => {
   list.setAttribute("aria-busy", "false");
   if (!connections.length) {
-    list.innerHTML = renderEmpty("Nenhuma integração cadastrada");
+    list.innerHTML = renderEmpty("No integrations registered");
     return;
   }
 
   list.innerHTML = connections.map((connection) => {
     const settings = parseSettings(connection.settings);
-    const provider = translate(providerLabels[connection.provider] || "Provedor externo");
+    const provider = translate(providerLabels[connection.provider] || "External provider");
     const statusKey = Object.hasOwn(statusLabels, connection.status) ? connection.status : "unknown";
-    const status = translate(statusLabels[statusKey] || "Status desconhecido");
+    const status = translate(statusLabels[statusKey] || "Unknown status");
 
     return `
       <article class="operation-card integration-card">
@@ -85,21 +85,22 @@ const renderConnections = (connections) => {
           <span class="operation-card__status operation-card__status--${statusKey}">${status}</span>
         </div>
         <div class="integration-card__details">
-          <span>${translate("Provedor: ")}${escapeHtml(provider)}</span>
-          ${settings.test_url ? `<span>${translate("URL de teste: ")}${escapeHtml(settings.test_url)}</span>` : ""}
+          <span>${translate("Provider: ")}${escapeHtml(provider)}</span>
+          ${settings.test_url ? `<span>${translate("Test URL: ")}${escapeHtml(settings.test_url)}</span>` : ""}
+          <small>${translate("Provider connector is not implemented yet")}</small>
         </div>
         ${connection.last_error ? `<p class="integration-card__error">${escapeHtml(translate(userFacingError({ message: connection.last_error })))}</p>` : ""}
         <details class="integration-credentials">
-          <summary>${translate("Atualizar token da API")}</summary>
+          <summary>${translate("Update webhook secret")}</summary>
           <form class="integration-credentials__form" data-credentials-form data-integration-id="${escapeHtml(connection.id)}">
-            <label>${translate("Token da API")}
-              <input type="password" name="api_token" autocomplete="new-password" required />
+            <label>${translate("Generic webhook secret")}
+              <input type="password" name="webhook_secret" autocomplete="new-password" minlength="16" maxlength="512" required />
             </label>
-            <button class="btn btn--secondary" type="submit">${translate("Salvar token")}</button>
+            <button class="btn btn--secondary" type="submit">${translate("Save secret")}</button>
           </form>
         </details>
         <div class="integration-actions">
-          <button class="btn btn--secondary" type="button" data-test-integration="${escapeHtml(connection.id)}">${translate("Verificar alcance do endpoint")}</button>
+          <button class="btn btn--secondary" type="button" data-test-integration="${escapeHtml(connection.id)}">${translate("Test URL response")}</button>
         </div>
       </article>
     `;
@@ -108,14 +109,14 @@ const renderConnections = (connections) => {
 
 const load = async () => {
   list.setAttribute("aria-busy", "true");
-  list.innerHTML = renderEmpty("Carregando conexões");
+  list.innerHTML = renderEmpty("Loading connections");
   try {
     const data = await apiRequest(`/businesses/${businessId}/integrations`);
     renderConnections(Array.isArray(data.connections) ? data.connections : []);
     return true;
   } catch (error) {
     list.setAttribute("aria-busy", "false");
-    list.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate(userFacingError(error)))}</p><button class="btn btn--secondary" type="button" data-integration-retry>${translate("Tentar novamente")}</button></div>`;
+    list.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate(userFacingError(error)))}</p><button class="btn btn--secondary" type="button" data-integration-retry>${translate("Try again")}</button></div>`;
     return false;
   }
 };
@@ -125,12 +126,12 @@ form.addEventListener("submit", async (event) => {
   const provider = document.getElementById("integrationProvider").value;
   const name = document.getElementById("integrationName").value.trim();
   const testUrl = document.getElementById("integrationTestUrl").value.trim();
-  const tokenInput = document.getElementById("integrationToken");
-  const token = tokenInput.value.trim();
+  const secretInput = document.getElementById("integrationWebhookSecret");
+  const webhookSecret = secretInput.value.trim();
 
   if (!name) {
     document.getElementById("integrationName").focus();
-    setMessage("Informe um nome para esta integração", "error");
+    setMessage("Enter a name for this integration", "error");
     return;
   }
 
@@ -148,17 +149,17 @@ form.addEventListener("submit", async (event) => {
     });
     const connectionId = created.connection.id;
 
-    if (token) {
+    if (webhookSecret) {
       try {
         await apiRequest(`/businesses/${businessId}/integrations/${connectionId}/credentials`, {
           method: "POST",
-          body: { credentials: { api_token: token } },
+          body: { credentials: { webhook_secret: webhookSecret } },
         });
       } catch (error) {
         form.reset();
         await load();
         setMessage(
-          `Integração cadastrada, mas o token não foi salvo. ${userFacingError(error)}`,
+          translate("integrationSecretSaveWarning").replace("$1", translate(userFacingError(error))),
           "error"
         );
         return;
@@ -166,7 +167,7 @@ form.addEventListener("submit", async (event) => {
     }
 
     form.reset();
-    setMessage(token ? "Integração e credenciais salvas" : "Integração cadastrada Adicione o token para testar a conexão");
+    setMessage(webhookSecret ? "Test settings and generic webhook secret saved; provider connector is not implemented" : "Test settings saved; provider connector is not implemented");
     await load();
   } catch (error) {
     setMessage(userFacingError(error), "error");
@@ -181,9 +182,9 @@ list.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const button = credentialsForm.querySelector("button[type='submit']");
-  const input = credentialsForm.querySelector("input[name='api_token']");
-  const token = input.value.trim();
-  if (!token) {
+  const input = credentialsForm.querySelector("input[name='webhook_secret']");
+  const webhookSecret = input.value.trim();
+  if (!webhookSecret) {
     input.focus();
     return;
   }
@@ -194,10 +195,10 @@ list.addEventListener("submit", async (event) => {
   try {
     await apiRequest(`/businesses/${businessId}/integrations/${credentialsForm.dataset.integrationId}/credentials`, {
       method: "POST",
-      body: { credentials: { api_token: token } },
+      body: { credentials: { webhook_secret: webhookSecret } },
     });
     credentialsForm.reset();
-    setMessage("Token salvo com segurança");
+    setMessage("Webhook HMAC secret saved; provider connector is not implemented");
     await load();
   } catch (error) {
     setMessage(userFacingError(error), "error");
@@ -223,12 +224,12 @@ list.addEventListener("click", async (event) => {
       { method: "POST" }
     );
     const status = Number(result.status);
-    const testMessage = result.connected
-      ? "Endpoint acessível (HTTP 2xx); credenciais do provedor não foram verificadas"
+    const testMessage = result.reachable
+      ? "Endpoint is reachable (HTTP 2xx); provider credentials were not checked"
       : Number.isFinite(status) && status > 0
-        ? `O endpoint respondeu com HTTP ${status}`
-        : "O endpoint não informou o status HTTP";
-    setMessage(testMessage, result.connected ? "success" : "error");
+        ? translate("integrationHttpResponse").replace("$1", String(status))
+        : "The endpoint did not provide an HTTP status";
+    setMessage(testMessage, result.reachable ? "success" : "error");
     await load();
   } catch (error) {
     setMessage(userFacingError(error), "error");
@@ -249,7 +250,7 @@ const start = async () => {
     const messageText = userFacingError(error);
     setMessage(messageText, "error");
     list.setAttribute("aria-busy", "false");
-    list.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate(messageText))}</p><button class="btn btn--secondary" type="button" data-integration-retry>${translate("Tentar novamente")}</button></div>`;
+    list.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate(messageText))}</p><button class="btn btn--secondary" type="button" data-integration-retry>${translate("Try again")}</button></div>`;
   }
 };
 

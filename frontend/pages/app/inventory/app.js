@@ -1,7 +1,7 @@
 import { getSession } from "../../../shared/data/storage.js";
 import { apiRequest } from "../../../shared/api/client.js";
 import { initAppShell } from "../../../shared/ui/ui.js";
-import { getLanguage, getLocale, translate } from "../../../shared/i18n/i18n.js";
+import { getLocale, translate } from "../../../shared/i18n/i18n.js";
 import { formatInventoryUnit } from "../../../shared/utils/utils.js";
 
 const session = getSession();
@@ -76,7 +76,7 @@ const renderSelectOptions = () => {
   const supplierSelect = document.getElementById("purchaseSupplier");
   const previousSupplier = supplierSelect.value;
   const noSupplier = hasLoadedSuppliers
-    ? translate("Sem fornecedor")
+    ? translate("No supplier")
     : translate("inventorySuppliersUnavailable");
   supplierSelect.innerHTML = `<option value="">${noSupplier}</option>${supplierOptions}`;
   if (suppliers.some((supplier) => supplier.id === previousSupplier)) supplierSelect.value = previousSupplier;
@@ -100,7 +100,7 @@ const renderRecipeIngredients = () => {
   recipeIngredientsList.innerHTML = recipeIngredients.map((ingredient) => `
     <li>
       <span>${escapeHtml(ingredient.name)} · ${formatNumber(ingredient.quantity)} ${escapeHtml(formatInventoryUnit(ingredient.unit))}</span>
-      <button class="btn btn--secondary" type="button" data-remove-recipe-item="${escapeHtml(ingredient.id)}" aria-label="${escapeHtml(translate("removeRecipeIngredient").replace("$1", ingredient.name))}">${translate("Remover")}</button>
+      <button class="btn btn--secondary" type="button" data-remove-recipe-item="${escapeHtml(ingredient.id)}" aria-label="${escapeHtml(translate("removeRecipeIngredient").replace("$1", ingredient.name))}">${translate("Remove")}</button>
     </li>
   `).join("");
 };
@@ -108,9 +108,7 @@ const renderRecipeIngredients = () => {
 const renderInventory = () => {
   if (!hasLoadedInventory) return;
   rows.setAttribute("aria-busy", "false");
-  const itemWord = items.length === 1
-    ? translate("insumo")
-    : translate(getLanguage() === "en" ? "ingredients" : "insumos");
+  const itemWord = translate(items.length === 1 ? "ingredient" : "ingredients");
   count.textContent = `${formatNumber(items.length)} ${itemWord}`;
   if (!items.length) {
     rows.innerHTML = `<tr><td class="inventory-empty" colspan="5">${translate("noItems")}</td></tr>`;
@@ -369,7 +367,7 @@ const initializeInventory = async () => {
     }
     await load();
   } catch {
-    setMessage(loadMessage, translate("Não foi possível abrir o estoque"));
+    setMessage(loadMessage, translate("Could not open inventory"));
     loadRetry.hidden = false;
   } finally {
     loadRetry.disabled = false;

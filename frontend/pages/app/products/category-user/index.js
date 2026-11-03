@@ -20,23 +20,23 @@ const ensurePanel = () => {
   panel.hidden = true;
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "true");
-  panel.setAttribute("aria-label", translate("Criar categoria"));
+  panel.setAttribute("aria-label", translate("Create category"));
   panel.innerHTML = `
-    <button type="button" class="category-user-panel__close" data-category-user-close aria-label="${translate("Fechar")}">×</button>
+    <button type="button" class="category-user-panel__close" data-category-user-close aria-label="${translate("Close")}">×</button>
     <div class="category-user-panel__header">
-      <p class="category-user-panel__eyebrow">${translate("Categoria")}</p>
-      <h3>${translate("Nova categoria")}</h3>
-      <p class="category-user-panel__subtitle">${translate("Organize seus produtos por categoria.")}</p>
+      <p class="category-user-panel__eyebrow">${translate("Category")}</p>
+      <h3>${translate("New category")}</h3>
+      <p class="category-user-panel__subtitle">${translate("Organize your products by category")}</p>
     </div>
     <div class="category-user-panel__body">
       <label class="category-user-panel__field" for="categoryUserInput">
-        <span>${translate("Nome da categoria")}</span>
-        <input id="categoryUserInput" type="text" placeholder="${translate("Ex.: Porções")}" />
+        <span>${translate("Category name")}</span>
+        <input id="categoryUserInput" type="text" placeholder="${translate("e.g Appetizers")}" />
       </label>
       <p class="category-user-panel__feedback" role="status" aria-live="polite" hidden></p>
       <div class="category-user-panel__actions">
-        <button type="button" class="btn btn--secondary" data-category-user-cancel>${translate("Cancelar")}</button>
-        <button type="button" class="btn btn--primary" data-category-user-save>${translate("Adicionar categoria")}</button>
+        <button type="button" class="btn btn--secondary" data-category-user-cancel>${translate("Cancel")}</button>
+        <button type="button" class="btn btn--primary" data-category-user-save>${translate("Add category")}</button>
       </div>
     </div>
   `;
@@ -88,7 +88,7 @@ export const initCategoryUserPanel = ({
     if (saveButton?.disabled) return;
     const value = String(input?.value || "").trim();
     if (!value) {
-      feedback.textContent = translate("Informe o nome da categoria");
+      feedback.textContent = translate("Enter the category name");
       feedback.dataset.state = "error";
       feedback.hidden = false;
       input?.focus();
@@ -101,7 +101,7 @@ export const initCategoryUserPanel = ({
       input.value = "";
       close();
     } catch {
-      feedback.textContent = translate("Não foi possível adicionar a categoria Tente novamente");
+      feedback.textContent = translate("Could not add the category Try again");
       feedback.dataset.state = "error";
       feedback.hidden = false;
     } finally {

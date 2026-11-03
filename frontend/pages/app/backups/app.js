@@ -1,7 +1,7 @@
 import "../../../shared/i18n/legacy-control.js";
 import { apiRequest } from "../../../shared/api/client.js";
 import { getSession } from "../../../shared/data/storage.js";
-import { getLanguage, getLocale, translate } from "../../../shared/i18n/i18n.js";
+import { getLocale, translate } from "../../../shared/i18n/i18n.js";
 import { initAppShell } from "../../../shared/ui/ui.js";
 
 const businessId = getSession()?.businessId;
@@ -43,7 +43,7 @@ const setStatus = (message = "", type = "success") => {
 
 const renderBackups = (backups) => {
   if (!backups.length) {
-    backupList.innerHTML = `<p class="operation-empty">${translate("Nenhum backup disponível")}</p>`;
+    backupList.innerHTML = `<p class="operation-empty">${translate("No backups available")}</p>`;
     return;
   }
 
@@ -58,7 +58,7 @@ const renderBackups = (backups) => {
           ${size ? `<span>${escapeHtml(size)}</span>` : ""}
         </div>
         <button class="btn btn--secondary" data-restore="${escapeHtml(name)}" type="button">
-          ${translate("Restaurar")}
+          ${translate("Restore")}
         </button>
       </article>
     `;
@@ -66,13 +66,13 @@ const renderBackups = (backups) => {
 };
 
 const loadBackups = async () => {
-  backupList.innerHTML = `<p class="operation-empty">${translate("Carregando backups")}</p>`;
+  backupList.innerHTML = `<p class="operation-empty">${translate("Loading backups")}</p>`;
   setStatus();
   try {
     const data = await apiRequest(`/businesses/${businessId}/backups`);
     renderBackups(Array.isArray(data.backups) ? data.backups : []);
   } catch (error) {
-    backupList.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate("Não foi possível carregar os backups."))}</p><button class="btn btn--secondary" type="button" data-backup-retry>${translate("Tentar novamente")}</button></div>`;
+    backupList.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate("Could not load backups"))}</p><button class="btn btn--secondary" type="button" data-backup-retry>${translate("Try again")}</button></div>`;
   }
 };
 
@@ -83,14 +83,14 @@ backupList.addEventListener("click", (event) => {
 createButton.addEventListener("click", async () => {
   if (createButton.disabled) return;
   createButton.disabled = true;
-  setStatus("Criando backup");
+  setStatus("Creating backup");
 
   try {
     await apiRequest(`/businesses/${businessId}/backups`, { method: "POST" });
-    setStatus("Backup criado");
+    setStatus("Backup created");
     await loadBackups();
   } catch (error) {
-    setStatus("Não foi possível criar o backup Tente novamente", "error");
+    setStatus("Could not create the backup Try again", "error");
   } finally {
     createButton.disabled = false;
   }
@@ -101,21 +101,19 @@ backupList.addEventListener("click", async (event) => {
   if (!button || button.disabled) return;
 
   const backupName = button.dataset.restore;
-  const confirmation = getLanguage() === "en"
-    ? `Restore ${backupName}? Current data will be replaced`
-    : `Restaurar ${backupName}? Os dados atuais serão substituídos`;
+  const confirmation = `${translate("Restore")} ${backupName}${translate("? Current data will be replaced")}.`;
   if (!window.confirm(confirmation)) return;
 
   button.disabled = true;
-  setStatus("Restaurando backup");
+  setStatus("Restoring backup");
   try {
     await apiRequest(`/businesses/${businessId}/backups/restore`, {
       method: "POST",
       body: { name: backupName },
     });
-    setStatus("Backup restaurado Reinicie o aplicativo se necessário");
+    setStatus("Backup restored Restart the app if needed");
   } catch (error) {
-    setStatus("Não foi possível restaurar o backup Tente novamente", "error");
+    setStatus("Could not restore the backup Try again", "error");
   } finally {
     if (button.isConnected) button.disabled = false;
   }
@@ -126,7 +124,7 @@ const start = async () => {
     await initAppShell({ activeNav: "backups" });
     await loadBackups();
   } catch (error) {
-    setStatus("Não foi possível abrir os backups", "error");
+    setStatus("Could not open backups", "error");
   }
 };
 

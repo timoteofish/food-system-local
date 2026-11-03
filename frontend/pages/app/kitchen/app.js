@@ -9,17 +9,17 @@ const statusMessage = document.getElementById("kitchenStatus");
 const stationSelect = document.getElementById("kitchenStation");
 const refreshButton = document.getElementById("refreshKitchen");
 const columns = [
-  ["pending", "Novos", "confirmed"],
-  ["confirmed", "Aguardando preparo", "preparing"],
-  ["preparing", "Em preparo", "ready"],
-  ["ready", "Prontos", "completed"],
+  ["pending", "New", "confirmed"],
+  ["confirmed", "Waiting for preparation", "preparing"],
+  ["preparing", "In progress", "ready"],
+  ["ready", "Ready", "completed"],
 ];
 const activeKitchenStatuses = new Set(columns.map(([status]) => status));
 const actionLabels = {
-  confirmed: "Confirmar pedido",
-  preparing: "Iniciar preparo",
-  ready: "Marcar como pronto",
-  completed: "Concluir pedido",
+  confirmed: "Confirm order",
+  preparing: "Start preparation",
+  ready: "Mark as ready",
+  completed: "Complete order",
 };
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>\'"]/g, (char) => ({
   "&": "&amp;",
@@ -38,9 +38,12 @@ const printStyles = `
   p { display: flex; justify-content: space-between; gap: 10px; }
   button { display: none; }
 `;
-const printCopy = getLocale().startsWith("en")
-  ? { order: "Order", tableOrCounter: "Table or counter", counter: "Counter", total: "Total" }
-  : { order: "Pedido", tableOrCounter: "Mesa ou balcão", counter: "Balcão", total: "Total" };
+const printCopy = {
+  order: translate("Order"),
+  tableOrCounter: translate("Table or counter"),
+  counter: translate("Counter"),
+  total: translate("Total"),
+};
 
 const setStatus = (message, state = "") => {
   statusMessage.textContent = message;
@@ -51,7 +54,7 @@ const setStatus = (message, state = "") => {
 const openPrintTicket = (ticket) => {
   const popup = window.open("", "_blank", "width=420,height=640");
   if (!popup) {
-    setStatus(translate("Não foi possível abrir a impressão Permita janelas para este aplicativo e tente novamente"), "error");
+    setStatus(translate("Could not open the print dialog Allow pop-ups for this app and try again"), "error");
     return;
   }
   popup.opener = null;
@@ -92,7 +95,7 @@ const openPrintTicket = (ticket) => {
 const renderBoard = (orders) => {
   board.innerHTML = columns.map(([status, label, next]) => {
     const matchingOrders = orders.filter((order) => order.status === status);
-    const orderCountLabel = translate(matchingOrders.length === 1 ? "$1 pedido" : "$1 pedidos")
+    const orderCountLabel = translate(matchingOrders.length === 1 ? "$1 order" : "$1 orders")
       .replace("$1", String(matchingOrders.length));
     const tickets = matchingOrders.map((order) => {
       const items = (order.items || []).map((item) => (
@@ -102,12 +105,12 @@ const renderBoard = (orders) => {
         <article class="kitchen-ticket">
           <div class="kitchen-ticket__head">
             <strong class="kitchen-ticket__code">#${escapeHtml(orderCode(order))}</strong>
-            <span class="kitchen-ticket__location">${escapeHtml(order.table_name || translate("Balcão"))}</span>
+            <span class="kitchen-ticket__location">${escapeHtml(order.table_name || translate("Counter"))}</span>
           </div>
-          <ul class="kitchen-ticket__items">${items || `<li>${translate("Itens não informados")}</li>`}</ul>
+          <ul class="kitchen-ticket__items">${items || `<li>${translate("Items not specified")}</li>`}</ul>
           <div class="kitchen-ticket__actions">
             <button class="btn btn--primary" data-order-id="${escapeHtml(order.id)}" data-next-status="${next}" type="button">${escapeHtml(translate(actionLabels[next]))}</button>
-            <button class="btn btn--secondary" data-print-order="${escapeHtml(order.id)}" type="button">${translate("Imprimir comanda")}</button>
+            <button class="btn btn--secondary" data-print-order="${escapeHtml(order.id)}" type="button">${translate("Print ticket")}</button>
           </div>
         </article>
       `;
@@ -118,7 +121,7 @@ const renderBoard = (orders) => {
           <h2 id="kitchen-${status}">${translate(label)}</h2>
           <span class="kitchen-column__count" aria-label="${orderCountLabel}">${matchingOrders.length}</span>
         </div>
-        ${tickets || `<p class="kitchen-column__empty">${translate("Nenhum pedido nesta etapa")}</p>`}
+        ${tickets || `<p class="kitchen-column__empty">${translate("No orders at this stage")}</p>`}
       </section>
     `;
   }).join("");
@@ -126,7 +129,7 @@ const renderBoard = (orders) => {
 
 const load = async () => {
   board.setAttribute("aria-busy", "true");
-  setStatus(translate("Atualizando pedidos"));
+  setStatus(translate("Updating orders"));
   refreshButton.disabled = true;
   const stationQuery = stationSelect.value ? `?station_id=${encodeURIComponent(stationSelect.value)}` : "";
 
@@ -135,12 +138,12 @@ const load = async () => {
     const orders = Array.isArray(data.orders) ? data.orders : [];
     renderBoard(orders);
     const activeCount = orders.filter((order) => activeKitchenStatuses.has(order.status)).length;
-    const countLabel = translate(activeCount === 1 ? "$1 pedido ativo" : "$1 pedidos ativos")
+    const countLabel = translate(activeCount === 1 ? "$1 active order" : "$1 active orders")
       .replace("$1", String(activeCount));
     setStatus(countLabel);
   } catch (error) {
-    board.innerHTML = `<div class="kitchen-board__error" role="alert"><p>${translate("Não foi possível carregar os pedidos Verifique a conexão e tente novamente.")}</p><button class="btn btn--secondary" type="button" data-kitchen-retry>${translate("Tentar novamente")}</button></div>`;
-    setStatus(translate("Pedidos indisponíveis"), "error");
+    board.innerHTML = `<div class="kitchen-board__error" role="alert"><p>${translate("Could not load orders Check your connection and try again")}</p><button class="btn btn--secondary" type="button" data-kitchen-retry>${translate("Try again")}</button></div>`;
+    setStatus(translate("Orders unavailable"), "error");
   } finally {
     board.setAttribute("aria-busy", "false");
     refreshButton.disabled = false;
@@ -160,7 +163,7 @@ board.addEventListener("click", async (event) => {
       const data = await apiRequest(`/businesses/${session.businessId}/orders/${orderId}/print`);
       openPrintTicket(data.ticket);
     } catch (error) {
-      setStatus(translate("Não foi possível preparar a impressão Tente novamente"), "error");
+      setStatus(translate("Could not prepare printing Try again"), "error");
     } finally {
       printButton.disabled = false;
     }
@@ -177,7 +180,7 @@ board.addEventListener("click", async (event) => {
     });
     await load();
   } catch (error) {
-    setStatus(translate("Não foi possível atualizar o pedido Tente novamente"), "error");
+    setStatus(translate("Could not update the order Try again"), "error");
     button.disabled = false;
   }
 });
@@ -210,14 +213,14 @@ const initializeKitchen = async () => {
         stationsLoaded = true;
       } catch {
         stationSelect.disabled = true;
-        stationSelect.title = translate("Não foi possível carregar as estações");
+        stationSelect.title = translate("Could not load stations");
       }
     }
     await load();
   } catch {
     board.setAttribute("aria-busy", "false");
-    board.innerHTML = `<div class="kitchen-board__error" role="alert"><p>${translate("Não foi possível abrir a cozinha.")}</p><button class="btn btn--secondary" type="button" data-kitchen-retry>${translate("Tentar novamente")}</button></div>`;
-    setStatus(translate("Pedidos indisponíveis"), "error");
+    board.innerHTML = `<div class="kitchen-board__error" role="alert"><p>${translate("Could not open the kitchen display")}</p><button class="btn btn--secondary" type="button" data-kitchen-retry>${translate("Try again")}</button></div>`;
+    setStatus(translate("Orders unavailable"), "error");
   } finally {
     initializing = false;
     refreshButton.disabled = false;

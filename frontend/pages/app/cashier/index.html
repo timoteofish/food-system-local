@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Caixa | Food System</title>
+    <title>Cash register | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
@@ -19,89 +19,89 @@
     <div class="menu-shell">
       <aside class="menu-sidebar">
         <div class="menu-sidebar__brand-row">
-          <button class="menu-sidebar__toggle" type="button" aria-label="Minimizar menu" aria-expanded="true" title="Minimizar menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+          <button class="menu-sidebar__toggle" type="button" aria-label="Collapse menu" aria-expanded="true" title="Collapse menu"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button>
           
           <a class="menu-sidebar__brand" href="../dashboard/index.html">Food System</a>
         </div>
-        <nav class="menu-sidebar__nav" aria-label="Navegação principal">
+        <nav class="menu-sidebar__nav" aria-label="Main navigation">
         <div class="menu-sidebar__nav-group">
-          <a href="../dashboard/index.html" aria-label="Painel" title="Painel"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-4.5v-6.2h-5V21H5a1 1 0 0 1-1-1v-8.8z" /></svg><span class="menu-label">Painel</span></a>
-          <a href="../inventory/index.html" aria-label="Estoque" title="Estoque"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="m12 3 9 5v8l-9 5-9-5V8zm0 10 9-5m-9 5-9-5m9 5v8" /></svg><span class="menu-label">Estoque</span></a>
-          <a href="../orders/index.html" aria-label="Pedidos" title="Pedidos"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M7 3h8l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm7 2v3h3M8 12h8M8 16h8" /></svg><span class="menu-label">Pedidos</span></a>
-          <a href="../kitchen/index.html" aria-label="Cozinha" title="Cozinha"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 13h16a8 8 0 0 1-16 0zm2-3a6 6 0 0 1 12 0M12 4v2" /></svg><span class="menu-label">Cozinha</span></a>
-          <a href="../tables/index.html" aria-label="Mesas" title="Mesas"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></svg><span class="menu-label">Mesas</span></a>
-          <a class="active" aria-current="page" href="./index.html" aria-label="Caixa" title="Caixa"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 8h14l-1 12H6L5 8zm3 0 1-4h6l1 4M9 12v4m6-4v4" /></svg><span class="menu-label">Caixa</span></a>
+          <a href="../dashboard/index.html" aria-label="Dashboard" title="Dashboard"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-4.5v-6.2h-5V21H5a1 1 0 0 1-1-1v-8.8z" /></svg><span class="menu-label">Dashboard</span></a>
+          <a href="../inventory/index.html" aria-label="Inventory" title="Inventory"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="m12 3 9 5v8l-9 5-9-5V8zm0 10 9-5m-9 5-9-5m9 5v8" /></svg><span class="menu-label">Inventory</span></a>
+          <a href="../orders/index.html" aria-label="Orders" title="Orders"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M7 3h8l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm7 2v3h3M8 12h8M8 16h8" /></svg><span class="menu-label">Orders</span></a>
+          <a href="../kitchen/index.html" aria-label="Kitchen" title="Kitchen"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 13h16a8 8 0 0 1-16 0zm2-3a6 6 0 0 1 12 0M12 4v2" /></svg><span class="menu-label">Kitchen</span></a>
+          <a href="../tables/index.html" aria-label="Tables" title="Tables"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></svg><span class="menu-label">Tables</span></a>
+          <a class="active" aria-current="page" href="./index.html" aria-label="Cash register" title="Cash register"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 8h14l-1 12H6L5 8zm3 0 1-4h6l1 4M9 12v4m6-4v4" /></svg><span class="menu-label">Cash register</span></a>
         </div>
         <div class="menu-sidebar__nav-group">
-          <a href="../delivery/index.html" aria-label="Entregas" title="Entregas"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" /></svg><span class="menu-label">Entregas</span></a>
-          <a href="../products/index.html" aria-label="Produtos" title="Produtos"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 4h7v4h-7zM4 13h7v7H4zM13 10h7v10h-7z" /></svg><span class="menu-label">Produtos</span></a>
-          <a href="../menu/index.html" aria-label="Cardápio" title="Cardápio"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 6h14M5 12h14M5 18h9" /></svg><span class="menu-label">Cardápio</span></a>
-          <a href="../contacts/index.html" aria-label="Clientes" title="Clientes"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1m7-9a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-7a4 4 0 0 1 0 7m2 4a4 4 0 0 1 3 4v1" /></svg><span class="menu-label">Clientes</span></a>
-          <a href="../suppliers/index.html" aria-label="Fornecedores" title="Fornecedores"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 7h18v13H3zM7 7V4h10v3M7 12h4m2 0h4M7 16h4m2 0h4" /></svg><span class="menu-label">Fornecedores</span></a>
-          <a href="../discounts/index.html" aria-label="Descontos" title="Descontos"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M20 13 13 20 3 10V3h7l10 10zM7 7h.01" /></svg><span class="menu-label">Descontos</span></a>
-          <a href="../loyalty/index.html" aria-label="Fidelidade" title="Fidelidade"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 3v18m7-14H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H5" /></svg><span class="menu-label">Fidelidade</span></a>
-          <a href="../team/index.html" aria-label="Equipe" title="Equipe"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M16 11a4 4 0 1 0-3.5-6M8 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-7 8v-2a7 7 0 0 1 14 0v2zm15-7a5 5 0 0 1 5 5v2h-3" /></svg><span class="menu-label">Equipe</span></a>
+          <a href="../delivery/index.html" aria-label="Deliveries" title="Deliveries"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" /></svg><span class="menu-label">Deliveries</span></a>
+          <a href="../products/index.html" aria-label="Products" title="Products"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 4h7v4h-7zM4 13h7v7H4zM13 10h7v10h-7z" /></svg><span class="menu-label">Products</span></a>
+          <a href="../menu/index.html" aria-label="Menu" title="Menu"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 6h14M5 12h14M5 18h9" /></svg><span class="menu-label">Menu</span></a>
+          <a href="../contacts/index.html" aria-label="Customers" title="Customers"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1m7-9a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-7a4 4 0 0 1 0 7m2 4a4 4 0 0 1 3 4v1" /></svg><span class="menu-label">Customers</span></a>
+          <a href="../suppliers/index.html" aria-label="Suppliers" title="Suppliers"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 7h18v13H3zM7 7V4h10v3M7 12h4m2 0h4M7 16h4m2 0h4" /></svg><span class="menu-label">Suppliers</span></a>
+          <a href="../discounts/index.html" aria-label="Discounts" title="Discounts"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M20 13 13 20 3 10V3h7l10 10zM7 7h.01" /></svg><span class="menu-label">Discounts</span></a>
+          <a href="../loyalty/index.html" aria-label="Loyalty" title="Loyalty"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 3v18m7-14H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H5" /></svg><span class="menu-label">Loyalty</span></a>
+          <a href="../team/index.html" aria-label="Team" title="Team"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M16 11a4 4 0 1 0-3.5-6M8 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-7 8v-2a7 7 0 0 1 14 0v2zm15-7a5 5 0 0 1 5 5v2h-3" /></svg><span class="menu-label">Team</span></a>
         </div>
         <div class="menu-sidebar__nav-group">
-          <a href="../reports/index.html" aria-label="Relatórios" title="Relatórios"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 20V10m5 10V4m5 16v-7m5 7V7" /></svg><span class="menu-label">Relatórios</span></a>
-          <a href="../fiscal/index.html" aria-label="Fiscal" title="Fiscal"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6" /></svg><span class="menu-label">Fiscal</span></a>
-          <a href="../integrations/index.html" aria-label="Integrações" title="Integrações"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 7V4m6 3V4M8 7h8v4a4 4 0 0 1-8 0zm4 8v5m-5 0h10" /></svg><span class="menu-label">Integrações</span></a>
+          <a href="../reports/index.html" aria-label="Reports" title="Reports"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 20V10m5 10V4m5 16v-7m5 7V7" /></svg><span class="menu-label">Reports</span></a>
+          <a href="../fiscal/index.html" aria-label="Tax documents" title="Tax documents"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6" /></svg><span class="menu-label">Tax documents</span></a>
+          <a href="../integrations/index.html" aria-label="Integrations" title="Integrations"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 7V4m6 3V4M8 7h8v4a4 4 0 0 1-8 0zm4 8v5m-5 0h10" /></svg><span class="menu-label">Integrations</span></a>
           <a href="../backups/index.html" aria-label="Backups" title="Backups"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v13H4zM3 4h18M9 11h6m-6 4h6" /></svg><span class="menu-label">Backups</span></a>
         </div>
         </nav>
         <div class="profile menu-sidebar__profile">
-          <button class="profile-btn" type="button" aria-label="Perfil"><svg class="profile-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z"/></svg></button>
-          <span class="profile-label">Perfil</span>
+          <button class="profile-btn" type="button" aria-label="Profile"><svg class="profile-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z"/></svg></button>
+          <span class="profile-label">Profile</span>
           <div class="profile-menu">
-            <a href="#" data-profile-open="settings">Meu perfil</a>
-            <a href="../menu/index.html">Configurar cardápio</a>
-            <a href="#" data-action="close-app">Fechar aplicativo</a>
+            <a href="#" data-profile-open="settings">My profile</a>
+            <a href="../menu/index.html">Configure menu</a>
+            <a href="#" data-action="close-app">Close app</a>
           </div>
         </div>
       </aside>
       <main class="content menu-content">
         <header class="page-title cash-page-title">
           <div>
-            <p class="eyebrow">Caixa</p>
-            <h1>Resumo do caixa</h1>
-            <p class="cash-page-intro">Acompanhe entradas, saídas e o saldo acumulado</p>
+            <p class="eyebrow" data-i18n="cashPageEyebrow">Cash register</p>
+            <h1 data-i18n="cashPageTitle">Cash register summary</h1>
+            <p class="cash-page-intro" data-i18n="cashPageIntro">Track income, expenses, and the running balance</p>
           </div>
         </header>
         <p id="cashLoadMessage" class="cash-feedback" role="status" aria-live="polite" hidden></p>
-        <button class="btn btn--secondary cash-load-retry" id="cashLoadRetry" type="button" hidden>Tentar novamente</button>
+        <button class="btn btn--secondary cash-load-retry" id="cashLoadRetry" type="button" data-i18n="retryLabel" hidden>Try again</button>
         <section class="grid cards-3 cash-summary" aria-busy="true">
-          <article class="panel stat stat--entry"><span>Entradas</span><strong id="entriesTotal">—</strong><small>Vendas e entradas manuais</small></article>
-          <article class="panel stat stat--exit"><span>Saídas</span><strong id="exitsTotal">—</strong><small>Retiradas manuais</small></article>
-          <article class="panel stat stat--balance"><span>Saldo acumulado</span><strong id="balanceTotal">—</strong><small>Entradas menos saídas</small></article>
+          <article class="panel stat stat--entry"><span data-i18n="cashEntries">Income</span><strong id="entriesTotal">—</strong><small data-i18n="cashSalesAndManualIncome">Sales and manual income</small></article>
+          <article class="panel stat stat--exit"><span data-i18n="cashExits">Expenses</span><strong id="exitsTotal">—</strong><small data-i18n="cashManualWithdrawals">Manual withdrawals</small></article>
+          <article class="panel stat stat--balance"><span data-i18n="cashBalance">Running balance</span><strong id="balanceTotal">—</strong><small data-i18n="cashIncomeMinusExpenses">Income minus expenses</small></article>
         </section>
         <section class="panel cash-register-panel">
-          <div class="cash-history__head"><div><p class="eyebrow">Turno</p><h2 id="cashRegisterTitle">Situação do caixa</h2></div><span class="cash-register-status" id="cashRegisterStatus" role="status" aria-live="polite">Carregando</span></div>
+          <div class="cash-history__head"><div><p class="eyebrow" data-i18n="cashShiftLabel">Shift</p><h2 id="cashRegisterTitle" data-i18n="cashRegisterSituation">Register status</h2></div><span class="cash-register-status" id="cashRegisterStatus" role="status" aria-live="polite" data-i18n="cashLoading">Loading</span></div>
           <form id="cashRegisterForm" class="cash-controls cash-register-form">
-            <label for="cashRegisterAmount"><span id="cashRegisterAmountLabel">Valor inicial do caixa</span><input id="cashRegisterAmount" type="number" min="0" step="0.01" inputmode="decimal" required /></label>
-            <label id="cashRegisterNotesField" for="cashRegisterNotes"><span>Observações do fechamento <span class="cash-optional">Opcional</span></span><input id="cashRegisterNotes" maxlength="255" /></label>
-            <button class="btn btn--primary" id="cashRegisterAction" type="submit" disabled>Abrir caixa</button>
+            <label for="cashRegisterAmount"><span id="cashRegisterAmountLabel">Opening balance</span><input id="cashRegisterAmount" type="number" min="0" step="0.01" inputmode="decimal" required /></label>
+            <label id="cashRegisterNotesField" for="cashRegisterNotes"><span><span data-i18n="cashClosingNotes">Closing notes</span> <span class="cash-optional" data-i18n="optional">Optional</span></span><input id="cashRegisterNotes" maxlength="255" /></label>
+            <button class="btn btn--primary" id="cashRegisterAction" type="submit" disabled>Open register</button>
           </form>
           <p id="cashRegisterMessage" class="cash-feedback" role="status" aria-live="polite" hidden></p>
         </section>
         <section class="panel cash-movement-panel" aria-labelledby="cashMovementTitle">
           <div class="cash-movement-panel__heading">
-            <p class="eyebrow">Movimentação</p>
-            <h2 id="cashMovementTitle">Registrar entrada ou saída</h2>
-            <p id="movementAvailability" class="cash-helper">Abra o caixa para registrar uma movimentação</p>
+            <p class="eyebrow" data-i18n="cashMovementEyebrow">Movement</p>
+            <h2 id="cashMovementTitle" data-i18n="cashMovementTitle">Record income or expense</h2>
+            <p id="movementAvailability" class="cash-helper" data-i18n="cashMovementAvailability">Open the register to record a movement</p>
           </div>
           <form id="movementForm" class="cash-controls cash-movement-form">
-            <label for="movementType">Tipo<select id="movementType"><option value="entry">Entrada</option><option value="withdrawal">Saída</option></select></label>
-            <label for="movementAmount">Valor<input id="movementAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required /></label>
-            <label for="movementDescription"><span>Descrição <span class="cash-optional">Opcional</span></span><input id="movementDescription" maxlength="255" placeholder="Ex.: Compra de ingredientes" /></label>
-            <button class="btn btn--primary" id="movementSubmit" type="submit" disabled>Registrar movimentação</button>
+            <label for="movementType"><span data-i18n="type">Type</span><select id="movementType"><option value="entry" data-i18n="entry">Income</option><option value="withdrawal" data-i18n="withdrawal">Expense</option></select></label>
+            <label for="movementAmount"><span data-i18n="amount">Amount</span><input id="movementAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required /></label>
+            <label for="movementDescription"><span><span data-i18n="description">Description</span> <span class="cash-optional" data-i18n="optional">Optional</span></span><input id="movementDescription" maxlength="255" placeholder="e.g. Ingredient purchase" /></label>
+            <button class="btn btn--primary" id="movementSubmit" type="submit" disabled data-i18n="cashRecordMovement">Record movement</button>
           </form>
           <p id="movementMessage" class="cash-feedback" role="status" aria-live="polite" hidden></p>
         </section>
         <section class="panel cash-list cash-history">
           <div class="cash-history__head">
             <div>
-              <p class="eyebrow">Histórico</p>
-              <h2 id="cashHistoryTitle">Movimentações</h2>
+              <p class="eyebrow" data-i18n="history">History</p>
+              <h2 id="cashHistoryTitle" data-i18n="cashMovements">Movements</h2>
             </div>
           </div>
           <div class="cash-controls">
@@ -109,21 +109,21 @@
               <svg class="cash-search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-5.34C15.39 5.59 12.3 3 8.7 3S2 5.59 2 8.39 4.09 13.78 7.69 13.78c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM7.69 12.28C5.1 12.28 3 10.28 3 8.39S5.1 4.5 7.69 4.5 12.38 6.5 12.38 8.39 10.28 12.28 7.69 12.28z"/>
               </svg>
-              <input id="cashSearch" type="search" placeholder="Pesquisar movimentações" aria-label="Pesquisar movimentações" />
+              <input id="cashSearch" type="search" placeholder="Search movements" aria-label="Search movements" />
             </div>
             <div class="cash-date-filter">
               <label class="cash-date-filter__label" for="cashDateSearch">
-                <span>Filtrar por data</span>
+                <span data-i18n="cashFilterByDate">Filter by date</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V2Zm12 8H5v10h14V10ZM5 8h14V6H5v2Z"/></svg>
               </label>
-              <button class="cash-date-filter__toggle" id="cashDateToggle" type="button" aria-label="Filtrar por data" title="Filtrar por data">
+              <button class="cash-date-filter__toggle" id="cashDateToggle" type="button" aria-label="Filter by date" title="Filter by date">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V2Zm12 8H5v10h14V10ZM5 8h14V6H5v2Z"/></svg>
               </button>
-              <input id="cashDateSearch" type="date" aria-label="Data do histórico" />
+              <input id="cashDateSearch" type="date" aria-label="History date" />
             </div>
           </div>
           <p id="cashActionMessage" class="cash-feedback" role="status" aria-live="polite" hidden></p>
-          <div id="cashLog" role="region" aria-labelledby="cashHistoryTitle" aria-busy="true"><div class="cash-empty" role="status">Carregando movimentações</div></div>
+          <div id="cashLog" role="region" aria-labelledby="cashHistoryTitle" aria-busy="true"><div class="cash-empty" role="status" data-i18n="cashLoadingMovements">Loading movements</div></div>
         </section>
       </main>
     </div>

@@ -10,18 +10,18 @@ import { escapeHtml } from "../../../shared/utils/utils.js";
 import { translate } from "../../../shared/i18n/i18n.js";
 
 const roleLabels = {
-  owner: "Proprietário",
-  manager: "Gerente",
-  staff: "Equipe",
+  owner: "teamRoleOwner",
+  manager: "teamRoleManager",
+  staff: "teamRoleStaff",
 };
 
 const getRoleLabel = (role) => translate(roleLabels[role] || roleLabels.staff);
 let appShellReady = false;
 
 const statusLabels = {
-  active: "Ativo",
-  inactive: "Inativo",
-  pending: "Convite pendente",
+  active: "teamStatusActive",
+  inactive: "teamStatusInactive",
+  pending: "teamStatusPending",
 };
 
 const state = {
@@ -42,16 +42,16 @@ const businessId = () => getBusiness()?.id;
 const renderTeam = () => {
   elements.list.setAttribute("aria-busy", "false");
   const activeCount = state.members.filter((member) => member.status === "active").length;
-  const countKey = activeCount === 1 ? "$1 pessoa ativa" : "$1 pessoas ativas";
+  const countKey = activeCount === 1 ? "teamCountSingle" : "teamCountPlural";
   elements.count.textContent = translate(countKey).replace("$1", String(activeCount));
 
   if (!state.members.length) {
-    elements.list.innerHTML = `<div class="team-empty">${translate("Nenhuma pessoa cadastrada")}</div>`;
+    elements.list.innerHTML = `<div class="team-empty">${translate("teamNoMembers")}</div>`;
     return;
   }
 
   elements.list.innerHTML = state.members.map((member) => {
-    const name = escapeHtml(member.user?.name || translate("Sem nome"));
+    const name = escapeHtml(member.user?.name || translate("teamNoName"));
     const email = String(member.user?.email || "").trim();
     const role = escapeHtml(member.role || "staff");
     const status = Object.hasOwn(statusLabels, member.status) ? member.status : "unknown";
@@ -68,10 +68,10 @@ const renderTeam = () => {
           <strong>${name}</strong>
           ${email ? `<span>${escapeHtml(email)}</span>` : ""}
         </div>
-        <select class="team-member__role" data-team-role aria-label="${escapeHtml(translate("Função de"))} ${name}" ${disabled}>${roleOptions}</select>
-        <span class="team-member__status is-${status}">${translate(statusLabels[status] || "Status desconhecido")}</span>
+        <select class="team-member__role" data-team-role aria-label="${escapeHtml(translate("teamRoleLabel"))} ${name}" ${disabled}>${roleOptions}</select>
+        <span class="team-member__status is-${status}">${translate(statusLabels[status] || "Unknown status")}</span>
         <div class="team-member__actions">
-          <button class="btn btn--secondary" type="button" data-team-disable aria-label="${escapeHtml(translate("Remover pessoa"))} ${name}" ${disabled}>${translate("Remover pessoa")}</button>
+          <button class="btn btn--secondary" type="button" data-team-disable aria-label="${escapeHtml(translate("teamRemovePerson"))} ${name}" ${disabled}>${translate("teamRemovePerson")}</button>
         </div>
       </article>
     `;
@@ -82,19 +82,19 @@ const loadTeam = async () => {
   if (!businessId()) {
     elements.count.textContent = "—";
     elements.list.setAttribute("aria-busy", "false");
-    elements.list.innerHTML = `<p class="team-empty" role="status">${translate("Os dados do estabelecimento não estão disponíveis.")}</p>`;
+    elements.list.innerHTML = `<p class="team-empty" role="status">${translate("teamBusinessUnavailable")}</p>`;
     return false;
   }
   elements.count.textContent = "—";
   elements.list.setAttribute("aria-busy", "true");
-  elements.list.innerHTML = `<p class="team-empty" role="status">${translate("Carregando a equipe")}</p>`;
+  elements.list.innerHTML = `<p class="team-empty" role="status">${translate("teamLoading")}</p>`;
   try {
     state.members = await loadTeamMembersRemote();
     renderTeam();
     return true;
   } catch {
     elements.list.setAttribute("aria-busy", "false");
-    elements.list.innerHTML = `<div class="team-empty" role="alert"><p>${translate("Não foi possível carregar a equipe.")}</p><button class="btn btn--secondary" type="button" data-team-retry>${translate("Tentar novamente")}</button></div>`;
+    elements.list.innerHTML = `<div class="team-empty" role="alert"><p>${translate("teamLoadError")}</p><button class="btn btn--secondary" type="button" data-team-retry>${translate("Try again")}</button></div>`;
     return false;
   }
 };
@@ -115,10 +115,10 @@ elements.form.addEventListener("submit", async (event) => {
     await inviteTeamMemberRemote(payload);
     elements.form.reset();
     elements.role.value = "staff";
-    showToast(translate("Pessoa adicionada à equipe"));
+    showToast(translate("teamAddSuccess"));
     await loadTeam();
   } catch (error) {
-    showToast(translate("Não foi possível adicionar a pessoa"), { type: "error" });
+    showToast(translate("teamAddError"), { type: "error" });
   } finally {
     state.loading = false;
     elements.form.querySelector("button").disabled = false;
@@ -135,9 +135,9 @@ elements.list.addEventListener("change", async (event) => {
   try {
     await updateTeamMemberRemote(card.dataset.memberId, { role: select.value });
     await loadTeam();
-    showToast(translate("Função atualizada"));
+    showToast(translate("teamRoleUpdated"));
   } catch (error) {
-    showToast(translate("Não foi possível alterar a função"), { type: "error" });
+    showToast(translate("teamRoleUpdateError"), { type: "error" });
     await loadTeam();
   }
 });
@@ -152,15 +152,15 @@ elements.list.addEventListener("click", async (event) => {
   const card = button.closest("[data-member-id]");
   const id = businessId();
   if (!card || !id) return;
-  if (!window.confirm(translate("Remover esta pessoa da lista da equipe?"))) return;
+  if (!window.confirm(translate("teamConfirmRemove"))) return;
 
   button.disabled = true;
   try {
     await disableTeamMemberRemote(card.dataset.memberId);
-    showToast(translate("Pessoa removida da equipe"));
+    showToast(translate("teamRemoveSuccess"));
     await loadTeam();
   } catch (error) {
-    showToast(translate("Não foi possível remover a pessoa"), { type: "error" });
+    showToast(translate("teamRemoveError"), { type: "error" });
     button.disabled = false;
   }
 });
@@ -174,7 +174,7 @@ const start = async () => {
     await loadTeam();
   } catch {
     elements.list.setAttribute("aria-busy", "false");
-    elements.list.innerHTML = `<div class="team-empty" role="alert"><p>${translate("Não foi possível abrir a equipe.")}</p><button class="btn btn--secondary" type="button" data-team-retry>${translate("Tentar novamente")}</button></div>`;
+    elements.list.innerHTML = `<div class="team-empty" role="alert"><p>${translate("teamOpenError")}</p><button class="btn btn--secondary" type="button" data-team-retry>${translate("Try again")}</button></div>`;
   }
 };
 

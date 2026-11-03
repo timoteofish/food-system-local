@@ -1,45 +1,45 @@
 export const TERMS_SECTIONS = [
   {
-    title: "O que é o Food System",
+    title: "About Food System",
     items: [
-      "O Food System é uma plataforma para restaurantes, lanchonetes e negócios de alimentação criarem cardápios digitais por QR Code",
-      "Com ele, o estabelecimento pode cadastrar produtos, organizar mesas, receber pedidos e acompanhar a operação pelo painel",
+      "Food System is a platform that helps restaurants and food businesses create digital menus with QR codes",
+      "Businesses can add products, organize tables, receive orders, and monitor operations from the dashboard",
     ],
   },
   {
-    title: "Conta do estabelecimento",
+    title: "Business account",
     items: [
-      "Ao criar uma conta, você confirma que tem autorização para cadastrar e administrar as informações do estabelecimento",
-      "Você deve manter seus dados de acesso em segurança e avisar a equipe responsável caso perceba uso indevido da conta",
+      "By creating an account, you confirm that you are authorized to add and manage the business information",
+      "Keep your sign-in details secure and notify the responsible team if you notice unauthorized account use",
     ],
   },
   {
-    title: "Cardápio, preços e pedidos",
+    title: "Menu, prices, and orders",
     items: [
-      "As informações cadastradas no cardápio, incluindo nomes, imagens, descrições, disponibilidade e preços, são responsabilidade do estabelecimento",
-      "Os pedidos enviados pelos clientes dependem das informações exibidas no cardápio e devem ser conferidos pela equipe antes do preparo e da entrega",
-      "O estabelecimento é responsável por cumprir ofertas, regras de atendimento, horários, taxas e condições divulgadas aos clientes",
+      "The business is responsible for menu information, including names, images, descriptions, availability, and prices",
+      "Customer orders rely on the menu information and should be checked by staff before preparation and delivery",
+      "The business is responsible for honoring offers, service rules, hours, fees, and terms shown to customers",
     ],
   },
   {
-    title: "Uso local do aplicativo",
+    title: "Local app use",
     items: [
-      "Os recursos são executados localmente neste computador e dependem da configuração do estabelecimento",
-      "Atualizações do aplicativo poderão ser verificadas nas configurações e instaladas somente quando o usuário autorizar",
+      "Features run locally on this computer and depend on the business configuration",
+      "App updates can be checked in settings and installed only with the user's approval",
     ],
   },
   {
-    title: "Disponibilidade e melhorias",
+    title: "Availability and improvements",
     items: [
-      "O Food System pode receber atualizações, ajustes de segurança, melhorias visuais e manutenções para manter o serviço funcionando bem",
-      "Em caso de instabilidade, a equipe buscará normalizar o acesso o quanto antes, mas o estabelecimento deve ter um processo alternativo para situações urgentes",
+      "Food System may receive updates, security fixes, visual improvements, and maintenance to keep the service running well",
+      "If service is disrupted, the team will work to restore access as soon as possible The business should keep an alternative process for urgent situations",
     ],
   },
   {
-    title: "Uso adequado",
+    title: "Acceptable use",
     items: [
-      "Não é permitido usar o sistema para cadastrar conteúdo falso, ofensivo, ilegal ou que viole direitos de terceiros",
-      "Ao continuar, você concorda em usar o Food System de forma responsável e alinhada à operação real do seu negócio",
+      "Do not use the system to add false, offensive, illegal, or rights-infringing content",
+      "By continuing, you agree to use Food System responsibly and in line with your actual business operations",
     ],
   },
 ];

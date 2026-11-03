@@ -25,7 +25,7 @@ let appShellReady = false;
 const getOpenTab = (tableId) => tabs.find((tab) => tab.table_id === tableId && tab.status === "open");
 
 const renderEmptyState = () => {
-  grid.innerHTML = `<p class="operation-empty">${translate("Nenhuma mesa cadastrada")}</p>`;
+  grid.innerHTML = `<p class="operation-empty">${translate("No tables registered")}</p>`;
 };
 
 const render = () => {
@@ -37,9 +37,9 @@ const render = () => {
   grid.innerHTML = tables.map((table) => {
     const tab = getOpenTab(table.id);
     const statusClass = tab ? "is-open" : "is-available";
-    const statusLabel = translate(tab ? "Em atendimento" : "Disponível");
+    const statusLabel = translate(tab ? "In service" : "Available");
     const orderCount = Number(tab?.order_count || 0);
-    const orderLabel = `${countFormat.format(orderCount)} ${translate(orderCount === 1 ? "pedido" : "pedidos")}`;
+    const orderLabel = `${countFormat.format(orderCount)} ${translate(orderCount === 1 ? "order" : "orders")}`;
     const destinationOptions = tables
       .filter((item) => item.id !== table.id)
       .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`)
@@ -57,14 +57,14 @@ const render = () => {
             <small>${orderLabel}</small>
           </div>
           <div class="table-actions">
-            <button class="btn btn--secondary" data-close="${escapeHtml(tab.id)}" type="button">${translate("Fechar comanda")}</button>
-            <select data-transfer="${escapeHtml(tab.id)}" aria-label="${escapeHtml(translate(`Transferir comanda da mesa ${table.name}`))}">
-              <option value="">${translate("Selecione a mesa de destino")}</option>
+            <button class="btn btn--secondary" data-close="${escapeHtml(tab.id)}" type="button">${translate("Close tab")}</button>
+            <select data-transfer="${escapeHtml(tab.id)}" aria-label="${escapeHtml(translate("tableTransferLabel").replace("$1", table.name))}">
+              <option value="">${translate("Select a destination table")}</option>
               ${destinationOptions}
             </select>
           </div>
         ` : `
-          <button class="btn btn--primary" data-open="${escapeHtml(table.id)}" type="button">${translate("Abrir comanda")}</button>
+          <button class="btn btn--primary" data-open="${escapeHtml(table.id)}" type="button">${translate("Open tab")}</button>
         `}
       </article>
     `;
@@ -73,7 +73,7 @@ const render = () => {
 
 const load = async () => {
   grid.setAttribute("aria-busy", "true");
-  grid.innerHTML = `<p class="operation-empty" role="status">${translate("Carregando mesas")}</p>`;
+  grid.innerHTML = `<p class="operation-empty" role="status">${translate("Loading tables")}</p>`;
   try {
     [tables, tabs] = await Promise.all([
       fetchRestaurantTables(businessId),
@@ -83,8 +83,8 @@ const load = async () => {
     grid.setAttribute("aria-busy", "false");
     return true;
   } catch (error) {
-    const message = translate("Não foi possível carregar as mesas");
-    grid.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(message)}</p><button class="btn btn--secondary" type="button" data-table-retry>${translate("Tentar novamente")}</button></div>`;
+    const message = translate("Could not load tables");
+    grid.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(message)}</p><button class="btn btn--secondary" type="button" data-table-retry>${translate("Try again")}</button></div>`;
     grid.setAttribute("aria-busy", "false");
     showToast(message, { type: "error" });
     return false;
@@ -104,10 +104,10 @@ tableForm.addEventListener("submit", async (event) => {
   try {
     await createRestaurantTable(businessId, name);
     form.reset();
-    showToast(translate("Mesa cadastrada"));
+    showToast(translate("Table added"));
     await load();
   } catch (error) {
-    status.textContent = translate("Não foi possível cadastrar a mesa");
+    status.textContent = translate("Could not add the table");
   } finally {
     button.disabled = false;
   }
@@ -127,7 +127,7 @@ const runTableAction = async (button, action, successMessage) => {
     await load();
   } catch (error) {
     if (button?.tagName === "SELECT") button.value = "";
-    showToast(translate("Não foi possível atualizar a comanda"), { type: "error" });
+    showToast(translate("Could not update the tab"), { type: "error" });
   } finally {
     if (button?.isConnected) button.disabled = false;
     actionInProgress = false;
@@ -146,7 +146,7 @@ grid.addEventListener("click", (event) => {
     void runTableAction(
       openButton,
       () => openDiningTab(businessId, openButton.dataset.open),
-      "Comanda aberta"
+      "Tab opened"
     );
   }
 
@@ -154,7 +154,7 @@ grid.addEventListener("click", (event) => {
     void runTableAction(
       closeButton,
       () => closeDiningTab(businessId, closeButton.dataset.close),
-      "Comanda fechada"
+      "Tab closed"
     );
   }
 });
@@ -166,7 +166,7 @@ grid.addEventListener("change", (event) => {
   void runTableAction(
     select,
     () => transferDiningTab(businessId, select.dataset.transfer, select.value),
-    "Comanda transferida"
+    "Tab transferred"
   );
 });
 
@@ -178,8 +178,8 @@ const start = async () => {
     }
     await load();
   } catch (error) {
-    const message = translate("Não foi possível abrir as mesas e comandas");
-    grid.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(message)}</p><button class="btn btn--secondary" type="button" data-table-retry>${translate("Tentar novamente")}</button></div>`;
+    const message = translate("Could not open tables and tabs");
+    grid.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(message)}</p><button class="btn btn--secondary" type="button" data-table-retry>${translate("Try again")}</button></div>`;
     grid.setAttribute("aria-busy", "false");
     showToast(message, { type: "error" });
   }

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cardápio | Food System</title>
+    <title>Menu | Food System</title>
     <link rel="icon" href="../../assets/favicon.webp" type="image/webp" />
 <link rel="stylesheet" href="../../styles/base.css" />
     <link rel="stylesheet" href="../../styles/theme.css" />
@@ -16,68 +16,68 @@
   <body class="customer-menu-page">
     <main class="customer-menu-shell">
       <div class="browser-window customer-browser-window">
-        <div class="browser-bar"><span></span><span></span><span></span><strong>Cardápio</strong></div>
+        <div class="browser-bar"><span></span><span></span><span></span><strong>Menu</strong></div>
         <div class="menu-preview customer-menu-preview" id="customerMenuPreview">
           <header class="preview-header" id="customerHero">
             <p id="customerBusinessName">Food System</p>
-            <h2 id="customerMenuSubtitle">Cardápio digital</h2>
+            <h2 id="customerMenuSubtitle">Digital menu</h2>
             <p class="preview-banner" id="customerMenuBanner" hidden></p>
           </header>
           <div class="category-row" id="customerCategories"></div>
           <div class="menu-search">
             <svg class="menu-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-5.34C15.39 5.59 12.3 3 8.7 3S2 5.59 2 8.39 4.09 13.78 7.69 13.78c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM7.69 12.28C5.1 12.28 3 10.28 3 8.39S5.1 4.5 7.69 4.5 12.38 6.5 12.38 8.39 10.28 12.28 7.69 12.28z"/></svg>
-            <input id="customerMenuSearch" type="search" placeholder="Buscar no cardápio" />
-            <button class="menu-bag" id="customerMenuBag" type="button" aria-live="polite" title="Itens na sacola" aria-label="Abrir sacola">
+            <input id="customerMenuSearch" type="search" placeholder="Search the menu" />
+            <button class="menu-bag" id="customerMenuBag" type="button" aria-live="polite" title="Items in your bag" aria-label="Open bag">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6 2l1 2h10l1-2H6zm13 4H5l-1 14a2 2 0 002 2h12a2 2 0 002-2L19 6zM9 10a1 1 0 112 0v4a1 1 0 11-2 0v-4zm4 0a1 1 0 112 0v4a1 1 0 11-2 0v-4z"/></svg>
               <span id="customerMenuBagCount">0</span>
             </button>
           </div>
-          <div class="menu-list" id="customerMenuList" aria-busy="true"><div class="customer-empty" role="status">Carregando cardápio</div></div>
+          <div class="menu-list" id="customerMenuList" aria-busy="true"><div class="customer-empty" role="status">Loading menu</div></div>
           <div class="bag-panel-backdrop" id="customerBagBackdrop" hidden></div>
-          <aside class="bag-panel panel customer-bag-panel" id="customerBagPanel" aria-hidden="true" role="dialog" aria-label="Sacola do pedido" hidden>
+          <aside class="bag-panel panel customer-bag-panel" id="customerBagPanel" aria-hidden="true" role="dialog" aria-label="Order bag" hidden>
             <div class="bag-panel__header">
               <div>
-                <p class="eyebrow">Sacola</p>
-                <h3>Finalize seu pedido</h3>
+                <p class="eyebrow">Shopping bag</p>
+                <h3>Complete your order</h3>
               </div>
-              <button class="bag-panel__close" id="customerBagClose" type="button" aria-label="Fechar sacola">×</button>
+              <button class="bag-panel__close" id="customerBagClose" type="button" aria-label="Close bag">×</button>
             </div>
             <div class="bag-panel__items" id="customerBagItems"></div>
             <div class="bag-panel__footer">
               <label class="field" for="customerNameInput">
-                <span>Seu nome (opcional)</span>
-                <input id="customerNameInput" type="text" maxlength="160" placeholder="Ex.: Maria" />
+                <span>Your name (optional)</span>
+                <input id="customerNameInput" type="text" maxlength="160" placeholder="e.g. Maria" />
               </label>
               <label class="field" for="customerOrderType">
-                <span>Tipo do pedido</span>
-                <select id="customerOrderType"><option value="table">Mesa ou balcão</option><option value="delivery">Entrega</option></select>
+                <span>Order type</span>
+                <select id="customerOrderType"><option value="table">Table or counter</option><option value="delivery">Delivery</option></select>
               </label>
               <div id="customerDeliveryFields" hidden>
-                <label class="field" for="deliveryStreet"><span>Rua</span><input id="deliveryStreet" type="text" maxlength="200" autocomplete="street-address" /></label>
-                <label class="field" for="deliveryNumber"><span>Número</span><input id="deliveryNumber" type="text" maxlength="40" /></label>
-                <label class="field" for="deliveryCity"><span>Cidade</span><input id="deliveryCity" type="text" maxlength="120" autocomplete="address-level2" /></label>
-                <div class="field"><span>Taxa de entrega</span><strong id="deliveryFee"></strong></div>
+                <label class="field" for="deliveryStreet"><span>Street</span><input id="deliveryStreet" type="text" maxlength="200" autocomplete="street-address" /></label>
+                <label class="field" for="deliveryNumber"><span>Number</span><input id="deliveryNumber" type="text" maxlength="40" /></label>
+                <label class="field" for="deliveryCity"><span>City</span><input id="deliveryCity" type="text" maxlength="120" autocomplete="address-level2" /></label>
+                <div class="field"><span>Delivery fee</span><strong id="deliveryFee"></strong></div>
               </div>
               <div class="customer-table-fixed">
-                <span>Mesa</span>
-                <strong id="customerTableDisplay">Mesa não definida</strong>
+                <span>Table</span>
+                <strong id="customerTableDisplay">No table selected</strong>
               </div>
               <label class="field" for="customerPaymentMethod">
-                <span>Pagamento</span>
+                <span>Payment</span>
                 <select id="customerPaymentMethod">
                   <option value="pix">Pix</option>
-                  <option value="credito">Cartão de crédito</option>
-                  <option value="debito">Cartão de débito</option>
-                  <option value="dinheiro_balcao">Dinheiro no balcão</option>
+                  <option value="credit_card">Credit card</option>
+                  <option value="debit_card">Debit card</option>
+                  <option value="cash_at_counter">Cash at counter</option>
                 </select>
               </label>
               <div class="customer-payment-note" id="customerPaymentNote"></div>
-              <div class="customer-delivery-fee" id="customerDeliveryFeeRow" hidden><span>Taxa de entrega</span><strong id="customerDeliveryFeeTotal">R$ 0,00</strong></div>
+              <div class="customer-delivery-fee" id="customerDeliveryFeeRow" hidden><span>Delivery fee</span><strong id="customerDeliveryFeeTotal">R$ 0.00</strong></div>
               <div class="bag-panel__total">
                 <span>Total</span>
-                <strong id="customerBagTotal">R$ 0,00</strong>
+                <strong id="customerBagTotal">R$ 0.00</strong>
               </div>
-              <button class="btn btn--primary" id="customerBagConfirm" type="button">Enviar pedido</button>
+              <button class="btn btn--primary" id="customerBagConfirm" type="button">Place order</button>
             </div>
           </aside>
           <section class="customer-success" id="customerSuccess" hidden aria-live="polite"></section>

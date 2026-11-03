@@ -2,7 +2,7 @@ import { getBusiness, getMenuSettings, getSession, saveBusiness, saveMenuSetting
 import { bootstrapApi, completeBusinessOnboarding, isUsingApi, logout, requireAuth, saveMenuSettingsRemote } from "../auth/auth.js";
 import { checkForSystemUpdates } from "../auth/auth.js";
 import { escapeHtml, safeImageUrl } from "../utils/utils.js";
-import { applyLegacyTranslations, getLanguage, setLanguage, translate } from "../i18n/i18n.js";
+import { applyLegacyTranslations, getLanguage, getLegacyTranslationCandidates, setLanguage, translate } from "../i18n/i18n.js";
 import { applyAppearancePreferences } from "./appearance.js";
 
 export { requireAuth };
@@ -17,23 +17,23 @@ const closeApplication = () => {
 };
 
 const APP_NAVIGATION = [
-  ["dashboard", "Painel", "M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-4.5v-6.2h-5V21H5a1 1 0 0 1-1-1v-8.8z"],
-  ["inventory", "Estoque", "m12 3 9 5v8l-9 5-9-5V8zm0 10 9-5m-9 5-9-5m9 5v8"],
-  ["orders", "Pedidos", "M7 3h8l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm7 2v3h3M8 12h8M8 16h8"],
-  ["kitchen", "Cozinha", "M4 13h16a8 8 0 0 1-16 0zm2-3a6 6 0 0 1 12 0M12 4v2"],
-  ["tables", "Mesas", "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"],
-  ["cashier", "Caixa", "M5 8h14l-1 12H6L5 8zm3 0 1-4h6l1 4M9 12v4m6-4v4"],
-  ["delivery", "Entregas", "M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
-  ["products", "Produtos", "M4 4h7v7H4zM13 4h7v4h-7zM4 13h7v7H4zM13 10h7v10h-7z"],
-  ["menu", "Cardápio", "M5 6h14M5 12h14M5 18h9"],
-  ["contacts", "Clientes", "M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1m7-9a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-7a4 4 0 0 1 0 7m2 4a4 4 0 0 1 3 4v1"],
-  ["suppliers", "Fornecedores", "M3 7h18v13H3zM7 7V4h10v3M7 12h4m2 0h4M7 16h4m2 0h4"],
-  ["discounts", "Descontos", "M20 13 13 20 3 10V3h7l10 10zM7 7h.01"],
-  ["loyalty", "Fidelidade", "M12 3v18m7-14H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H5"],
-  ["team", "Equipe", "M16 11a4 4 0 1 0-3.5-6M8 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-7 8v-2a7 7 0 0 1 14 0v2zm15-7a5 5 0 0 1 5 5v2h-3"],
-  ["reports", "Relatórios", "M4 20V10m5 10V4m5 16v-7m5 7V7"],
-  ["fiscal", "Fiscal", "M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6"],
-  ["integrations", "Integrações", "M9 7V4m6 3V4M8 7h8v4a4 4 0 0 1-8 0zm4 8v5m-5 0h10"],
+  ["dashboard", "Dashboard", "M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-4.5v-6.2h-5V21H5a1 1 0 0 1-1-1v-8.8z"],
+  ["inventory", "Inventory", "m12 3 9 5v8l-9 5-9-5V8zm0 10 9-5m-9 5-9-5m9 5v8"],
+  ["orders", "Orders", "M7 3h8l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm7 2v3h3M8 12h8M8 16h8"],
+  ["kitchen", "Kitchen", "M4 13h16a8 8 0 0 1-16 0zm2-3a6 6 0 0 1 12 0M12 4v2"],
+  ["tables", "Tables", "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"],
+  ["cashier", "Cash register", "M5 8h14l-1 12H6L5 8zm3 0 1-4h6l1 4M9 12v4m6-4v4"],
+  ["delivery", "Deliveries", "M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
+  ["products", "Products", "M4 4h7v7H4zM13 4h7v4h-7zM4 13h7v7H4zM13 10h7v10h-7z"],
+  ["menu", "Menu", "M5 6h14M5 12h14M5 18h9"],
+  ["contacts", "Customers", "M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1m7-9a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-7a4 4 0 0 1 0 7m2 4a4 4 0 0 1 3 4v1"],
+  ["suppliers", "Suppliers", "M3 7h18v13H3zM7 7V4h10v3M7 12h4m2 0h4M7 16h4m2 0h4"],
+  ["discounts", "Discounts", "M20 13 13 20 3 10V3h7l10 10zM7 7h.01"],
+  ["loyalty", "Loyalty", "M12 3v18m7-14H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H5"],
+  ["team", "Team", "M16 11a4 4 0 1 0-3.5-6M8 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-7 8v-2a7 7 0 0 1 14 0v2zm15-7a5 5 0 0 1 5 5v2h-3"],
+  ["reports", "Reports", "M4 20V10m5 10V4m5 16v-7m5 7V7"],
+  ["fiscal", "Tax documents", "M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6"],
+  ["integrations", "Integrations", "M9 7V4m6 3V4M8 7h8v4a4 4 0 0 1-8 0zm4 8v5m-5 0h10"],
   ["backups", "Backups", "M4 7h16v13H4zM3 4h18M9 11h6m-6 4h6"],
 ];
 const APP_NAVIGATION_GROUPS = [
@@ -158,6 +158,19 @@ const ensureCanonicalSidebarNavigation = (activePage) => {
   return nav;
 };
 
+const restoreLocalizedOption = (select, storedValue) => {
+  if (!select || !storedValue) return;
+  const option = Array.from(select.options).find((item) => {
+    const label = item.textContent.trim();
+    const legacyLabels = [
+      ...getLegacyTranslationCandidates(label, "pt"),
+      ...getLegacyTranslationCandidates(label, "en"),
+    ];
+    return item.value === storedValue || label === storedValue || translate(label) === storedValue || legacyLabels.includes(storedValue);
+  });
+  select.value = option?.value || "";
+};
+
 const ensureBusinessOnboarding = () => {
   const session = getSession();
   if (!session?.needsOnboarding) return;
@@ -175,51 +188,51 @@ const ensureBusinessOnboarding = () => {
     panel.className = "business-onboarding-panel";
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-modal", "true");
-    panel.setAttribute("aria-label", translate("Boas-vindas ao Food System"));
+    panel.setAttribute("aria-label", translate("Welcome to Food System"));
     panel.innerHTML = `
       <div class="business-onboarding-panel__hero">
-        <p class="business-onboarding-panel__eyebrow">Primeiro acesso</p>
-        <h2>Vamos configurar seu comércio</h2>
-        <p>Informe os dados básicos para preparar o sistema para sua operação</p>
+        <p class="business-onboarding-panel__eyebrow">First setup</p>
+        <h2>Let's set up your business</h2>
+        <p>Enter a few details to prepare the system for your business</p>
       </div>
       <form class="business-onboarding-panel__form" data-business-onboarding-form>
         <div class="business-onboarding-panel__grid">
           <label class="field">
-            <span>Nome do comércio</span>
-            <input name="businessName" type="text" autocomplete="organization" placeholder="Ex.: Pizzaria Central" required />
+            <span>Business name</span>
+            <input name="businessName" type="text" autocomplete="organization" placeholder="e.g. Central Pizzeria" required />
           </label>
           <label class="field">
-            <span>Tipo de negócio</span>
+            <span>Business type</span>
             <select name="businessType" required>
-              <option value="">Selecione</option>
-              <option value="Restaurante">Restaurante</option>
-              <option value="Lanchonete">Lanchonete</option>
-              <option value="Pizzaria">Pizzaria</option>
-              <option value="Hamburgueria">Hamburgueria</option>
-              <option value="Cafeteria">Cafeteria</option>
+              <option value="">Select</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="snack_bar">Snack bar</option>
+              <option value="pizzeria">Pizzeria</option>
+              <option value="burger_restaurant">Burger restaurant</option>
+              <option value="coffee_shop">Coffee shop</option>
             </select>
           </label>
           <label class="field">
-            <span>Modelo de atendimento</span>
+            <span>Service model</span>
             <select name="serviceModel" required>
-              <option value="">Selecione</option>
-              <option value="Mesas no salao">Mesas no salão</option>
-              <option value="Balcao e retirada">Balcão e retirada</option>
-              <option value="Delivery e retirada">Delivery e retirada</option>
-              <option value="Misto">Misto</option>
+              <option value="">Select</option>
+              <option value="table_service">Table service</option>
+              <option value="counter_pickup">Counter and pickup</option>
+              <option value="delivery_pickup">Delivery and pickup</option>
+              <option value="mixed">Mixed service</option>
             </select>
           </label>
           <label class="field">
-            <span>Telefone</span>
+            <span>Phone</span>
             <input name="phone" type="tel" autocomplete="tel" placeholder="(00) 00000-0000" />
           </label>
           <label class="field field-wide">
-            <span>Cidade</span>
-            <input name="city" type="text" autocomplete="address-level2" placeholder="Ex.: Salvador" required />
+            <span>City</span>
+            <input name="city" type="text" autocomplete="address-level2" placeholder="e.g. Salvador" required />
           </label>
         </div>
         <p class="business-onboarding-panel__feedback" data-business-onboarding-feedback hidden></p>
-        <button class="btn btn--primary" type="submit" data-business-onboarding-submit>Salvar e continuar</button>
+        <button class="btn btn--primary" type="submit" data-business-onboarding-submit>Save and continue</button>
       </form>
     `;
 
@@ -239,8 +252,8 @@ const ensureBusinessOnboarding = () => {
     const cityInput = form.elements.namedItem("city");
 
     if (businessNameInput) businessNameInput.value = business.name || session.name || "";
-    if (businessTypeInput) businessTypeInput.value = business.businessType || "";
-    if (serviceModelInput) serviceModelInput.value = business.serviceModel || "";
+    restoreLocalizedOption(businessTypeInput, business.businessType);
+    restoreLocalizedOption(serviceModelInput, business.serviceModel);
     if (phoneInput) phoneInput.value = business.phone || "";
     if (cityInput) cityInput.value = business.city || "";
     form.dataset.prefilled = "true";
@@ -273,7 +286,7 @@ const ensureBusinessOnboarding = () => {
       submit.disabled = true;
       feedback.hidden = false;
       feedback.className = "business-onboarding-panel__feedback";
-      feedback.textContent = translate("Salvando");
+      feedback.textContent = translate("Saving");
 
       try {
         await completeBusinessOnboarding(payload);
@@ -287,7 +300,7 @@ const ensureBusinessOnboarding = () => {
         window.location.reload();
       } catch (error) {
         feedback.className = "business-onboarding-panel__feedback business-onboarding-panel__feedback--error";
-        feedback.textContent = translate(error?.message || "Não foi possível salvar a configuração inicial");
+        feedback.textContent = translate(error?.message || "Could not save the initial setup");
       } finally {
         submit.disabled = false;
         form.dataset.submitting = "false";
@@ -368,8 +381,8 @@ const setSidebarCollapsedState = (collapsed) => {
   const toggle = document.querySelector(".menu-sidebar__toggle");
   if (toggle) {
     toggle.setAttribute("aria-expanded", String(!collapsed));
-    toggle.setAttribute("aria-label", translate(collapsed ? "Expandir menu" : "Minimizar menu"));
-    toggle.title = translate(collapsed ? "Expandir menu" : "Minimizar menu");
+    toggle.setAttribute("aria-label", translate(collapsed ? "Expand menu" : "Collapse menu"));
+    toggle.title = translate(collapsed ? "Expand menu" : "Collapse menu");
   }
   const mobileSidebarOpen = !collapsed && window.matchMedia("(max-width: 767px)").matches;
   document.body.classList.toggle("menu-sidebar-overlay-open", mobileSidebarOpen);
@@ -419,7 +432,7 @@ const ensureSidebarBackdrop = () => {
   backdrop.type = "button";
   backdrop.tabIndex = -1;
   backdrop.hidden = true;
-  backdrop.setAttribute("aria-label", translate("Fechar menu"));
+  backdrop.setAttribute("aria-label", translate("Close menu"));
   document.body.append(backdrop);
   backdrop.addEventListener("click", () => {
     try {
@@ -443,8 +456,8 @@ export const initProfileMenu = () => {
 
   let session = getSession();
   let business = getBusiness();
-  let displayName = session?.name || business.name || "Usuário";
-  const clientCategory = "Aplicação local";
+  let displayName = session?.name || business.name || "User";
+  const clientCategory = "Local application";
   let clientEmail = session?.email || business.email || "";
   const clientPhone = business.phone || session?.phone || "";
   const safeClientAvatar = safeImageUrl(business.avatar);
@@ -466,10 +479,10 @@ export const initProfileMenu = () => {
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-modal", "true");
     panel.tabIndex = -1;
-    panel.setAttribute("aria-label", translate("Configurações do usuário"));
+    panel.setAttribute("aria-label", translate("User settings"));
     panel.innerHTML = `
       <div class="user-edit-panel__hero">
-        <button type="button" class="user-edit-panel__close" data-user-edit-close aria-label="Fechar painel">×</button>
+        <button type="button" class="user-edit-panel__close" data-user-edit-close aria-label="Close panel">×</button>
         <div class="user-edit-panel__hero-user">
           <div class="user-edit-panel__avatar" aria-hidden="true">${safeSessionAvatar ? `<img src="${escapeHtml(safeSessionAvatar)}" alt="" />` : escapeHtml(displayName.slice(0, 1).toUpperCase())}</div>
           <div class="user-edit-panel__hero-copy">
@@ -483,168 +496,168 @@ export const initProfileMenu = () => {
         <div class="user-edit-panel__views">
           <section class="user-edit-panel__view is-current" data-profile-view="home">
             <div class="user-edit-panel__actions-stack">
-              <div class="user-edit-panel__home-intro"><span>SUA CONTA</span><h2>Perfil e aplicativo</h2><p>Gerencie seus dados, atualizações e suporte</p></div>
-              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="settings"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"/></svg></span><span><strong>Configurações da conta</strong><small>Atualize seu perfil e os dados do comércio</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
-              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="updates"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4.7 9A7.5 7.5 0 0 1 18 6l2 2M4 17v-5h5m10.3 3A7.5 7.5 0 0 1 6 18l-2-2"/></svg></span><span><strong>Atualizações do sistema</strong><small>Verifique a versão instalada</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
-              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="support"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4v.01M9.6 9a2.4 2.4 0 1 1 4.35 1.42c-.95 1.05-1.95 1.26-1.95 2.83"/></svg></span><span><strong>Fale com o suporte</strong><small>Envie uma mensagem para nossa equipe</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
-              <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-action="close-app">Fechar aplicativo</button>
+              <div class="user-edit-panel__home-intro"><span>YOUR ACCOUNT</span><h2>Profile and app</h2><p>Manage your details, updates, and support</p></div>
+              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="settings"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"/></svg></span><span><strong>Account settings</strong><small>Update your profile and business details</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
+              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="updates"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4.7 9A7.5 7.5 0 0 1 18 6l2 2M4 17v-5h5m10.3 3A7.5 7.5 0 0 1 6 18l-2-2"/></svg></span><span><strong>System updates</strong><small>Check the installed version</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
+              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="support"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4v.01M9.6 9a2.4 2.4 0 1 1 4.35 1.42c-.95 1.05-1.95 1.26-1.95 2.83"/></svg></span><span><strong>Contact support</strong><small>Send a message to our team</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
+              <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-action="close-app">Close application</button>
             </div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="settings" hidden>
             <div class="user-edit-panel__page-head">
-              <span>Central da conta</span>
-              <strong>Dados do perfil</strong>
+              <span>Account center</span>
+              <strong>Profile details</strong>
             </div>
             <div class="user-edit-panel__page-shell">
               <section class="user-edit-panel__settings-shell">
                 <aside class="user-edit-panel__settings-side">
                   <div class="user-edit-panel__settings-avatar">
                     <div class="user-edit-panel__settings-avatar-frame">
-                      <img class="user-edit-panel__settings-avatar-image" alt="Imagem do comércio" ${safeClientAvatar ? `src="${escapeHtml(safeClientAvatar)}"` : "hidden"} />
+                      <img class="user-edit-panel__settings-avatar-image" alt="Business image" ${safeClientAvatar ? `src="${escapeHtml(safeClientAvatar)}"` : "hidden"} />
                       <span class="user-edit-panel__settings-avatar-placeholder" ${safeClientAvatar ? "hidden" : ""}>${escapeHtml(displayName.slice(0, 1).toUpperCase())}</span>
                     </div>
                     <div class="user-edit-panel__settings-avatar-copy">
-                      <strong>Imagem do comércio</strong>
-                      <small>Identifique seu estabelecimento no sistema</small>
+                      <strong>Business image</strong>
+                      <small>Identify your business in the system</small>
                     </div>
                     <input class="user-edit-panel__file-input" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar>Alterar foto</button>
-                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar-remove ${safeClientAvatar ? "" : "hidden"}>Remover foto</button>
+                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar>Change photo</button>
+                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar-remove ${safeClientAvatar ? "" : "hidden"}>Remove photo</button>
                   </div>
                   <div class="user-edit-panel__settings-summary">
                     <article class="user-edit-panel__card">
-                      <span>Aplicativo instalado</span>
+                      <span>Installed application</span>
                       <strong>Food System</strong>
-                      <small>Configurações do seu estabelecimento</small>
+                      <small>Your business settings</small>
                     </article>
-                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-open="updates">Verificar atualizações</button>
+                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-open="updates">Check for updates</button>
                   </div>
                 </aside>
                 <form class="user-edit-panel__settings-form" data-settings-form>
                   <section class="user-edit-panel__settings-block">
                     <div class="user-edit-panel__settings-block-head">
-                      <span>Conta</span>
-                      <strong>Dados principais</strong>
+                      <span>Account</span>
+                      <strong>Basic information</strong>
                     </div>
                     <div class="user-edit-panel__settings-grid">
                       <label class="field">
-                        <span>Nome</span>
+                        <span>Name</span>
                         <input name="name" type="text" value="${escapeHtml(displayName)}" autocomplete="name" minlength="2" maxlength="160" required />
                       </label>
                       <label class="field">
-                        <span>Nome do comércio</span>
+                        <span>Business name</span>
                         <input name="businessName" type="text" value="${escapeHtml(business.name || displayName)}" autocomplete="organization" minlength="2" maxlength="160" required />
                       </label>
                       <label class="field">
-                        <span>Telefone</span>
+                        <span>Phone</span>
                         <input name="phone" type="tel" value="${escapeHtml(clientPhone)}" autocomplete="tel" maxlength="40" placeholder="(00) 00000-0000" />
                       </label>
                     </div>
                   </section>
                   <section class="user-edit-panel__settings-block">
                     <div class="user-edit-panel__settings-block-head">
-                      <span>Contato</span>
-                      <strong>E-mail da conta</strong>
+                      <span>Contact</span>
+                      <strong>Account email</strong>
                     </div>
                     <label class="field">
-                      <span>E-mail</span>
+                      <span>Email</span>
                       <input name="email" type="email" value="${escapeHtml(clientEmail)}" autocomplete="email" readonly />
-                      <small class="user-edit-panel__field-note">Para alterar o e-mail, entre em contato com o suporte</small>
+                      <small class="user-edit-panel__field-note">Contact support to change your email</small>
                     </label>
                   </section>
                   <section class="user-edit-panel__settings-block">
                     <div class="user-edit-panel__settings-block-head">
-                      <span>Preferências</span>
-                      <strong>Aparência e acessibilidade</strong>
+                      <span>Preferences</span>
+                      <strong>Appearance and accessibility</strong>
                     </div>
                     <div class="user-edit-panel__settings-grid">
                       <label class="field">
-                        <span>Idioma</span>
-                        <select data-global-language aria-label="Idioma">
+                        <span>Language</span>
+                        <select data-global-language aria-label="Language">
                           <option value="en">English</option>
-                          <option value="pt">Português</option>
+                          <option value="pt">Portuguese</option>
                         </select>
                       </label>
                       <label class="field">
-                        <span>Tema</span>
-                        <select data-global-theme aria-label="Tema de aparência">
-                          <option value="light">Claro</option>
-                          <option value="dark">Escuro</option>
-                          <option value="system">Automático</option>
+                        <span>Theme</span>
+                        <select data-global-theme aria-label="Appearance theme">
+                          <option value="light">Light</option>
+                          <option value="dark">Dark</option>
+                          <option value="system">Automatic</option>
                         </select>
                       </label>
                       <label class="field">
-                        <span>Barra lateral</span>
-                        <select data-sidebar-layout aria-label="Organização da barra lateral">
-                          <option value="expanded">Expandida</option>
-                          <option value="collapsed">Recolhida</option>
+                        <span>Sidebar</span>
+                        <select data-sidebar-layout aria-label="Sidebar layout">
+                          <option value="expanded">Expanded</option>
+                          <option value="collapsed">Collapsed</option>
                         </select>
                       </label>
                       <label class="field">
-                        <span>Movimento</span>
-                        <select data-reduced-motion aria-label="Movimento da interface">
-                          <option value="system">Padrão do dispositivo</option>
-                          <option value="reduced">Reduzido</option>
+                        <span>Motion</span>
+                        <select data-reduced-motion aria-label="Interface motion">
+                          <option value="system">System default</option>
+                          <option value="reduced">Reduced</option>
                         </select>
                       </label>
                       <label class="field">
-                        <span>Tamanho do texto</span>
-                        <select data-text-size aria-label="Tamanho do texto">
-                          <option value="normal">Padrão</option>
-                          <option value="large">Maior</option>
+                        <span>Text size</span>
+                        <select data-text-size aria-label="Text size">
+                          <option value="normal">Default</option>
+                          <option value="large">Larger</option>
                         </select>
                       </label>
                       <label class="field">
-                        <span>Contraste</span>
-                        <select data-high-contrast aria-label="Contraste de cores">
-                          <option value="false">Padrão</option>
-                          <option value="true">Alto contraste</option>
+                        <span>Contrast</span>
+                        <select data-high-contrast aria-label="Color contrast">
+                          <option value="false">Default</option>
+                          <option value="true">High contrast</option>
                         </select>
                       </label>
                     </div>
                   </section>
                   <p class="user-edit-panel__feedback" data-settings-feedback role="status" aria-live="polite" hidden></p>
-                  <button class="user-edit-panel__action" type="submit" data-settings-save>Salvar alterações</button>
+                  <button class="user-edit-panel__action" type="submit" data-settings-save>Save changes</button>
                 </form>
               </section>
               <div class="user-edit-panel__actions-stack">
-                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Voltar</button>
+                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Back</button>
               </div>
             </div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="updates" hidden>
             <div class="user-edit-panel__page-head">
-              <span>Sistema</span>
-              <strong>Atualizações</strong>
+              <span>System</span>
+              <strong>Updates</strong>
             </div>
             <div class="user-edit-panel__page-shell">
               <div class="user-edit-panel__update-panel" data-update-panel>
-                <strong>Atualizações do sistema</strong>
-                <p data-update-current>Verifique se há uma nova versão disponível</p>
+                <strong>System updates</strong>
+                <p data-update-current>Check whether a new version is available</p>
                 <p data-update-notes></p>
-                <button class="user-edit-panel__action" type="button" data-update-check>Verificar agora</button>
-                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-update-later hidden>Lembrar depois</button>
-              <a class="user-edit-panel__action" data-update-now hidden target="_blank" rel="noopener">Abrir página de download</a>
+                <button class="user-edit-panel__action" type="button" data-update-check>Check now</button>
+                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-update-later hidden>Remind me later</button>
+              <a class="user-edit-panel__action" data-update-now hidden target="_blank" rel="noopener">Open download page</a>
               </div>
               <p class="user-edit-panel__feedback" data-update-feedback hidden></p>
               <div class="user-edit-panel__actions-stack">
-                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Voltar</button>
+                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Back</button>
               </div>
             </div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="support" hidden>
             <div class="user-edit-panel__page-head">
-              <span>Ajuda e suporte</span>
-              <strong>Suporte remoto</strong>
+              <span>Help and support</span>
+              <strong>Remote support</strong>
             </div>
             <div class="user-edit-panel__page-shell">
               <div class="user-edit-panel__support-card">
-                <p>O suporte é feito remotamente pela equipe responsável pelo sistema</p>
-                <p>Entre em contato com a equipe que instalou o Food System para combinar o atendimento Se necessário, tenha o AnyDesk disponível no computador do comércio</p>
-                <p>Antes do atendimento, descreva o que aconteceu, em qual tela e o que você esperava que acontecesse</p>
+                <p>Support is provided remotely by the team responsible for the system</p>
+                <p>Contact the team that installed Food System to arrange support If needed, have AnyDesk available on the business computer</p>
+                <p>Before the session, describe what happened, which screen it happened on, and what you expected to happen</p>
               </div>
               <div class="user-edit-panel__actions-stack">
-                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Voltar</button>
+                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Back</button>
               </div>
             </div>
           </section>
@@ -658,7 +671,7 @@ export const initProfileMenu = () => {
   if (!label) {
     label = document.createElement("span");
     label.className = "profile-label";
-    label.textContent = translate("Perfil");
+    label.textContent = translate("Profile");
     profile.appendChild(label);
   }
   label.setAttribute("role", "button");
@@ -774,7 +787,7 @@ export const initProfileMenu = () => {
       <path fill="currentColor" d="M12 12.2a4.6 4.6 0 1 0-4.6-4.6 4.61 4.61 0 0 0 4.6 4.6Zm0 2.2c-4.15 0-7.5 2.52-7.5 5.62V21h15v-1c0-3.1-3.35-5.6-7.5-5.6Z"/>
     </svg>
   `;
-  button.setAttribute("aria-label", translate(`Perfil de ${displayName}`));
+  button.setAttribute("aria-label", translate("profileOf").replace("$1", displayName));
 
   button.setAttribute("aria-expanded", "false");
   button.setAttribute("aria-haspopup", "dialog");
@@ -855,7 +868,7 @@ export const initProfileMenu = () => {
   let pendingAvatar = safeClientAvatar;
 
   const syncPanelIdentity = ({ name, email, phone, businessName, avatar }) => {
-    displayName = name || businessName || "Usuário";
+    displayName = name || businessName || "User";
     clientEmail = email || "";
     business = {
       ...business,
@@ -887,8 +900,8 @@ export const initProfileMenu = () => {
       heroEmailElement.textContent = clientEmail;
       heroEmailElement.hidden = !clientEmail;
     }
-    button.setAttribute("aria-label", translate(`Perfil de ${displayName}`));
-    if (label) label.textContent = translate("Perfil");
+    button.setAttribute("aria-label", translate("profileOf").replace("$1", displayName));
+    if (label) label.textContent = translate("Profile");
 
     if (settingsAvatarImage) {
       if (safeAvatar) {
@@ -920,7 +933,7 @@ export const initProfileMenu = () => {
     if (!file) return;
     const supportedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
     if (!supportedTypes.has(file.type) || file.size > 8 * 1024 * 1024) {
-      settingsFeedback.textContent = translate("Selecione um arquivo PNG, JPEG ou WebP de até 8 MB");
+      settingsFeedback.textContent = translate("Choose a PNG, JPEG, or WebP file up to 8 MB");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
       settingsFeedback.hidden = false;
       settingsAvatarInput.value = "";
@@ -931,13 +944,13 @@ export const initProfileMenu = () => {
       const source = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("Não foi possível ler a imagem"));
+        reader.onerror = () => reject(new Error("Could not read the image"));
         reader.readAsDataURL(file);
       });
       const image = await new Promise((resolve, reject) => {
         const preview = new Image();
         preview.onload = () => resolve(preview);
-        preview.onerror = () => reject(new Error("Não foi possível abrir a imagem"));
+        preview.onerror = () => reject(new Error("Could not open the image"));
         preview.src = source;
       });
       if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth > 12_000 || image.naturalHeight > 12_000 || image.naturalWidth * image.naturalHeight > 40_000_000) throw new Error("Image dimensions exceed the supported limit");
@@ -947,7 +960,7 @@ export const initProfileMenu = () => {
       canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
       canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
       const context = canvas.getContext("2d");
-      if (!context) throw new Error("Não foi possível processar a imagem");
+      if (!context) throw new Error("Could not process the image");
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       pendingAvatar = canvas.toDataURL("image/jpeg", .82);
       const values = Object.fromEntries(new FormData(settingsForm).entries());
@@ -959,11 +972,11 @@ export const initProfileMenu = () => {
         avatar: pendingAvatar,
       });
       settingsAvatarRemove.hidden = false;
-      settingsFeedback.textContent = translate("Imagem do comércio pronta para salvar");
+      settingsFeedback.textContent = translate("Business image ready to save");
       settingsFeedback.className = "user-edit-panel__feedback";
       settingsFeedback.hidden = false;
     } catch {
-      settingsFeedback.textContent = translate("Não foi possível processar a imagem");
+      settingsFeedback.textContent = translate("Could not process the image");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
       settingsFeedback.hidden = false;
     } finally {
@@ -982,7 +995,7 @@ export const initProfileMenu = () => {
       avatar: "",
     });
     settingsAvatarRemove.hidden = true;
-    settingsFeedback.textContent = translate("A imagem do comércio será removida ao salvar");
+    settingsFeedback.textContent = translate("The business image will be removed when you save");
     settingsFeedback.className = "user-edit-panel__feedback";
     settingsFeedback.hidden = false;
   });
@@ -997,14 +1010,14 @@ export const initProfileMenu = () => {
     const businessName = String(formData.get("businessName") || "").trim();
 
     if (name.length < 2 || name.length > 160 || businessName.length < 2 || businessName.length > 160 || phone.length > 40 || !/^\S+@\S+\.\S+$/.test(email)) {
-      settingsFeedback.textContent = translate("Informe nome e comércio entre 2 e 160 caracteres e um e-mail válido");
+      settingsFeedback.textContent = translate("Enter a name and business between 2 and 160 characters, and a valid email");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
       settingsFeedback.hidden = false;
       return;
     }
 
     submitButton.disabled = true;
-    settingsFeedback.textContent = translate("Salvando");
+    settingsFeedback.textContent = translate("Saving");
     settingsFeedback.className = "user-edit-panel__feedback";
     settingsFeedback.hidden = false;
 
@@ -1039,10 +1052,10 @@ export const initProfileMenu = () => {
       if (isUsingApi()) await saveMenuSettingsRemote(updatedMenuSettings);
 
       syncPanelIdentity({ name, email, phone, businessName, avatar: pendingAvatar });
-      settingsFeedback.textContent = translate("Configurações salvas");
+      settingsFeedback.textContent = translate("Settings saved");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--success";
     } catch (error) {
-      settingsFeedback.textContent = translate(error?.message || "Não foi possível salvar as configurações");
+      settingsFeedback.textContent = translate(error?.message || "Could not save settings");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
     } finally {
       settingsFeedback.hidden = false;
@@ -1062,28 +1075,28 @@ export const initProfileMenu = () => {
   const checkSystemUpdate = async () => {
     if (!updateFeedback) return;
     updateFeedback.hidden = false;
-    updateFeedback.textContent = translate("Verificando atualizações");
+    updateFeedback.textContent = translate("Checking for updates");
     try {
       const result = await checkForSystemUpdates();
-      updateCurrent.textContent = translate(`Versão instalada: ${result.current_version} Versão disponível: ${result.available_version}`);
-      updateNotes.textContent = translate(result.notes || "O sistema já está atualizado");
+      updateCurrent.textContent = translate("installedVersionNotice").replace("$1", result.current_version).replace("$2", result.available_version);
+      updateNotes.textContent = translate(result.notes || "The system is up to date");
       updateLater.hidden = !result.update_available;
       const safeUpdateUrl = typeof result.download_url === "string" && /^https:\/\//i.test(result.download_url) ? result.download_url : "";
       updateNow.hidden = !result.update_available || !safeUpdateUrl;
       updateNow.href = safeUpdateUrl || "#";
       updateNow.rel = "noopener noreferrer";
       updateFeedback.textContent = result.update_available
-        ? result.download_url ? translate("Há uma nova versão. O link abre a página de download; a instalação é manual.") : translate("Há uma atualização registrada, mas o pacote ainda não foi disponibilizado")
-        : translate("O sistema já está atualizado");
+        ? result.download_url ? translate("A new version is available. The link opens its download page; installation is manual.") : translate("An update is listed, but its installer is not available yet")
+        : translate("The system is up to date");
     } catch (error) {
-      updateFeedback.textContent = translate(error?.message || "Não foi possível verificar atualizações");
+      updateFeedback.textContent = translate(error?.message || "Could not check for updates");
     }
   };
 
   updateCheck?.addEventListener("click", checkSystemUpdate);
   updateLater?.addEventListener("click", () => {
     if (updateFeedback) {
-      updateFeedback.textContent = translate("Tudo bem Você poderá verificar novamente quando quiser");
+      updateFeedback.textContent = translate("No problem You can check again whenever you like");
       updateFeedback.hidden = false;
     }
   });

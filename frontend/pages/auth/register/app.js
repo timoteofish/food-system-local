@@ -9,11 +9,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const form = document.getElementById("registerForm");
-  const terms = document.getElementById("termos");
+  const terms = document.getElementById("termsAgreement");
   const submit = form.querySelector(".btn--primary");
   const passwordInput = document.getElementById("registerPassword");
-  const confirmInput = document.getElementById("confirmar_senha");
-  const errorMessage = document.getElementById("senhaErro");
+  const confirmInput = document.getElementById("confirmPassword");
+  const errorMessage = document.getElementById("passwordError");
   const feedback = document.getElementById("registerFeedback");
   const termsModal = document.getElementById("termsModal");
   const termsBody = document.getElementById("termsBody");
@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (googleBtnContainer) {
     const button = document.createElement("button");
     button.type = "button";
-    button.setAttribute("aria-label", translate("Registrar com Google"));
+    button.setAttribute("aria-label", translate("Sign up with Google"));
     button.className = "google-icon-btn";
     button.innerHTML = `
       <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false" width="22" height="22">
@@ -92,7 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
         await loginWithFirebaseGoogle();
         window.location.href = "../../app/dashboard/index.html";
       } catch (error) {
-        showFeedback(error.message || "Não foi possível criar a conta com o Google");
+        showFeedback(error.message || "Could not create an account with Google");
         button.disabled = false;
       }
     });
@@ -103,22 +103,22 @@ document.addEventListener("DOMContentLoaded", () => {
     event.preventDefault();
 
     if (!terms.checked) {
-      showFeedback("É necessário concordar com os termos de serviço");
+      showFeedback("You must agree to the terms of service");
       return;
     }
 
-    const name = document.getElementById("nome").value.trim();
+    const name = document.getElementById("fullName").value.trim();
     const email = document.getElementById("registerEmail").value.trim();
     const password = passwordInput.value;
     const confirmPassword = confirmInput.value;
 
     if (!name || !email || !password) {
-      showFeedback("Preencha todos os campos obrigatórios");
+      showFeedback("Complete all required fields");
       return;
     }
 
     if (password.length < 8 || new TextEncoder().encode(password).length > 1024) {
-      showFeedback("A senha deve ter entre 8 e 1024 bytes");
+      showFeedback("Enter a valid password");
       return;
     }
 
@@ -132,7 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
       saveRegistrationStep({ name, email, password });
       window.location.href = "../validation/index.html";
     } catch (error) {
-      showFeedback(error.message || "Não foi possível salvar o cadastro");
+      showFeedback(error.message || "Could not save the record");
     }
   });
 });

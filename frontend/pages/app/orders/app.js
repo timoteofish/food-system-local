@@ -1,4 +1,4 @@
-import { getLanguage, getLocale, translate } from "../../../shared/i18n/i18n.js";
+import { getLegacyTranslationCandidates, getLocale, translate } from "../../../shared/i18n/i18n.js";
 import { escapeHtml, formatOrderLocation, formatPrice } from "../../../shared/utils/utils.js";
 import { initAppShell } from "../../../shared/ui/ui.js";
 import { loadOrdersRemote, updateOrderStatusRemote } from "../../../shared/features/menu/index.js";
@@ -17,7 +17,7 @@ let refreshTimerStarted = false;
 
 const formatDateTime = (value) => {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return translate("Horário indisponível");
+  if (Number.isNaN(date.getTime())) return translate("ordersTimeUnavailable");
   return date.toLocaleString(getLocale(), {
     hour: "2-digit",
     minute: "2-digit",
@@ -28,13 +28,14 @@ const getCustomerName = (order) =>
   order.customerName ||
   order.customer_name ||
   order.customer?.name ||
-  translate("Cliente balcão");
+  translate("ordersCounterCustomer");
 
 const getOrderLocation = (order) => {
   const location = order.tableName || order.table_name || order.table?.name || order.table || order.notes;
   const formattedLocation = formatOrderLocation(location);
-  return !formattedLocation || formattedLocation === "Mesa não informada"
-    ? translate("Local não informado")
+  const isLegacyMissingLocation = getLegacyTranslationCandidates(formattedLocation, "en").includes("Table not specified");
+  return !formattedLocation || isLegacyMissingLocation
+    ? translate("ordersMissingLocation")
     : formattedLocation;
 };
 
@@ -42,7 +43,7 @@ const getNormalizedOrderLocation = (order) => getOrderLocation(order).trim().toL
 
 const getOrderItemsLabel = (order) => {
   if (!Array.isArray(order.items) || !order.items.length) {
-    return translate("Itens do pedido indisponíveis");
+    return translate("ordersUnavailableItems");
   }
 
   return order.items
@@ -53,20 +54,26 @@ const getOrderItemsLabel = (order) => {
         item.product_name ||
         item.product?.name ||
         item.title ||
-        translate("Item");
+        translate("ordersGenericItem");
       return `${quantity}x ${name}`;
     })
     .join(" · ");
 };
 
 const getOrderCode = (order) =>
-  String(order.orderCode || order.order_code || order.order_number || order.id || translate("pedido"))
+  String(order.orderCode || order.order_code || order.order_number || order.id || translate("ordersOrderFallback"))
     .slice(-6)
     .toUpperCase();
 
 const getStatusLabel = (status) => {
-  const labels = { new: "Novo", preparing: "Em preparo", ready: "Pronto", completed: "Concluído", cancelled: "Cancelado" };
-  return translate(labels[status] || "Novo");
+  const labels = {
+    new: "ordersStatusNew",
+    preparing: "ordersStatusPreparing",
+    ready: "ordersStatusReady",
+    completed: "ordersStatusCompleted",
+    cancelled: "ordersStatusCancelled",
+  };
+  return translate(labels[status] || "ordersStatusUnknown");
 };
 
 const getStatusClass = (status) => {
@@ -78,22 +85,22 @@ const getStatusClass = (status) => {
 };
 
 const getStatusToneLabel = (status) => {
-  if (status === "preparing") return translate("Em preparo");
-  if (status === "ready") return translate("Pedido pronto");
-  return translate("Aguardando preparo");
+  if (status === "preparing") return translate("ordersTonePreparing");
+  if (status === "ready") return translate("ordersToneReady");
+  return translate("ordersToneWaiting");
 };
 
 const getOrderActions = (order) => {
   const orderId = escapeHtml(order.id);
-  const rejectButton = `<button class="orders-card__action orders-card__action--danger" type="button" data-order-action="cancelled" data-order-id="${orderId}">${translate("Cancelar")}</button>`;
+  const rejectButton = `<button class="orders-card__action orders-card__action--danger" type="button" data-order-action="cancelled" data-order-id="${orderId}">${translate("ordersActionCancel")}</button>`;
   if (order.status === "new") {
-    return `${rejectButton}<button class="orders-card__action" type="button" data-order-action="preparing" data-order-id="${orderId}">${translate("Iniciar preparo")}</button>`;
+    return `${rejectButton}<button class="orders-card__action" type="button" data-order-action="preparing" data-order-id="${orderId}">${translate("ordersActionStartPreparation")}</button>`;
   }
   if (order.status === "preparing") {
-    return `${rejectButton}<button class="orders-card__action" type="button" data-order-action="ready" data-order-id="${orderId}">${translate("Marcar como pronto")}</button>`;
+    return `${rejectButton}<button class="orders-card__action" type="button" data-order-action="ready" data-order-id="${orderId}">${translate("ordersActionMarkReady")}</button>`;
   }
   if (order.status === "ready") {
-    return `${rejectButton}<button class="orders-card__action" type="button" data-order-action="completed" data-order-id="${orderId}">${translate("Concluir pedido")}</button>`;
+    return `${rejectButton}<button class="orders-card__action" type="button" data-order-action="completed" data-order-id="${orderId}">${translate("ordersActionComplete")}</button>`;
   }
   return "";
 };
@@ -141,15 +148,15 @@ const getLocationStageSummary = (orders) => {
 const createOrderCard = (order) => `
   <article class="orders-card ${getStatusClass(order.status)}">
     <div class="orders-card__head">
-      <span>${translate("Pedido")}</span>
+      <span>${translate("ordersLabelOrder")}</span>
       <strong>#${escapeHtml(getOrderCode(order))}</strong>
     </div>
     <div class="orders-card__info">
-      <span>${translate("Cliente")}</span>
+      <span>${translate("ordersLabelCustomer")}</span>
       <strong>${escapeHtml(getCustomerName(order))}</strong>
     </div>
     <div class="orders-card__info">
-      <span>${translate("Itens")}</span>
+      <span>${translate("ordersLabelItems")}</span>
       <p>${escapeHtml(getOrderItemsLabel(order))}</p>
     </div>
     <div class="orders-card__meta">
@@ -171,12 +178,12 @@ const createLocationSection = (group) => {
     <section class="orders-table ${getStatusClass(stage)}">
       <div class="orders-table__head">
         <div class="orders-table__identity">
-          <span class="orders-table__label">${translate("Local")}</span>
+          <span class="orders-table__label">${translate("ordersLabelLocation")}</span>
           <strong>${escapeHtml(group.location)}</strong>
           <small>${escapeHtml(getStatusToneLabel(stage))}</small>
         </div>
         <div class="orders-table__meta">
-          <span>${group.orders.length} ${translate(group.orders.length === 1 ? "pedido" : "pedidos")}</span>
+          <span>${group.orders.length} ${translate(group.orders.length === 1 ? "ordersCountSingle" : "ordersCountPlural")}</span>
           <strong>${escapeHtml(formatPrice(total))}</strong>
         </div>
       </div>
@@ -214,7 +221,7 @@ const renderOrders = (orders) => {
   const visibleOrders = getVisibleOrders(sorted);
   const groupedOrders = groupOrdersByLocation(visibleOrders);
   const heading = document.getElementById("ordersHeadingTitle");
-  if (heading) heading.textContent = translate(mobileOrdersQuery.matches ? "Pedidos ativos" : "Pedidos por local");
+  if (heading) heading.textContent = translate(mobileOrdersQuery.matches ? "ordersHeadingActive" : "ordersHeadingByLocation");
 
   renderSummary(sorted);
 
@@ -224,10 +231,10 @@ const renderOrders = (orders) => {
   }
 
   const emptyState = mobileOrdersQuery.matches
-    ? { title: translate("Nenhum pedido na fila de preparo"), detail: translate("Novos pedidos aparecerão aqui para a equipe iniciar o preparo") }
+    ? { title: translate("ordersEmptyKitchenTitle"), detail: translate("ordersEmptyKitchenDetail") }
     : activeFilter !== "active"
-      ? { title: translate("Sem pedidos nesta etapa"), detail: translate("Os pedidos aparecerão aqui quando avançarem para esta etapa") }
-      : { title: translate("Nenhum local com pedidos no momento"), detail: translate("Novos pedidos aparecerão aqui quando chegarem") };
+      ? { title: translate("ordersEmptyStageTitle"), detail: translate("ordersEmptyStageDetail") }
+      : { title: translate("ordersEmptyLocationsTitle"), detail: translate("ordersEmptyLocationsDetail") };
   list.innerHTML = `<article class="orders-empty"><strong>${emptyState.title}</strong><p>${emptyState.detail}</p></article>`;
 };
 
@@ -238,7 +245,7 @@ const refreshOrders = async () => {
     const list = document.getElementById("ordersList");
     if (list) {
       list.setAttribute("aria-busy", "true");
-      list.innerHTML = `<article class="orders-empty" role="status"><strong>${translate("Carregando pedidos")}</strong></article>`;
+      list.innerHTML = `<article class="orders-empty" role="status"><strong>${translate("ordersLoading")}</strong></article>`;
     }
   }
   try {
@@ -254,7 +261,7 @@ const refreshOrders = async () => {
   } catch {
     const feedback = document.getElementById("ordersFeedback");
     if (feedback && hasLoadedOrders) {
-      feedback.textContent = translate("Não foi possível atualizar os pedidos Verifique a conexão e tente novamente");
+      feedback.textContent = translate("ordersRefreshError");
       feedback.dataset.state = "error";
       feedback.hidden = false;
     } else if (feedback) {
@@ -264,7 +271,7 @@ const refreshOrders = async () => {
       const list = document.getElementById("ordersList");
       if (list) {
         list.setAttribute("aria-busy", "false");
-        list.innerHTML = `<article class="orders-empty" role="alert"><strong>${translate("Os pedidos não foram carregados")}</strong><p>${translate("Verifique a conexão e tente novamente.")}</p><button class="btn btn--secondary" type="button" data-orders-retry>${translate("Tentar novamente")}</button></article>`;
+        list.innerHTML = `<article class="orders-empty" role="alert"><strong>${translate("ordersNotLoaded")}</strong><p>${translate("ordersConnectionRetry")}</p><button class="btn btn--secondary" type="button" data-orders-retry>${translate("ordersRetry")}</button></article>`;
       }
     }
   } finally {
@@ -287,7 +294,7 @@ const initializeOrders = async () => {
     const list = document.getElementById("ordersList");
     if (list) {
       list.setAttribute("aria-busy", "false");
-      list.innerHTML = `<article class="orders-empty" role="alert"><strong>${translate("Não foi possível abrir os pedidos.")}</strong><button class="btn btn--secondary" type="button" data-orders-retry>${translate("Tentar novamente")}</button></article>`;
+      list.innerHTML = `<article class="orders-empty" role="alert"><strong>${translate("ordersOpenError")}</strong><button class="btn btn--secondary" type="button" data-orders-retry>${translate("ordersRetry")}</button></article>`;
     }
   }
 };
@@ -324,7 +331,7 @@ document.addEventListener("click", async (event) => {
   if (!orderId || !nextStatus) return;
 
   if (nextStatus === "cancelled") {
-    const confirmation = translate("Cancelar este pedido?");
+    const confirmation = translate("ordersCancelConfirmation");
     if (!window.confirm(confirmation)) return;
   }
 
@@ -335,7 +342,7 @@ document.addEventListener("click", async (event) => {
   } catch (error) {
     const feedback = document.getElementById("ordersFeedback");
     if (feedback) {
-      feedback.textContent = translate("Não foi possível atualizar o pedido Tente novamente");
+      feedback.textContent = translate("ordersUpdateError");
       feedback.dataset.state = "error";
       feedback.hidden = false;
     }
