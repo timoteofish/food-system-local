@@ -39,7 +39,9 @@
     "icon": ["icons/icon.ico"],
     "resources": {
       "../backend/": "backend/",
-      "../desktop/": "desktop/",
+      "../desktop/launcher.mjs": "desktop/launcher.mjs",
+      "../desktop/cleanup-backups.mjs": "desktop/cleanup-backups.mjs",
+      "../desktop/runtime/": "desktop/runtime/",
       "../frontend/": "frontend/"
     },
     "targets": ["msi", "nsis"],

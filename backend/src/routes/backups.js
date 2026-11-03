@@ -1,79 +1,47 @@
-import { execFile, fork } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, readdir, lstat, stat, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { requireRole } from "./auth.js";
 import { audit } from "../audit.js";
 import { decryptFile, hasSecretKey } from "../security.js";
 import { beginRestore, endRestore, isRestoreInProgress } from "../maintenance.js";
+import { replaceDatabase } from "../db.js";
 import { createBackupName, isSafeBackupName } from "../backup-files.js";
 
 const execFileAsync = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const backendRoot = path.join(root, "backend");
 const backupDir = path.resolve(process.env.FOOD_SYSTEM_BACKUP_DIR || path.join(root, "state", "backups"));
 const recoveryMarker = path.join(path.dirname(backupDir), "restore-recovery-required");
-const notifyLauncher = (type) => {
-  if (!process.connected) return;
-  try { process.send({ type }); } catch {}
-};
-const runRestore = (file) => {
-  const child = fork("src/restore.js", [file], {
-    cwd: path.join(root, "backend"),
-    env: process.env,
-    windowsHide: true,
-    silent: true,
-  });
-  let stdout = "";
-  let stderr = "";
-  let importStarted = false;
-  let resolveImportStart;
-  const importStart = new Promise((resolveStarted) => { resolveImportStart = resolveStarted; });
-  child.stdout.setEncoding("utf8");
-  child.stderr.setEncoding("utf8");
-  child.stdout.on("data", (chunk) => { stdout = `${stdout}${chunk}`.slice(-1024 * 1024); });
-  child.stderr.on("data", (chunk) => { stderr = `${stderr}${chunk}`.slice(-1024 * 1024); });
-  child.on("message", (message) => {
-    if (message?.type !== "restore-import-started" || importStarted) return;
-    importStarted = true;
-    resolveImportStart(true);
-  });
-  const promise = new Promise((resolveRestore, rejectRestore) => {
-    child.once("error", (error) => {
-      if (!importStarted) resolveImportStart(false);
-      error.stdout = stdout;
-      error.stderr = stderr;
-      rejectRestore(error);
-    });
-    child.once("close", (code, signal) => {
-      if (!importStarted) resolveImportStart(false);
-      if (code === 0) return resolveRestore({ stdout, stderr });
-      const error = new Error(`Restore process exited with code ${code ?? signal}`);
-      error.code = code;
-      error.signal = signal;
-      error.stdout = stdout;
-      error.stderr = stderr;
-      rejectRestore(error);
-    });
-  });
-  return { importStart, promise };
-};
+const notifyLauncher = (type) => { if (process.connected) { try { process.send({ type }); } catch {} } };
 const requireLocalAdmin = async (request, reply) => {
   const user = await requireRole(request, reply);
   if (!user) return null;
-  if (user.local !== true) {
-    reply.forbidden("Database backup operations are available only to the local desktop administrator");
-    return null;
-  }
+  if (user.local !== true) { reply.forbidden("Database backup operations are available only to the local desktop administrator"); return null; }
   return user;
+};
+const validateDatabase = (file) => {
+  const candidate = new DatabaseSync(file, { readOnly: true, enableForeignKeyConstraints: true, enableDoubleQuotedStringLiterals: false, timeout: 5000 });
+  try {
+    candidate.exec("PRAGMA trusted_schema = OFF");
+    const integrity = candidate.prepare("PRAGMA integrity_check").get();
+    if (integrity.integrity_check !== "ok") throw new Error("Backup failed SQLite integrity validation");
+    if (candidate.prepare("PRAGMA foreign_key_check").all().length) throw new Error("Backup contains foreign-key violations");
+    const tables = new Set(candidate.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((row) => row.name));
+    for (const name of ["businesses", "users", "orders", "app_schema_migrations"]) if (!tables.has(name)) throw new Error("Backup does not contain the Food System schema");
+    if (!candidate.prepare("SELECT 1 FROM app_schema_migrations WHERE version = '025_mariadb_schema_baseline'").get()) throw new Error("Backup does not contain a recognized Food System schema baseline");
+  } finally { candidate.close(); }
 };
 
 export default async function backupRoutes(app) {
   app.get("/api/v1/businesses/:businessId/backups", async (request, reply) => {
     if (!(await requireLocalAdmin(request, reply))) return;
     if (!hasSecretKey()) return reply.code(503).send({ error: "Backup encryption key is not configured" });
-    await mkdir(backupDir, { recursive: true });
+    await mkdir(backupDir, { recursive: true, mode: 0o700 });
     const entries = await readdir(backupDir, { withFileTypes: true });
     const names = entries.filter((entry) => entry.isFile() && isSafeBackupName(entry.name)).map((entry) => entry.name);
     const backups = await Promise.all(names.map(async (name) => {
@@ -89,7 +57,7 @@ export default async function backupRoutes(app) {
     if (!user) return;
     if (!hasSecretKey()) return reply.code(503).send({ error: "Backup encryption key is not configured" });
     try {
-      const { stdout } = await execFileAsync(process.execPath, ["src/backup.js"], { cwd: path.join(root, "backend"), windowsHide: true });
+      const { stdout } = await execFileAsync(process.execPath, ["src/backup.js"], { cwd: backendRoot, windowsHide: true });
       await audit(request, user, "backup.created", "backup", null, {});
       return reply.code(201).send({ created: true, output: stdout.trim() });
     } catch (error) { request.log.error(error); return reply.internalServerError("Backup failed"); }
@@ -100,57 +68,50 @@ export default async function backupRoutes(app) {
     const user = await requireRole(request, reply);
     if (!user) return;
     const name = request.body && typeof request.body === "object" && !Array.isArray(request.body) && typeof request.body.name === "string" ? request.body.name : "";
-    if (!isSafeBackupName(name)) return reply.badRequest("Invalid backup name");
+    if (!name || name.includes("..") || name.includes("/") || name.includes("\\")) return reply.badRequest("Invalid backup name");
     if (user.local !== true) return reply.forbidden("Database backup operations are available only to the local desktop administrator");
+    if (!isSafeBackupName(name)) return reply.badRequest("Invalid backup name");
     if (!hasSecretKey()) return reply.code(503).send({ error: "Backup encryption key is not configured" });
     const file = path.resolve(backupDir, name);
     if (path.dirname(file) !== backupDir) return reply.badRequest("Invalid backup path");
     let sourceInfo;
-    try { sourceInfo = await lstat(file); }
-    catch (error) { if (error.code === "ENOENT") return reply.notFound("Backup not found"); throw error; }
+    try { sourceInfo = await lstat(file); } catch (error) { if (error.code === "ENOENT") return reply.notFound("Backup not found"); throw error; }
     if (!sourceInfo.isFile() || sourceInfo.size === 0) return reply.badRequest("Backup file is empty or invalid");
     if (!(await beginRestore())) return reply.conflict("A database restore is already in progress");
-    let plaintextFile = null;
-    let safetyPlaintextFile = null;
-    let safetyBackupFile = null;
+    let plain = null;
+    let safetyPlain = null;
+    let recoveryMarkerOwned = false;
     let restoreSucceeded = false;
     let recoverySucceeded = false;
-    let restoreImportStarted = false;
-    let recoveryMarkerOwned = false;
     let keepMaintenance = false;
-    let safetyBackupName = null;
+    let safetyName = null;
     try {
-      safetyBackupName = createBackupName();
-      safetyBackupFile = path.join(backupDir, safetyBackupName);
-      await writeFile(recoveryMarker, `${JSON.stringify({ state: "in_progress", backup: name, safety_backup: safetyBackupName, created_at: new Date().toISOString() })}\n`, { mode: 0o600, flag: "wx" });
+      await mkdir(backupDir, { recursive: true, mode: 0o700 });
+      safetyName = createBackupName();
+      const safetyFile = path.join(backupDir, safetyName);
+      await writeFile(recoveryMarker, `${JSON.stringify({ state: "in_progress", backup: name, safety_backup: safetyName, created_at: new Date().toISOString() })}\n`, { mode: 0o600, flag: "wx" });
       recoveryMarkerOwned = true;
       notifyLauncher("restore-start");
-      plaintextFile = path.join(backupDir, `.restore-${process.pid}-${randomUUID()}.sql`);
-      await decryptFile(file, plaintextFile);
-      const plaintextInfo = await stat(plaintextFile);
-      if (!plaintextInfo.isFile() || plaintextInfo.size === 0) return reply.badRequest("Backup contains no database data");
-      await execFileAsync(process.execPath, ["src/backup.js", safetyBackupName], { cwd: path.join(root, "backend"), windowsHide: true });
-      await stat(safetyBackupFile);
-      const originalRestore = runRestore(plaintextFile);
-      const primaryRestore = originalRestore.promise.then((result) => {
-        restoreSucceeded = true;
-        return result;
-      }, async (error) => {
-        if (await originalRestore.importStart) restoreImportStarted = true;
-        throw error;
-      });
+      plain = path.join(backupDir, `.restore-${process.pid}-${randomUUID()}.sqlite`);
+      await decryptFile(file, plain);
+      if (!(await stat(plain)).size) return reply.badRequest("Backup contains no database data");
+      validateDatabase(plain);
+      await execFileAsync(process.execPath, ["src/backup.js", safetyName], { cwd: backendRoot, windowsHide: true });
+      const original = path.join(backupDir, safetyName);
+      await stat(original);
       try {
-        await primaryRestore;
+        await replaceDatabase(plain);
+        restoreSucceeded = true;
       } catch (restoreError) {
-        if (!restoreImportStarted) throw restoreError;
         try {
-          safetyPlaintextFile = path.join(backupDir, `.recovery-${process.pid}-${randomUUID()}.sql`);
-          await decryptFile(safetyBackupFile, safetyPlaintextFile);
-          await execFileAsync(process.execPath, ["src/restore.js", safetyPlaintextFile], { cwd: path.join(root, "backend"), windowsHide: true });
+          safetyPlain = path.join(backupDir, `.recovery-${process.pid}-${randomUUID()}.sqlite`);
+          await decryptFile(original, safetyPlain);
+          validateDatabase(safetyPlain);
+          await replaceDatabase(safetyPlain);
           recoverySucceeded = true;
         } catch (recoveryError) {
           keepMaintenance = true;
-          request.log.fatal({ err: recoveryError, safety_backup: path.basename(safetyBackupFile) }, "Automatic database recovery failed; API remains in maintenance");
+          request.log.fatal({ err: recoveryError, safety_backup: safetyName }, "Automatic SQLite recovery failed; API remains in maintenance");
         }
         throw restoreError;
       }
@@ -162,15 +123,9 @@ export default async function backupRoutes(app) {
       if (recoverySucceeded) return reply.internalServerError("Restore failed; the original database was recovered from its safety backup");
       if (restoreSucceeded) return reply.internalServerError("The backup was restored, but its audit record could not be saved. Check the restore state before retrying.");
       return reply.internalServerError("Restore failed");
-    }
-    finally {
-      for (const temporaryFile of [plaintextFile, safetyPlaintextFile]) {
-        if (!temporaryFile) continue;
-        await rm(temporaryFile, { force: true }).catch((error) => request.log.error(error, "Could not remove a temporary plaintext restore file"));
-      }
-      if (recoveryMarkerOwned && (!restoreImportStarted || restoreSucceeded || recoverySucceeded)) {
-        await rm(recoveryMarker, { force: true }).catch((error) => request.log.error(error, "Could not remove the database restore marker"));
-      }
+    } finally {
+      for (const temp of [plain, safetyPlain]) if (temp) await rm(temp, { force: true }).catch((error) => request.log.error(error, "Could not remove a temporary plaintext restore file"));
+      if (recoveryMarkerOwned && (!restoreSucceeded || recoverySucceeded || !keepMaintenance)) await rm(recoveryMarker, { force: true }).catch((error) => request.log.error(error, "Could not remove the database restore marker"));
       if (!keepMaintenance) endRestore();
       if (recoveryMarkerOwned) notifyLauncher(keepMaintenance ? "restore-recovery-required" : "restore-end");
     }

@@ -12,8 +12,8 @@ test("startup cleanup removes only stale plaintext backups and restore dumps", a
   const staleDate = new Date(now - 25 * 60 * 60 * 1000);
   const recentDate = new Date(now - 30 * 60 * 1000);
   const staleDump = createBackupName(new Date("2026-01-01T00:00:00.000Z")).replace(/\.enc$/, "");
-  const staleRestore = ".restore-123-12345678-1234-1234-1234-123456789abc.sql";
-  const recentRestore = ".recovery-124-12345678-1234-1234-1234-123456789abc.sql";
+  const staleRestore = ".restore-123-12345678-1234-1234-1234-123456789abc.sqlite";
+  const recentRestore = ".recovery-124-12345678-1234-1234-1234-123456789abc.sqlite";
   const recentDump = createBackupName(new Date("2026-01-03T00:00:00.000Z")).replace(/\.enc$/, "");
   const encryptedBackup = createBackupName(new Date("2026-01-02T00:00:00.000Z"));
   const arbitrarySql = "customer-export.sql";

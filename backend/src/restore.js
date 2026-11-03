@@ -1,66 +1,26 @@
-import { execFile, spawn } from "node:child_process";
-import { createReadStream } from "node:fs";
-import { access } from "node:fs/promises";
+import { copyFile, access, chmod, rm } from "node:fs/promises";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
-import { promisify } from "node:util";
-import { config } from "./config.js";
+import { randomUUID } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
+import { replaceDatabase } from "./db.js";
 
-const execFileAsync = promisify(execFile);
 const input = process.argv[2];
-if (!input) throw new Error("Usage: npm run db:restore -- path\\backup.sql");
+if (!input) throw new Error("Usage: node src/restore.js path/to/food-system.sqlite");
 await access(input);
-
-const candidates = [
-  process.env.MARIADB_CLIENT_PATH,
-  process.env.MARIADB_ROOT ? path.join(process.env.MARIADB_ROOT, "bin", "mariadb.exe") : "",
-  "mariadb",
-  "mysql",
-  "C:\\Program Files\\MariaDB 11.8\\bin\\mariadb.exe",
-  "C:\\Program Files\\MariaDB 13.0\\bin\\mariadb.exe",
-].filter(Boolean);
-let client;
-for (const candidate of candidates) {
-  try { await execFileAsync(candidate, ["--version"]); client = candidate; break; } catch { }
-}
-if (!client) throw new Error("mariadb/mysql was not found. Install MariaDB or set MARIADB_CLIENT_PATH.");
-
-const mysql = config.mysqlMaintenance;
-const clientArgs = ["--host", mysql.host, "--port", String(mysql.port), "--user", mysql.user, mysql.database];
-const clientEnv = { ...process.env, MYSQL_PWD: mysql.password };
-await execFileAsync(client, ["--host", mysql.host, "--port", String(mysql.port), "--user", mysql.user, "--execute", "SELECT 1", mysql.database], { env: clientEnv, windowsHide: true, timeout: 10000 });
-const child = spawn(client, clientArgs, {
-  env: clientEnv,
-  windowsHide: true,
-  stdio: ["pipe", "inherit", "inherit"],
-});
-const closePromise = new Promise((resolve, reject) => {
-  child.once("error", reject);
-  child.once("close", (code, signal) => resolve({ code, signal }));
-});
-child.once("spawn", () => {
-  if (process.connected) {
-    try { process.send({ type: "restore-import-started" }); } catch {}
-  }
-  process.stdout.write("Food System restore importer started\n");
-});
-let timedOut = false;
-const timeout = setTimeout(() => {
-  timedOut = true;
-  child.kill();
-}, 120000);
+const candidate = new DatabaseSync(input, { readOnly: true, enableForeignKeyConstraints: true, enableDoubleQuotedStringLiterals: false, timeout: 5000 });
 try {
-  const [inputResult, processResult] = await Promise.allSettled([
-    pipeline(createReadStream(input), child.stdin),
-    closePromise,
-  ]);
-  if (processResult.status === "rejected") throw processResult.reason;
-  if (timedOut) throw new Error("Database restore exceeded the 120-second limit");
-  if (processResult.value.code !== 0) throw new Error(`Database restore failed with code ${processResult.value.code ?? processResult.value.signal}`);
-  if (inputResult.status === "rejected") throw inputResult.reason;
-} finally {
-  clearTimeout(timeout);
-  if (child.exitCode === null && !child.killed) child.kill();
-  await closePromise.catch(() => {});
-}
-console.log(`Backup restored: ${input}`);
+  candidate.exec("PRAGMA trusted_schema = OFF");
+  const integrity = candidate.prepare("PRAGMA integrity_check").get();
+  const tables = new Set(candidate.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((row) => row.name));
+  const baseline = tables.has("app_schema_migrations") && candidate.prepare("SELECT 1 FROM app_schema_migrations WHERE version = '025_mariadb_schema_baseline'").get();
+  if (integrity.integrity_check !== "ok" || candidate.prepare("PRAGMA foreign_key_check").all().length || !tables.has("businesses") || !baseline) {
+    throw new Error("SQLite restore source is invalid or does not contain a Food System database");
+  }
+} finally { candidate.close(); }
+const staged = path.resolve(`${input}.${randomUUID()}.restore`);
+try {
+  await copyFile(input, staged);
+  await chmod(staged, 0o600).catch(() => {});
+  await replaceDatabase(staged);
+} finally { await rm(staged, { force: true }); }
+console.log("SQLite database restored");

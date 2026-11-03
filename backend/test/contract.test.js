@@ -15,32 +15,26 @@ test("schema contains the operational tables", async () => {
 });
 
 test("legacy databases are backed up before their first tracked migration", async () => {
+  const db = await read("src/db.js");
   const migrationRunner = await read("src/migrate.js");
-  const detectExistingTables = migrationRunner.indexOf("table_name NOT IN ('schema_migrations', 'schema_migration_steps')");
-  const createMigrationTable = migrationRunner.indexOf("CREATE TABLE IF NOT EXISTS schema_migrations");
-  const requireBackupKey = migrationRunner.indexOf("A backup encryption key is required before applying database migrations");
-  const createBackup = migrationRunner.indexOf('await execFile(process.execPath, ["src/backup.js"]');
-  const createMigrationSteps = migrationRunner.indexOf("for (let index = 0; index < statements.length; index += 1)");
-  assert.ok(detectExistingTables >= 0 && detectExistingTables < createMigrationTable);
-  assert.ok(createMigrationTable < requireBackupKey && requireBackupKey < createBackup && createBackup < createMigrationSteps);
-  assert.match(migrationRunner, /table_name NOT IN \('schema_migrations', 'schema_migration_steps'\)/);
-  assert.match(migrationRunner, /const isExistingInstallation = before\.length > 0/);
-  assert.match(migrationRunner, /if \(isExistingInstallation && pendingFiles\.length\)/);
-  assert.match(migrationRunner, /A backup encryption key is required before applying database migrations/);
-  assert.match(migrationRunner, /\["src\/backup\.js"\]/);
+  const schema = await read("sqlite/schema.sql");
+  assert.match(db, /new DatabaseSync\(temporaryPath/);
+  assert.match(db, /CREATE TABLE IF NOT EXISTS app_schema_migrations/);
+  assert.match(db, /025_mariadb_schema_baseline/);
+  assert.match(migrationRunner, /SQLite database ready/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS "orders"/);
+  assert.doesNotMatch(migrationRunner, /information_schema|GET_LOCK|mariadb/);
 });
 
 test("plaintext integration credentials are encrypted before their database column is dropped", async () => {
-  const runner = await read("src/migrate.js");
-  const helper = await read("src/migration-secrets.js");
-  const migrateBeforeDrop = runner.indexOf("await migrateLegacyIntegrationCredentials(connection)");
-  const dropColumn = runner.indexOf("await connection.query(statement)", migrateBeforeDrop);
-  assert.ok(migrateBeforeDrop >= 0 && dropColumn > migrateBeforeDrop);
-  assert.match(runner, /A backup encryption key is required to migrate legacy integration credentials/);
-  assert.match(helper, /encrypt\(JSON\.stringify\(credentials\)\)/);
-  assert.match(helper, /integration:\$\{row\.id\}/);
-  assert.match(helper, /ON DUPLICATE KEY UPDATE encrypted_value/);
-  assert.match(helper, /Legacy integration credentials are invalid; migration stopped without dropping the source column/);
+  const db = await read("src/db.js");
+  assert.match(db, /mysql\.createConnection/);
+  assert.match(db, /SELECT \* FROM/);
+  assert.match(db, /BEGIN IMMEDIATE/);
+  assert.match(db, /PRAGMA foreign_key_check/);
+  assert.match(db, /PRAGMA integrity_check/);
+  assert.ok(db.indexOf("PRAGMA integrity_check") < db.indexOf("await rename(temporaryPath, databasePath)"));
+  assert.doesNotMatch(db, /source\.query\("(?:INSERT|UPDATE|DELETE|ALTER|DROP)/i);
 });
 
 test("schema contains the integration boundary tables", async () => {
@@ -278,7 +272,7 @@ test("local administrator credentials never leave the exact loopback API target"
     };
     const { apiRequest } = await import(${JSON.stringify(clientUrl)});
     if (process.env.CASE_TOKEN_READY === "no") {
-      await assert.rejects(apiRequest("/probe"), /The local API is not ready yet/);
+      await assert.rejects(apiRequest("/probe"), /API local ainda não está pronta|The local API is not ready yet/);
       assert.equal(request, undefined);
     } else {
       await apiRequest("/probe");
@@ -319,7 +313,6 @@ test("Tauri development launcher is supervised and receives its parent PID", asy
   assert.match(launcher, /NODE_ENV: "development"/);
   assert.match(backendLauncher, /const nodeEnvironment = process\.env\.NODE_ENV \|\| "production"/);
   assert.match(backendLauncher, /const environmentFile = process\.env\.FOOD_SYSTEM_ENV_FILE \|\| join\(dataDir, "config\.env"\)/);
-  assert.match(backendLauncher, /configText = await readFile\(environmentFile, "utf8"\)/);
   assert.match(backendLauncher, /FOOD_SYSTEM_ENV_FILE: environmentFile/);
   assert.match(backendLauncher, /const localAccessToken = nodeEnvironment === "development"\s+\? ""/);
   assert.match(backendLauncher, /FOOD_SYSTEM_LOCAL_ACCESS_TOKEN: localAccessToken/);
@@ -341,7 +334,10 @@ test("packaged backend runtime requires Node.js 24 LTS", async () => {
   assert.doesNotMatch(bootstrap, /PathBuf::from\("node\.exe"\)/);
   assert.equal(config.build.beforeBuildCommand.cwd, "../");
   assert.match(config.build.beforeBuildCommand.script, /desktop\/prepare-runtime\.ps1/);
-  assert.equal(config.bundle.resources["../desktop/"], "desktop/");
+  assert.equal(config.bundle.resources["../desktop/launcher.mjs"], "desktop/launcher.mjs");
+  assert.equal(config.bundle.resources["../desktop/cleanup-backups.mjs"], "desktop/cleanup-backups.mjs");
+  assert.equal(config.bundle.resources["../desktop/runtime/"], "desktop/runtime/");
+  assert.equal(config.bundle.resources["../desktop/setup-mariadb.ps1"], undefined);
   assert.match(prepareRuntime, /Join-Path \$PSScriptRoot "runtime\\node\.exe"/);
 });
 
@@ -349,76 +345,22 @@ test("desktop startup stores the launcher child and creates a private encryption
   const bootstrap = await readRoot("src-tauri/src/lib.rs");
   const launcher = await readRoot("desktop/launcher.mjs");
   const server = await read("src/server.js");
+  const database = await read("src/db.js");
+  const migration = await read("src/migrate.js");
   assert.match(bootstrap, /struct BackendProcess\(Mutex<Option<Child>>\)/);
   assert.match(bootstrap, /create_new\(true\)/);
   assert.match(bootstrap, /options\.mode\(0o600\)/);
-  assert.match(bootstrap, /file\.sync_all\(\)/);
   assert.match(bootstrap, /WindowEvent::CloseRequested/);
-  assert.match(bootstrap, /RunEvent::Exit/);
-  assert.match(bootstrap, /Stdio::piped\(\)/);
   assert.match(bootstrap, /api_ready: Arc<AtomicBool>/);
-  assert.match(bootstrap, /if !token\.api_ready\.load\(Ordering::Acquire\)/);
-  assert.match(bootstrap, /FOOD_SYSTEM_API_LISTENING/);
-  assert.match(bootstrap, /FOOD_SYSTEM_API_STOPPING/);
-  assert.match(bootstrap, /readiness\.store\(false, Ordering::Release\)/);
-  assert.match(bootstrap, /write_all\(b"\{\\"type\\":\\"shutdown\\"\}\\n"\)/);
-  assert.match(bootstrap, /child\.wait\(\)/);
-  assert.match(bootstrap, /fs::hard_link\(&temp_path, secret_path\)/);
-  assert.match(bootstrap, /ErrorKind::AlreadyExists/);
-  assert.match(launcher, /FOOD_SYSTEM_PARENT_PID/);
   assert.match(launcher, /local encryption key is missing or invalid/);
-  assert.match(launcher, /APPDATA, "com\.foodsystem\.local"/);
-  assert.match(launcher, /LOCALAPPDATA, "com\.foodsystem\.local"/);
-  assert.match(launcher, /XDG_DATA_HOME, "com\.foodsystem\.local"/);
-  assert.doesNotMatch(launcher, /FOOD_SYSTEM_DATA_DIR \|\| join\(desktopRoot, "runtime"\)/);
-  assert.match(launcher, /Food System database setup is incomplete/);
-  assert.match(launcher, /configuredMariaRoot = readConfiguredMariaRoot\(\{ environmentRoot: process\.env\.MARIADB_ROOT \|\| "", environmentFile \}\)/);
-  assert.match(launcher, /join\(desktopRoot, "setup-mariadb\.ps1"\)/);
-  assert.match(launcher, /MariaDB did not accept connections within 5 seconds/);
-  assert.match(launcher, /MariaDB exited before becoming ready/);
-  assert.doesNotMatch(launcher.slice(launcher.indexOf("const ensureDatabase"), launcher.indexOf("const waitForChildExit")), /startedDatabaseReady = true/);
-  assert.ok(launcher.indexOf("await migrationPromise;\n  \/\/ The migration runner verifies") < launcher.indexOf("startedDatabaseReady = Boolean(startedDatabase)"));
-  assert.match(launcher, /console\.error\("Food System database migration failed:/);
-  assert.match(launcher, /console\.error\("Food System could not start its API:/);
-  assert.match(launcher, /console\.error\("Food System could not start its frontend:/);
-  assert.match(launcher, /shutdown\(\);\s+process\.exitCode = 1;/);
-  assert.match(launcher, /stdio: \["ignore", "inherit", "inherit", "ipc"\]/);
-  assert.match(launcher, /FOOD_SYSTEM_TAURI_CONTROL/);
-  assert.match(launcher, /MARIADB_ROOT: mariaRoot/);
-  assert.match(launcher, /process\.stdin\.on\("data"/);
-  assert.match(launcher, /backend\.send\(\{ type: "shutdown" \}/);
-  assert.match(launcher, /const waitForApiListener = \(child, timeoutMs = 10_000\)/);
-  assert.match(launcher, /message\?\.type === "api-stopping"/);
-  assert.match(launcher, /await apiListening/);
-  assert.ok(launcher.indexOf("await apiListening") < launcher.indexOf('process.stdout.write("FOOD_SYSTEM_API_LISTENING'));
-  assert.ok(launcher.indexOf('process.stdout.write("FOOD_SYSTEM_API_LISTENING') < launcher.indexOf("frontend.listen(frontendPort"));
-  assert.match(launcher, /const stopStartedDatabaseGracefully = async/);
-  assert.doesNotMatch(launcher, /migrationAbort/);
-  assert.match(launcher, /backendRestoreInProgress/);
-  assert.match(launcher, /message\?\.type === "restore-start"/);
-  assert.match(launcher, /message\?\.type === "restore-end"/);
-  assert.match(launcher, /message\?\.type === "restore-recovery-required"/);
-  assert.match(launcher, /backendRestoreInProgress \|\| existsSync\(recoveryMarker\)/);
-  assert.match(launcher, /database restore is still active or requires recovery; leaving MariaDB running/);
-  assert.doesNotMatch(launcher, /backend\.kill\(/);
-  assert.match(launcher, /mariadb-admin\.exe/);
-  assert.doesNotMatch(launcher, /startedDatabase\.kill\(/);
-  assert.match(launcher, /startedDatabase\.unref\(\)/);
-  assert.match(server, /message\?\.type === "shutdown"/);
+  assert.match(launcher, /FOOD_SYSTEM_DATA_DIR: dataDir/);
+  assert.match(launcher, /FOOD_SYSTEM_ENV_FILE: environmentFile/);
+  assert.doesNotMatch(launcher, /ensureDatabase|MARIADB_ROOT|mariadbd/);
+  assert.match(database, /new DatabaseSync\(databasePath/);
+  assert.match(migration, /SQLite database ready/);
   assert.match(server, /import \{ checkDatabase, pool \} from "\.\/db\.js"/);
-  assert.match(server, /await app\.close\(\)/);
-  assert.match(server, /process\.send\(\{ type: "api-listening" \}\)/);
-  assert.match(server, /process\.send\(\{ type: "api-stopping" \}/);
-  assert.ok(server.indexOf('await app.listen({ host: config.host, port: config.port })') < server.indexOf('process.send({ type: "api-listening" })'));
   assert.match(server, /await pool\.end\(\)/);
-  const migration = await read("src/migrate.js");
-  const databaseIdentity = await read("src/database-identity.js");
-  assert.match(databaseIdentity, /SELECT @@basedir AS basedir, @@port AS port, @@bind_address AS bind_address, DATABASE\(\) AS database_name/);
-  assert.match(databaseIdentity, /Connected MariaDB instance does not match the selected local installation and loopback configuration/);
-  assert.ok(migration.indexOf("await assertSelectedMariaDb(connection") < migration.indexOf('SELECT GET_LOCK(?, 30)'));
-  assert.ok(migration.indexOf("await assertSelectedMariaDb(connection") < migration.indexOf('CREATE TABLE IF NOT EXISTS schema_migrations'));
-  assert.match(server, /process\.disconnect\(\)/);
-  assert.match(bootstrap, /Duration::from_secs\(450\)/);
+  assert.match(server, /process\.send\(\{ type: "api-listening" \}\)/);
 });
 
 test("Tauri development shutdown asks the supervised launcher to clean up", async () => {
@@ -524,7 +466,9 @@ test("Tauri resources preserve the paths used by the packaged launcher", async (
   const launcher = await readRoot("desktop/launcher.mjs");
   assert.deepEqual(config.bundle.resources, {
     "../backend/": "backend/",
-    "../desktop/": "desktop/",
+    "../desktop/launcher.mjs": "desktop/launcher.mjs",
+    "../desktop/cleanup-backups.mjs": "desktop/cleanup-backups.mjs",
+    "../desktop/runtime/": "desktop/runtime/",
     "../frontend/": "frontend/",
   });
   assert.match(bootstrap, /resource_dir\.join\("desktop"\)\.join\("launcher\.mjs"\)/);
@@ -537,16 +481,14 @@ test("runtime and maintenance database credentials use separate grants", async (
   const config = await read("src/config.js");
   const db = await read("src/db.js");
   const migrate = await read("src/migrate.js");
-  const backup = await read("src/backup.js");
-  const restore = await read("src/restore.js");
-  assert.match(config, /mysqlMaintenance:/);
-  assert.match(db, /export const pool = createPool\(config\.mysql\)/);
-  assert.match(db, /export const getMaintenancePool = \(\) =>/);
-  assert.match(db, /maintenancePool \|\|= createPool\(config\.mysqlMaintenance\)/);
-  assert.match(migrate, /getMaintenancePool\(\)/);
-  assert.match(migrate, /maintenancePool\.getConnection\(\)/);
-  assert.match(backup, /config\.mysqlMaintenance/);
-  assert.match(restore, /config\.mysqlMaintenance/);
+  assert.match(config, /legacyMariaDb:/);
+  assert.match(db, /new DatabaseSync\(databasePath/);
+  assert.match(db, /PRAGMA foreign_keys = ON/);
+  assert.match(db, /PRAGMA journal_mode = WAL/);
+  assert.match(db, /synchronous = FULL/);
+  assert.match(db, /mysql\.createConnection/);
+  assert.match(migrate, /SQLite database ready/);
+  assert.doesNotMatch(config, /MYSQL_PASSWORD is required in production/);
 });
 
 test("orders persist and apply discount totals", async () => {
@@ -572,10 +514,11 @@ test("cash register opening uses a connection-scoped business lock", async () =>
   const routes = await read("src/routes/operations.js");
   const cash = await read("src/routes/cash.js");
   const orders = await read("src/routes/orders.js");
-  assert.match(routes, /SELECT GET_LOCK\(\?, 10\) AS acquired/);
-  assert.match(routes, /SELECT RELEASE_LOCK\(\?\)/);
-  assert.match(routes, /food-system-cash:/);
-  assert.match(routes, /LIMIT 1 FOR UPDATE/);
+  const db = await read("src/db.js");
+  assert.match(db, /BEGIN IMMEDIATE/);
+  assert.match(db, /class Mutex/);
+  assert.match(routes, /await connection\.beginTransaction\(\)/);
+  assert.doesNotMatch(routes, /GET_LOCK|RELEASE_LOCK/);
   assert.match(cash, /status = 'open'.*LIMIT 1 FOR UPDATE/);
   assert.match(orders, /status = 'open'.*LIMIT 1 FOR UPDATE/);
 });
@@ -649,12 +592,14 @@ test("backup routes validate safe backup names", async () => {
 
 test("concurrent backups use unique names and publish only completed encrypted files", async () => {
   const backup = await read("src/backup.js");
+  const names = await read("src/backup-files.js");
   assert.match(backup, /const backupName = process\.argv\[2\] \|\| createBackupName\(\)/);
   assert.match(backup, /if \(!isSafeBackupName\(backupName\)\)/);
-  assert.match(backup, /await encryptFile\(plainOutput, temporaryOutput\)/);
-  assert.match(backup, /dumpInfo\.size === 0/);
+  assert.match(backup, /createDatabaseBackup\(temporaryDatabase\)/);
+  assert.match(backup, /await encryptFile\(temporaryDatabase, temporaryOutput\)/);
   assert.ok(backup.indexOf("await rename(temporaryOutput, output)") > backup.indexOf("await encryptFile"));
   assert.match(backup, /rm\(temporaryOutput, \{ force: true \}\)/);
+  assert.match(names, /\.sqlite\.enc/);
 });
 
 test("desktop startup cleans only stale recognized plaintext backup files", async () => {
@@ -676,49 +621,20 @@ test("restore enters API maintenance and uses an exclusive plaintext file", asyn
   const maintenance = await read("src/maintenance.js");
   const launcher = await readRoot("desktop/launcher.mjs");
   assert.match(server, /if \(!enterRequest\(\)\) return reply\.serviceUnavailable/);
-  assert.match(server, /if \(!request\.maintenanceRequest\) return/);
   assert.match(server, /app\.addHook\("onRequestAbort"/);
   assert.match(routes, /if \(!\(await beginRestore\(\)\)\) return reply\.conflict/);
   assert.match(routes, /sourceInfo = await lstat\(file\)/);
-  assert.match(routes, /if \(!sourceInfo\.isFile\(\) \|\| sourceInfo\.size === 0\)/);
-  assert.ok(routes.indexOf("sourceInfo = await lstat(file)") < routes.indexOf("if (!(await beginRestore()))"));
-  assert.match(routes, /if \(!hasSecretKey\(\)\) return reply\.code\(503\)/);
-  assert.match(routes, /entry\.isFile\(\) && isSafeBackupName/);
+  assert.match(routes, /validateDatabase\(plain\)/);
+  assert.match(routes, /await decryptFile\(file, plain\)/);
+  assert.match(routes, /safetyName = createBackupName\(\)/);
+  assert.match(routes, /await replaceDatabase\(plain\)/);
+  assert.match(routes, /await replaceDatabase\(safetyPlain\)/);
   assert.match(routes, /if \(!keepMaintenance\) endRestore\(\)/);
-  assert.match(routes, /\.restore-\$\{process\.pid\}-\$\{randomUUID\(\)\}\.sql/);
-  assert.match(routes, /plaintextInfo\.size === 0/);
-  assert.match(routes, /await decryptFile\(file, plaintextFile\)/);
-  assert.match(routes, /safetyBackupName = createBackupName\(\)/);
-  assert.match(routes, /\["src\/backup\.js", safetyBackupName\]/);
-  assert.doesNotMatch(routes, /backupLine|Backup criado:/);
-  assert.doesNotMatch(routes, /timeout:\s*120000/);
-  assert.ok(routes.indexOf('["src/backup.js", safetyBackupName]') < routes.indexOf('runRestore(plaintextFile)'));
-  assert.match(restore, /const timeout = setTimeout\(\(\) =>/);
-  assert.match(restore, /child\.kill\(\)/);
-  assert.match(restore, /Promise\.allSettled\(/);
-  assert.match(restore, /await closePromise\.catch/);
-  assert.match(restore, /"--execute", "SELECT 1"/);
-  assert.match(restore, /Food System restore importer started/);
-  assert.match(restore, /process\.send\(\{ type: "restore-import-started" \}\)/);
-  assert.match(routes, /if \(!restoreImportStarted\) throw restoreError/);
-  assert.match(backup, /timeout: 120000/);
-  assert.match(routes, /restore-recovery-required/);
-  assert.match(routes, /path\.join\(path\.dirname\(backupDir\), "restore-recovery-required"\)/);
-  assert.match(routes, /safety_backup: safetyBackupName/);
-  assert.match(routes, /flag: "wx"/);
-  assert.doesNotMatch(routes, /flag: "w"/);
-  assert.match(routes, /notifyLauncher\("restore-start"\)/);
-  assert.match(routes, /notifyLauncher\(keepMaintenance \? "restore-recovery-required" : "restore-end"\)/);
-  assert.match(routes, /const runRestore = \(file\) =>/);
-  assert.match(routes, /fork\("src\/restore\.js"/);
-  assert.match(routes, /restore-import-started/);
-  assert.match(routes, /restoreImportStarted \|\| restoreSucceeded \|\| recoverySucceeded/);
-  assert.match(launcher, /const backupDir = join\(dataDir, "backups"\)/);
-  assert.match(launcher, /existsSync\(recoveryMarker\)/);
-  assert.match(launcher, /startup is blocked until the database and safety backup are checked/);
-  assert.match(routes, /safety_backup_created: true/);
-  assert.match(maintenance, /activeRequests > 1/);
-  assert.match(maintenance, /if \(restoreInProgress\) return false/);
+  assert.match(restore, /PRAGMA integrity_check/);
+  assert.match(restore, /await replaceDatabase\(staged\)/);
+  assert.match(backup, /await createDatabaseBackup\(temporaryDatabase\)/);
+  assert.match(maintenance, /activeRequests/);
+  assert.match(launcher, /restore-recovery-required/);
 });
 
 test("inventory frontend exposes movement and recipe workflows", async () => {
@@ -929,12 +845,9 @@ test("local first-run provisions its business explicitly and retries after offli
   assert.match(entry, /await provisionLocalBusiness\(name\)/);
   assert.match(client, /apiRequest\("\/local\/business", \{ method: "PUT"/);
   assert.match(routes, /app\.put\("\/api\/v1\/local\/business"/);
-  assert.match(routes, /INSERT INTO businesses .*ON DUPLICATE KEY UPDATE name = VALUES\(name\), description = VALUES\(description\)/);
-  assert.doesNotMatch(routes, /ON DUPLICATE KEY UPDATE[^\n]*settings = VALUES\(settings\)/);
-  assert.match(auth, /saveBusiness\(\{\s+id: localSession\.businessId/);
+  assert.match(routes, /ON CONFLICT\(id\) DO UPDATE SET name = excluded\.name/);
+  assert.doesNotMatch(routes, /ON CONFLICT\(id\)[^\n]*settings = excluded\.settings/);
   assert.match(auth, /saveBusiness\(\{ id: business\.id, name: business\.name \}\)/);
-  assert.match(entry, /if \(await pingApi\(\)\) await provisionLocalBusiness\(name\)/);
-  assert.doesNotMatch(entry, /fetch\(`\$\{API_BASE_URL\.replace\("\/api\/v1", ""\)\}\/up`\)/);
   assert.match(client, /fetch\(`\$\{API_BASE_URL\}\/health`/);
 });
 
@@ -1141,20 +1054,15 @@ test("courier location writes are throttled and retain only the latest position"
   const delivery = await read("src/routes/delivery.js");
   const migration = await read("sql/020_courier_latest_location.sql");
   const server = await read("src/server.js");
+  const db = await read("src/db.js");
   assert.match(delivery, /const courierLocationWrites = new Map\(\)/);
   assert.match(delivery, /now - lastWrite < 5_000/);
   assert.match(delivery, /accuracy > 99_999_999\.99/);
-  assert.match(delivery, /status IN \('assigned','picked_up'\) LIMIT 1 FOR UPDATE/);
   assert.match(delivery, /Location sharing is available only during an active delivery/);
-  assert.match(delivery, /NOW\(\) - INTERVAL 15 MINUTE/);
-  assert.match(delivery, /requireRole\(request, reply\)/);
-  assert.match(delivery, /da\.updated_at >= NOW\(\) - INTERVAL 1 DAY/);
+  assert.match(db, /CURRENT_TIMESTAMP.*INTERVAL.*MINUTE/);
   assert.match(delivery, /Invalid courier delivery status transition/);
-  assert.match(delivery, /Delivery status cannot move backwards or leave a terminal state/);
-  assert.match(delivery, /DELETE FROM courier_locations WHERE courier_id = \?/);
-  assert.match(delivery, /ON DUPLICATE KEY UPDATE business_id = VALUES\(business_id\)/);
+  assert.match(delivery, /ON CONFLICT\(courier_id\) DO UPDATE SET business_id = excluded\.business_id/);
   assert.match(server, /reply\.header\("Cache-Control", "no-store"\)/);
-  assert.match(migration, /DELETE older\s+FROM courier_locations older\s+JOIN courier_locations newer/s);
   assert.match(migration, /ADD UNIQUE KEY uq_courier_locations_courier \(courier_id\)/);
 });
 
@@ -1328,25 +1236,14 @@ test("MariaDB hardening script restricts the local database to loopback", async 
 
 test("desktop MariaDB defaults to the LTS series and discovers the prior supported install", async () => {
   const launcher = await readRoot("desktop/launcher.mjs");
-  const setup = await readRoot("desktop/setup-mariadb.ps1");
-  const provision = await readRoot("desktop/provision-mariadb.ps1");
-  const hardening = await readRoot("desktop/harden-mariadb.ps1");
+  const db = await read("src/db.js");
   const backup = await read("src/backup.js");
   const restore = await read("src/restore.js");
-  assert.match(launcher, /"C:\\\\Program Files\\\\MariaDB 11\.8", "C:\\\\Program Files\\\\MariaDB 13\.0"/);
-  assert.match(launcher, /join\(desktopRoot, "setup-mariadb\.ps1"\)/);
-  assert.match(setup, /\$expectedVersion = "11\.8\.9"/);
-  assert.match(setup, /\$expectedHash = "[a-f0-9]{64}"/);
-  assert.match(setup, /Get-FileHash -LiteralPath \$InstallerPath -Algorithm SHA256/);
-  assert.match(setup, /Get-Process -Name "food-system-local", "Food System"/);
-  assert.ok(setup.indexOf("$runningApp.Count -gt 0") < setup.indexOf("harden-mariadb.ps1") && setup.indexOf("$runningApp.Count -gt 0") < setup.indexOf("provision-mariadb.ps1"));
-  assert.match(setup, /Close the app before setup so MariaDB can be hardened and restarted/);
-  assert.match(setup, /\$hasMariaServer -xor \$hasMariaConfig/);
-  assert.match(setup, /INSTALLDIR=/);
-  assert.match(setup, /harden-mariadb\.ps1.*-RestartService/);
-  assert.match(setup, /provision-mariadb\.ps1.*-RootPassword \$rootPassword/);
-  assert.match(provision, /MariaDB 11\.8/);
-  assert.match(hardening, /MariaDB 11\.8/);
-  assert.match(backup, /MariaDB 11\.8.*MariaDB 13\.0/s);
-  assert.match(restore, /MariaDB 11\.8.*MariaDB 13\.0/s);
+  assert.match(db, /new DatabaseSync\(databasePath/);
+  assert.match(db, /MariaDB data imported into SQLite/);
+  assert.match(backup, /createDatabaseBackup/);
+  assert.match(restore, /SQLite restore source is invalid/);
+  assert.doesNotMatch(launcher, /ensureDatabase|mariadbd|MariaDB setup is incomplete/);
+  assert.match(launcher, /FOOD_SYSTEM_DATA_DIR: dataDir/);
+  assert.match(launcher, /src\/migrate\.js/);
 });

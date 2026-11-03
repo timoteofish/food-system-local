@@ -2,7 +2,7 @@ import { readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { isSafeBackupName } from "../backend/src/backup-files.js";
 
-const RESTORE_TEMP_PATTERN = /^\.(?:restore|recovery)-\d+-[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.sql$/i;
+const RESTORE_TEMP_PATTERN = /^\.(?:restore|recovery)-\d+-[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\.sqlite$/i;
 // Backup and restore subprocesses have bounded run times measured in minutes.
 // A one-hour grace period protects active work while limiting exposure of a
 // plaintext dump left behind by a crash or forced shutdown.
@@ -16,7 +16,7 @@ export const removeStalePlaintextBackups = async (directory, { now = Date.now(),
   const removed = [];
   for (const entry of entries) {
     if (!entry.isFile()) continue;
-    const isPlainBackup = entry.name.endsWith(".sql") && isSafeBackupName(`${entry.name}.enc`);
+    const isPlainBackup = entry.name.endsWith(".sqlite") && isSafeBackupName(`${entry.name}.enc`);
     if (!isPlainBackup && !RESTORE_TEMP_PATTERN.test(entry.name)) continue;
     const file = path.join(directory, entry.name);
     let info;

@@ -6,7 +6,6 @@
     "test": "npm --prefix backend test",
     "test:contract": "npm --prefix backend run test:contract",
     "desktop:download-update": "node desktop/download-update.mjs",
-    "desktop:setup-mariadb": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File desktop/setup-mariadb.ps1",
     "desktop:dev": "npm ci --prefix backend && tauri dev",
     "desktop:prepare-runtime": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File desktop/prepare-runtime.ps1",
     "desktop:build": "tauri build",
