@@ -14,27 +14,23 @@ test("schema contains the operational tables", async () => {
   for (const table of ["users", "businesses", "categories", "products", "restaurant_tables", "orders", "order_items", "cash_movements"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
 });
 
-test("legacy databases are backed up before their first tracked migration", async () => {
+test("SQLite is the only database engine and its schema is created locally", async () => {
   const db = await read("src/db.js");
   const migrationRunner = await read("src/migrate.js");
+  const config = await read("src/config.js");
+  const packageJson = JSON.parse(await read("package.json"));
   const schema = await read("sqlite/schema.sql");
   assert.match(db, /new DatabaseSync\(temporaryPath/);
   assert.match(db, /CREATE TABLE IF NOT EXISTS app_schema_migrations/);
-  assert.match(db, /025_mariadb_schema_baseline/);
+  assert.match(db, /sqlite_initial_schema/);
+  assert.match(db, /new DatabaseSync\(databasePath/);
+  assert.doesNotMatch(db, /mysql2|MYSQL_|createConnection|information_schema/i);
+  assert.doesNotMatch(config, /mysql2|MYSQL_|MariaDB|mariadb/i);
+  assert.ok(config.includes("tauri://localhost"));
+  assert.equal(packageJson.dependencies.mysql2, undefined);
   assert.match(migrationRunner, /SQLite database ready/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS "orders"/);
-  assert.doesNotMatch(migrationRunner, /information_schema|GET_LOCK|mariadb/);
-});
-
-test("plaintext integration credentials are encrypted before their database column is dropped", async () => {
-  const db = await read("src/db.js");
-  assert.match(db, /mysql\.createConnection/);
-  assert.match(db, /SELECT \* FROM/);
-  assert.match(db, /BEGIN IMMEDIATE/);
-  assert.match(db, /PRAGMA foreign_key_check/);
-  assert.match(db, /PRAGMA integrity_check/);
-  assert.ok(db.indexOf("PRAGMA integrity_check") < db.indexOf("await rename(temporaryPath, databasePath)"));
-  assert.doesNotMatch(db, /source\.query\("(?:INSERT|UPDATE|DELETE|ALTER|DROP)/i);
+  assert.doesNotMatch(migrationRunner, /information_schema|GET_LOCK|mysql|maria/i);
 });
 
 test("schema contains the integration boundary tables", async () => {
@@ -337,7 +333,7 @@ test("packaged backend runtime requires Node.js 24 LTS", async () => {
   assert.equal(config.bundle.resources["../desktop/launcher.mjs"], "desktop/launcher.mjs");
   assert.equal(config.bundle.resources["../desktop/cleanup-backups.mjs"], "desktop/cleanup-backups.mjs");
   assert.equal(config.bundle.resources["../desktop/runtime/"], "desktop/runtime/");
-  assert.equal(config.bundle.resources["../desktop/setup-mariadb.ps1"], undefined);
+  assert.doesNotMatch(JSON.stringify(config.bundle.resources), /mysql|maria/i);
   assert.match(prepareRuntime, /Join-Path \$PSScriptRoot "runtime\\node\.exe"/);
 });
 
@@ -384,68 +380,14 @@ test("Tauri does not bundle an unused shell plugin", async () => {
   assert.match(bootstrap, /generate_handler!\[app_info, local_access_token, public_menu_base_url\]/);
 });
 
-test("MariaDB provisioning protects its config file before writing credentials", async () => {
-  const provision = await readRoot("desktop/provision-mariadb.ps1");
-  assert.match(provision, /Join-Path \$env:APPDATA "com\.foodsystem\.local\\config\.env"/);
-  assert.ok(provision.indexOf('WriteAllText($configTempPath, ""') < provision.indexOf("Set-Acl -LiteralPath $configTempPath") && provision.indexOf("Set-Acl -LiteralPath $configTempPath") < provision.indexOf("WriteAllText($configTempPath, $configContent"));
-  assert.ok(provision.indexOf("WriteAllText($configTempPath, $configContent") < provision.indexOf("[System.IO.File]::Replace($configTempPath, $ConfigPath, $null)"));
-  assert.ok(provision.indexOf("WriteAllText($configTempPath, $configContent") < provision.indexOf("[Diagnostics.Process]::Start($processInfo)"));
-  assert.ok(provision.indexOf("[Diagnostics.Process]::Start($processInfo)") < provision.indexOf("[System.IO.File]::Replace($configTempPath, $ConfigPath, $null)"));
-  assert.ok(provision.indexOf("$runtimeProbe = @(") < provision.indexOf("$maintenanceProbe = @("));
-  assert.ok(provision.indexOf("$maintenanceProbe = @(") < provision.indexOf("[System.IO.File]::Replace($configTempPath, $ConfigPath, $null)"));
-  assert.match(provision, /runtimeProbeExitCode/);
-  assert.match(provision, /maintenanceProbeExitCode/);
-  assert.match(provision, /Set-Acl -LiteralPath \$ConfigPath -AclObject \$acl/);
-  assert.match(provision, /ReadAllLines\(\$ConfigPath\)/);
-  assert.match(provision, /foreach \(\$key in \$managedConfigKeys\)/);
-  assert.match(provision, /MYSQL_MAINTENANCE_PASSWORD/);
-  assert.match(provision, /existingAppPassword -match '\^\[a-f0-9\]\{64\}\$' -and \$existingMaintenancePassword -match '\^\[a-f0-9\]\{64\}\$'/);
-  assert.match(provision, /\$plainPassword = \$existingAppPassword/);
-  assert.match(provision, /\$maintenancePassword = \$existingMaintenancePassword/);
-  assert.match(provision, /if \(-not \$reuseProvisionedPasswords\)/);
-  assert.match(provision, /MARIADB_ROOT=`"\$MariaRoot`"/);
-  assert.match(provision, /managedConfigKeys = @\("MARIADB_ROOT"/);
-  assert.match(provision, /\$MariaRoot = \[System\.IO\.Path\]::GetFullPath\(\$MariaRoot\)/);
-  assert.match(provision, /\[SecureString\]\$AppPassword,/);
-  assert.match(provision, /\$appPasswordBytes = New-Object byte\[\] 32/);
-  assert.match(provision, /\$randomGenerator\.GetBytes\(\$appPasswordBytes\)/);
-  assert.match(provision, /ToString\(\$appPasswordBytes\)\.Replace\("-", ""\)\.ToLowerInvariant\(\)/);
-  assert.match(provision, /\[Array\]::Clear\(\$appPasswordBytes, 0, \$appPasswordBytes\.Length\)/);
-  assert.match(provision, /MYSQL_PASSWORD=`"\$plainPassword`"/);
-  assert.match(provision, /LocalSystemSid/);
-  assert.match(provision, /rootPlainPassword/);
-  assert.match(provision, /Join-Path \$MariaRoot "data\\my\.ini"/);
-  assert.match(provision, /\$mariaConfigPath = Join-Path \$MariaRoot "data\\my\.ini"/);
-  assert.match(provision, /foreach \(\$line in \[System\.IO\.File\]::ReadAllLines\(\$mariaConfigPath\)\)/);
-  assert.doesNotMatch(provision, /\$[cC]onfigPath\s*=\s*Join-Path \$MariaRoot "data\\my\.ini"/);
-  assert.match(provision, /\$parent = Split-Path -Parent \$ConfigPath/);
-  assert.match(provision, /\$inMySqlDGroup = \$Matches\.group\.Trim\(\) -ieq "mysqld"/);
-  assert.match(provision, /bind\[-_\]address/);
-  assert.match(provision, /\$serverBindAddress -ne "127\.0\.0\.1"/);
-  assert.match(provision, /SELECT @@basedir, @@port, @@bind_address/);
-  assert.match(provision, /\$actualMariaRoot -ine \$expectedMariaRoot/);
-  assert.ok(provision.indexOf("SELECT @@basedir, @@port, @@bind_address") < provision.indexOf("[Diagnostics.Process]::Start($processInfo)"));
-  assert.ok(provision.indexOf("$actualMariaRoot -ine $expectedMariaRoot") < provision.indexOf("[Diagnostics.Process]::Start($processInfo)"));
-  assert.ok(provision.indexOf('$serverBindAddress -ne "127.0.0.1"') < provision.indexOf("CREATE DATABASE IF NOT EXISTS"));
-  assert.doesNotMatch(provision, /\$serverConfig -notmatch/);
-  assert.doesNotMatch(provision, /\$rootPassword = \[Runtime/);
-  assert.ok(provision.indexOf("DROP USER IF EXISTS") < provision.indexOf("CREATE USER '") && provision.indexOf("CREATE USER '") < provision.indexOf("GRANT SELECT, INSERT, UPDATE, DELETE ON"));
-  assert.match(provision, /GRANT SELECT, INSERT, UPDATE, DELETE ON ``\$Database``\.\* TO '\$AppUser'@'\$HostName'/);
-  assert.match(provision, /GRANT ALL PRIVILEGES ON ``\$Database``\.\* TO '\$MaintenanceUser'@'\$HostName'/);
-  assert.match(provision, /GRANT SHUTDOWN ON \*\.\* TO '\$MaintenanceUser'@'\$HostName'/);
-  assert.match(provision, /MYSQL_MAINTENANCE_USER=\$MaintenanceUser/);
-  assert.match(provision, /MYSQL_MAINTENANCE_PASSWORD=\$maintenancePassword/);
-});
-
-test("launcher reads the provisioned MariaDB path and prioritizes an explicit override", async (t) => {
-  const { configuredMariaRoot } = await import("../../desktop/mariadb-config.mjs");
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "food-system-mariadb-config-"));
-  t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const environmentFile = path.join(directory, "config.env");
-  await fs.writeFile(environmentFile, 'MYSQL_USER=food_system\nMARIADB_ROOT="C:\\Program Files\\MariaDB 11.8"\n', "utf8");
-  assert.equal(configuredMariaRoot({ environmentFile }), "C:\\Program Files\\MariaDB 11.8");
-  assert.equal(configuredMariaRoot({ environmentRoot: "D:\\MariaDB", environmentFile }), "D:\\MariaDB");
-  assert.equal(configuredMariaRoot({ environmentFile: path.join(directory, "missing.env") }), "");
+test("obsolete MariaDB setup code and package dependencies are removed", async () => {
+  const config = JSON.parse(await readRoot("src-tauri/tauri.conf.json"));
+  const databasePackage = JSON.parse(await readRoot("backend/package.json"));
+  for (const oldScript of ["setup-mariadb.ps1", "harden-mariadb.ps1", "provision-mariadb.ps1"]) {
+    await assert.rejects(fs.access(new URL(`../../desktop/${oldScript}`, import.meta.url)));
+  }
+  assert.equal(databasePackage.dependencies.mysql2, undefined);
+  assert.doesNotMatch(JSON.stringify(config.bundle.resources), /mysql|maria/i);
 });
 
 test("Tauri build preparation installs backend production dependencies before bundling", async () => {
@@ -465,30 +407,35 @@ test("Tauri resources preserve the paths used by the packaged launcher", async (
   const bootstrap = await readRoot("src-tauri/src/lib.rs");
   const launcher = await readRoot("desktop/launcher.mjs");
   assert.deepEqual(config.bundle.resources, {
-    "../backend/": "backend/",
+    "../backend/src/": "backend/src/",
+    "../backend/sqlite/": "backend/sqlite/",
+    "../backend/node_modules/": "backend/node_modules/",
+    "../backend/package.json": "backend/package.json",
     "../desktop/launcher.mjs": "desktop/launcher.mjs",
     "../desktop/cleanup-backups.mjs": "desktop/cleanup-backups.mjs",
     "../desktop/runtime/": "desktop/runtime/",
     "../frontend/": "frontend/",
   });
+  assert.doesNotMatch(JSON.stringify(config.bundle.resources), /backend\/sql\//);
   assert.match(bootstrap, /resource_dir\.join\("desktop"\)\.join\("launcher\.mjs"\)/);
   assert.match(bootstrap, /resource_dir\.join\("desktop"\)\.join\("runtime"\)\.join\("node\.exe"\)/);
   assert.match(launcher, /const frontendRoot = join\(root, "frontend"\)/);
   assert.match(launcher, /const backendRoot = join\(root, "backend"\)/);
 });
 
-test("runtime and maintenance database credentials use separate grants", async () => {
+test("database queries and migrations use local SQLite", async () => {
   const config = await read("src/config.js");
   const db = await read("src/db.js");
   const migrate = await read("src/migrate.js");
-  assert.match(config, /legacyMariaDb:/);
+  assert.doesNotMatch(config, /MYSQL_|MariaDB|mariadb/i);
   assert.match(db, /new DatabaseSync\(databasePath/);
   assert.match(db, /PRAGMA foreign_keys = ON/);
   assert.match(db, /PRAGMA journal_mode = WAL/);
   assert.match(db, /synchronous = FULL/);
-  assert.match(db, /mysql\.createConnection/);
+  assert.match(db, /sqlite_initial_schema/);
+  assert.doesNotMatch(db, /mysql2|MYSQL_|createConnection|information_schema/i);
   assert.match(migrate, /SQLite database ready/);
-  assert.doesNotMatch(config, /MYSQL_PASSWORD is required in production/);
+  assert.doesNotMatch(migrate, /mysql|maria/i);
 });
 
 test("orders persist and apply discount totals", async () => {
@@ -950,7 +897,6 @@ test("production local app exposes no account endpoints and accepts no session f
     env: {
       ...process.env,
       NODE_ENV: "production",
-      MYSQL_PASSWORD: "production-test-password",
       FOOD_SYSTEM_LOCAL_ACCESS_TOKEN: "local-production-token",
     },
     stdio: "pipe",
@@ -1215,35 +1161,12 @@ test("customer and supplier fields are bounded before database writes", async ()
   assert.match(operations, /Buffer\.byteLength\(notes\.value, "utf8"\) > MAX_CONTACT_NOTES_BYTES/);
 });
 
-test("MariaDB hardening script restricts the local database to loopback", async () => {
-  const script = await readRoot("desktop/harden-mariadb.ps1");
-  const provision = await readRoot("desktop/provision-mariadb.ps1");
-  assert.match(script, /bind-address=127\.0\.0\.1/);
-  assert.match(script, /skip-name-resolve/);
-  assert.match(script, /Copy-Item/);
-  assert.match(script, /BEGIN FOOD SYSTEM LOOPBACK HARDENING/);
-  assert.match(script, /\[mysqld\][\s\S]*bind-address=127\.0\.0\.1[\s\S]*skip-name-resolve/);
-  assert.match(script, /\[regex\]::Replace\(\$content, \$managedBlock, ''\)/);
-  assert.match(script, /\$configAcl = Get-Acl -LiteralPath \$configPath/);
-  assert.match(script, /Set-Acl -LiteralPath \$configTempPath -AclObject \$configAcl/);
-  assert.match(script, /\[System\.IO\.File\]::Replace\(\$configTempPath, \$configPath, \$null\)/);
-  assert.match(script, /\$serviceExecutablePattern = .*\[regex\]::Escape\(\$serviceRoot\).*(?:mariadbd\|mysqld)/);
-  assert.match(script, /\$_.PathName -match \$serviceExecutablePattern/);
-  assert.doesNotMatch(script, /\$serviceRootPattern/);
-  assert.match(script, /Restart-Service/);
-  assert.match(provision, /SELECT @@basedir, @@port, @@bind_address/);
-});
-
-test("desktop MariaDB defaults to the LTS series and discovers the prior supported install", async () => {
-  const launcher = await readRoot("desktop/launcher.mjs");
+test("SQLite backup and restore recognize the active database schema", async () => {
   const db = await read("src/db.js");
-  const backup = await read("src/backup.js");
+  const backup = await read("src/routes/backups.js");
   const restore = await read("src/restore.js");
-  assert.match(db, /new DatabaseSync\(databasePath/);
-  assert.match(db, /MariaDB data imported into SQLite/);
+  assert.match(db, /sqlite_initial_schema/);
   assert.match(backup, /createDatabaseBackup/);
   assert.match(restore, /SQLite restore source is invalid/);
-  assert.doesNotMatch(launcher, /ensureDatabase|mariadbd|MariaDB setup is incomplete/);
-  assert.match(launcher, /FOOD_SYSTEM_DATA_DIR: dataDir/);
-  assert.match(launcher, /src\/migrate\.js/);
+  assert.match(restore, /replaceDatabase/);
 });

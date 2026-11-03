@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { hasDecimalScale, toMinorUnits } from "../src/numbers.js";
 
-test("database decimal scales reject values that MariaDB would round", () => {
+test("database decimal scales reject values beyond the supported precision", () => {
   assert.equal(hasDecimalScale("12.30", 2), true);
   assert.equal(hasDecimalScale(1e-3, 3), true);
   assert.equal(hasDecimalScale("1.005", 2), false);

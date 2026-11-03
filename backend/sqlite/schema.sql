@@ -1,4 +1,4 @@
--- SQLite base schema generated from the MariaDB schema after migration 025.
+-- SQLite schema for the current Food System database.
 PRAGMA foreign_keys = OFF;
 
 CREATE TABLE IF NOT EXISTS "audit_logs" (

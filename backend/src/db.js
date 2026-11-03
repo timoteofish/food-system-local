@@ -1,17 +1,14 @@
 import { DatabaseSync, backup as sqliteBackup } from "node:sqlite";
-import mysql from "mysql2/promise";
 import { randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { config } from "./config.js";
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaPath = path.join(backendRoot, "sqlite", "schema.sql");
 const configuredDataDir = process.env.FOOD_SYSTEM_DATA_DIR || path.join(backendRoot, "state");
 export const databasePath = path.resolve(process.env.FOOD_SYSTEM_DB_PATH || path.join(configuredDataDir, "food-system.sqlite"));
 const schema = await readFile(schemaPath, "utf8");
-const quoteIdentifier = (value) => `"${String(value).replaceAll('"', '""')}"`;
 
 class Mutex {
   tail = Promise.resolve();
@@ -42,67 +39,16 @@ const validateDatabaseFile = async (file) => {
 await mkdir(path.dirname(databasePath), { recursive: true, mode: 0o700 });
 if (posix && !process.env.FOOD_SYSTEM_DB_PATH) await chmod(path.dirname(databasePath), 0o700);
 const databaseExisted = await validateDatabaseFile(databasePath);
-const temporaryPath = `${databasePath}.import-${process.pid}.tmp`;
+const temporaryPath = `${databasePath}.create-${process.pid}.tmp`;
 if (!databaseExisted) {
   await rm(temporaryPath, { force: true });
   const fresh = new DatabaseSync(temporaryPath, { enableForeignKeyConstraints: false, enableDoubleQuotedStringLiterals: false });
   try {
     fresh.exec(schema);
     fresh.exec(`CREATE TABLE IF NOT EXISTS app_schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
-    fresh.exec(`INSERT OR IGNORE INTO app_schema_migrations (version) VALUES ('025_mariadb_schema_baseline')`);
+    fresh.exec(`INSERT OR IGNORE INTO app_schema_migrations (version) VALUES ('sqlite_initial_schema')`);
   } finally { fresh.close(); }
   if (posix) await chmod(temporaryPath, 0o600);
-  const hasLegacyConfig = Boolean(process.env.MYSQL_HOST || process.env.MYSQL_DATABASE || process.env.MYSQL_USER || process.env.MYSQL_PASSWORD);
-  if (hasLegacyConfig) {
-    if (!config.legacyMariaDb.password) throw new Error("Existing MariaDB settings were found, but MYSQL_PASSWORD is missing. The legacy database was not changed.");
-    const source = await mysql.createConnection({ ...config.legacyMariaDb, connectTimeout: 5000, multipleStatements: false });
-    try {
-      await source.query("START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY");
-      const [state] = await source.query("SELECT COUNT(*) AS total FROM information_schema.tables WHERE table_schema = ? AND table_type = 'BASE TABLE'", [config.legacyMariaDb.database]);
-      if (!Number(state[0]?.total)) throw new Error("The configured legacy MariaDB database has no tables; refusing to silently create an empty replacement.");
-      const [appliedMigrations] = await source.query("SELECT version FROM schema_migrations");
-      if (!appliedMigrations.some((row) => /^025_/i.test(String(row.version)))) throw new Error("The legacy MariaDB database must be upgraded through migration 025 before it can be imported. Its data was not changed.");
-      const [tables] = await source.query("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_type = 'BASE TABLE' ORDER BY table_name", [config.legacyMariaDb.database]);
-      const importer = new DatabaseSync(temporaryPath, { enableForeignKeyConstraints: false, enableDoubleQuotedStringLiterals: false });
-      try {
-        importer.exec("PRAGMA foreign_keys = OFF; BEGIN IMMEDIATE;");
-        const localTables = new Set(importer.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((row) => row.name));
-        const counts = [];
-        for (const { table_name: table } of tables) {
-          if (!localTables.has(table) || ["schema_migrations", "schema_migration_steps", "app_schema_migrations"].includes(table)) continue;
-          const [definitions] = await source.query(`SHOW COLUMNS FROM \`${String(table).replaceAll("`", "``")}\``);
-          const columns = definitions.map((column) => column.Field);
-          if (!columns.length) continue;
-          const insert = importer.prepare(`INSERT INTO ${quoteIdentifier(table)} (${columns.map(quoteIdentifier).join(",")}) VALUES (${columns.map(() => "?").join(",")})`);
-          let rowCount = 0;
-          const rows = source.connection.query(`SELECT * FROM \`${String(table).replaceAll("`", "``")}\``).stream({ highWaterMark: 100 });
-          for await (const row of rows) {
-            insert.run(...columns.map((column) => {
-              let value = row[column];
-              if (value instanceof Date) value = value.toISOString().replace("T", " ").replace(/Z$/, "");
-              if (Buffer.isBuffer(value)) value = value.toString("utf8");
-              if (value !== null && typeof value === "object") value = JSON.stringify(value);
-              return value === undefined ? null : value;
-            }));
-            rowCount += 1;
-          }
-          const importedCount = Number(importer.prepare(`SELECT COUNT(*) AS count FROM ${quoteIdentifier(table)}`).get().count);
-          if (importedCount !== rowCount) throw new Error(`SQLite import row count mismatch for ${table}: expected ${rowCount}, found ${importedCount}`);
-          counts.push(`${table}=${rowCount}`);
-        }
-        importer.exec("COMMIT; PRAGMA foreign_keys = ON;");
-        const violations = importer.prepare("PRAGMA foreign_key_check").all();
-        if (violations.length) throw new Error(`Legacy MariaDB import failed foreign-key validation (${violations.length} violation(s)); original database remains unchanged.`);
-        const integrity = importer.prepare("PRAGMA integrity_check").get();
-        if (integrity.integrity_check !== "ok") throw new Error(`SQLite integrity check failed after MariaDB import: ${integrity.integrity_check}`);
-        console.info(`MariaDB data imported into SQLite: ${counts.join(", ")}`);
-      } catch (error) {
-        try { importer.exec("ROLLBACK;"); } catch {}
-        throw error;
-      } finally { importer.close(); }
-      await source.query("COMMIT");
-    } finally { await source.end(); }
-  }
   await rename(temporaryPath, databasePath);
   if (posix) await chmod(databasePath, 0o600);
 }
@@ -114,10 +60,21 @@ const openDatabase = () => {
   db = new DatabaseSync(databasePath, { enableForeignKeyConstraints: true, enableDoubleQuotedStringLiterals: false, timeout: 5000 });
   db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA trusted_schema = OFF;");
   const validFoodSystemDb = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'businesses'").get();
-  const hasBaseline = db.prepare("SELECT 1 FROM app_schema_migrations WHERE version = '025_mariadb_schema_baseline'").get();
-  if (!validFoodSystemDb || !hasBaseline) {
+  const baseline = db.prepare("SELECT version FROM app_schema_migrations WHERE version IN ('sqlite_initial_schema', '025_mariadb_schema_baseline') LIMIT 1").get();
+  if (!validFoodSystemDb || !baseline) {
     db.close();
     throw new Error("The configured SQLite file is incomplete or does not contain a Food System database; it was not modified.");
+  }
+  if (baseline.version !== "sqlite_initial_schema") {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.prepare("UPDATE app_schema_migrations SET version = 'sqlite_initial_schema' WHERE version = ?").run(baseline.version);
+      db.exec("COMMIT");
+    } catch (error) {
+      try { db.exec("ROLLBACK"); } catch {}
+      db.close();
+      throw error;
+    }
   }
   databaseOpen = true;
 };

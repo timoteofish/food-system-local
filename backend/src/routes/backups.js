@@ -33,7 +33,7 @@ const validateDatabase = (file) => {
     if (candidate.prepare("PRAGMA foreign_key_check").all().length) throw new Error("Backup contains foreign-key violations");
     const tables = new Set(candidate.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((row) => row.name));
     for (const name of ["businesses", "users", "orders", "app_schema_migrations"]) if (!tables.has(name)) throw new Error("Backup does not contain the Food System schema");
-    if (!candidate.prepare("SELECT 1 FROM app_schema_migrations WHERE version = '025_mariadb_schema_baseline'").get()) throw new Error("Backup does not contain a recognized Food System schema baseline");
+    if (!candidate.prepare("SELECT 1 FROM app_schema_migrations WHERE version IN ('sqlite_initial_schema', '025_mariadb_schema_baseline')").get()) throw new Error("Backup does not contain a recognized Food System schema baseline");
   } finally { candidate.close(); }
 };
 

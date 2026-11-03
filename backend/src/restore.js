@@ -12,7 +12,7 @@ try {
   candidate.exec("PRAGMA trusted_schema = OFF");
   const integrity = candidate.prepare("PRAGMA integrity_check").get();
   const tables = new Set(candidate.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((row) => row.name));
-  const baseline = tables.has("app_schema_migrations") && candidate.prepare("SELECT 1 FROM app_schema_migrations WHERE version = '025_mariadb_schema_baseline'").get();
+  const baseline = tables.has("app_schema_migrations") && candidate.prepare("SELECT 1 FROM app_schema_migrations WHERE version IN ('sqlite_initial_schema', '025_mariadb_schema_baseline')").get();
   if (integrity.integrity_check !== "ok" || candidate.prepare("PRAGMA foreign_key_check").all().length || !tables.has("businesses") || !baseline) {
     throw new Error("SQLite restore source is invalid or does not contain a Food System database");
   }

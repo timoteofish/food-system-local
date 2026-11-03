@@ -8,11 +8,6 @@ const numberFromEnv = (name, fallback) => {
 const isLoopback = (host) => ["127.0.0.1", "localhost", "::1"].includes(host);
 const nodeEnv = process.env.NODE_ENV || "development";
 const host = process.env.HOST || "127.0.0.1";
-const legacyMysqlHost = process.env.MYSQL_HOST || "127.0.0.1";
-const legacyMysqlPort = numberFromEnv("MYSQL_PORT", 3306);
-const legacyMysqlDatabase = process.env.MYSQL_DATABASE || "food_system";
-const legacyMysqlUser = process.env.MYSQL_USER || "food_system";
-const legacyMysqlPassword = process.env.MYSQL_PASSWORD || "";
 const rawUpdateUrl = process.env.UPDATE_URL || "";
 let updateUrl = "";
 if (rawUpdateUrl) {
@@ -44,18 +39,11 @@ export const config = {
     publicKey: updatePublicKey,
     notes: process.env.UPDATE_NOTES || "",
   },
-  corsOrigins: (process.env.CORS_ORIGINS || "http://localhost:4173,http://127.0.0.1:4173,http://tauri.localhost")
+  corsOrigins: (process.env.CORS_ORIGINS || "http://localhost:4173,http://127.0.0.1:4173,http://tauri.localhost,tauri://localhost")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),
   localAccessToken: process.env.FOOD_SYSTEM_LOCAL_ACCESS_TOKEN || "",
   allowLocalHeader: nodeEnv !== "production" && isLoopback(host) && process.env.ALLOW_LOCAL_HEADER !== "false",
   sessionDays: Math.max(1, numberFromEnv("SESSION_DAYS", 7)),
-  legacyMariaDb: {
-    host: legacyMysqlHost,
-    port: legacyMysqlPort,
-    database: legacyMysqlDatabase,
-    user: process.env.MYSQL_MAINTENANCE_USER || legacyMysqlUser,
-    password: process.env.MYSQL_MAINTENANCE_PASSWORD || legacyMysqlPassword,
-  },
 };
