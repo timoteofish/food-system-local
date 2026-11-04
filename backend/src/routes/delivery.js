@@ -185,7 +185,7 @@ export default async function deliveryRoutes(app) {
         return reply.code(429).send({ error: "Courier location updates are temporarily rate limited" });
       }
       courierLocationWrites.set(courier.id, now);
-      await connection.query("INSERT INTO courier_locations (id, courier_id, business_id, latitude, longitude, accuracy_m) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE business_id = VALUES(business_id), latitude = VALUES(latitude), longitude = VALUES(longitude), accuracy_m = VALUES(accuracy_m), created_at = CURRENT_TIMESTAMP", [randomUUID(), courier.id, courier.business_id, latitude.toFixed(7), longitude.toFixed(7), accuracy === null ? null : accuracy.toFixed(2)]);
+      await connection.query("INSERT INTO courier_locations (id, courier_id, business_id, latitude, longitude, accuracy_m) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(courier_id) DO UPDATE SET business_id = excluded.business_id, latitude = excluded.latitude, longitude = excluded.longitude, accuracy_m = excluded.accuracy_m, created_at = CURRENT_TIMESTAMP", [randomUUID(), courier.id, courier.business_id, latitude.toFixed(7), longitude.toFixed(7), accuracy === null ? null : accuracy.toFixed(2)]);
       await connection.commit();
     } catch (error) {
       if (courierLocationWrites.get(courier.id) === now) courierLocationWrites.delete(courier.id);

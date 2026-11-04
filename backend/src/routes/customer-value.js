@@ -60,7 +60,7 @@ export default async function customerValueRoutes(app) {
       await connection.beginTransaction();
       const [customer] = await connection.query("SELECT id FROM customers WHERE id = ? AND business_id = ? LIMIT 1", [request.params.customerId, request.params.businessId]);
       if (!customer.length) { await connection.rollback(); return reply.notFound("Customer not found"); }
-      await connection.query("INSERT INTO loyalty_accounts (id, business_id, customer_id, points) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE points = points + VALUES(points)", [randomUUID(), request.params.businessId, request.params.customerId, points]);
+      await connection.query("INSERT INTO loyalty_accounts (id, business_id, customer_id, points) VALUES (?, ?, ?, ?) ON CONFLICT(business_id, customer_id) DO UPDATE SET points = loyalty_accounts.points + excluded.points", [randomUUID(), request.params.businessId, request.params.customerId, points]);
       const [account] = await connection.query("SELECT points FROM loyalty_accounts WHERE business_id = ? AND customer_id = ? LIMIT 1", [request.params.businessId, request.params.customerId]);
       await connection.commit();
       return { points: account[0].points };

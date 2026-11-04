@@ -97,7 +97,7 @@ export default async function integrationRoutes(app) {
     const [connections] = await pool.query("SELECT id FROM integration_connections WHERE id = ? AND business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
     if (!connections.length) return reply.notFound("Integration not found");
     await pool.query(
-      "INSERT INTO secure_secrets (id, business_id, secret_name, encrypted_value) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE encrypted_value = VALUES(encrypted_value), updated_at = CURRENT_TIMESTAMP",
+      "INSERT INTO secure_secrets (id, business_id, secret_name, encrypted_value) VALUES (?, ?, ?, ?) ON CONFLICT(business_id, secret_name) DO UPDATE SET encrypted_value = excluded.encrypted_value, updated_at = CURRENT_TIMESTAMP",
       [randomUUID(), request.params.businessId, `integration:${request.params.id}`, encryptSecret(serializedCredentials)],
     );
     await pool.query("UPDATE integration_connections SET status = 'pending', last_error = NULL WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);

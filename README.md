@@ -4,4 +4,4 @@ Food System Local is a restaurant management system designed to bring everyday o
 
 ## How it is built
 
-The application uses a web frontend built with HTML, CSS, and JavaScript, a Node.js backend, and a MariaDB database. A Tauri desktop shell packages the application for desktop use. The interface supports English and Portuguese.
+The application uses a web frontend built with HTML, CSS, and JavaScript, a Node.js backend, and a SQLite database. A Tauri desktop shell packages the application for desktop use. The interface supports English and Portuguese.

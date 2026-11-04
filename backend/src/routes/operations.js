@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
 import { hasDecimalScale } from "../numbers.js";
@@ -43,12 +43,7 @@ export default async function operationsRoutes(app) {
     if (!money(rawOpeningAmount)) return reply.badRequest("Invalid opening amount");
     const openingAmount = Number(rawOpeningAmount);
     const connection = await pool.getConnection();
-    const lockName = `food-system-cash:${createHash("sha256").update(String(request.params.businessId)).digest("hex").slice(0, 40)}`;
-    let lockAcquired = false;
     try {
-      const [locks] = await connection.query("SELECT GET_LOCK(?, 10) AS acquired", [lockName]);
-      lockAcquired = Number(locks[0]?.acquired) === 1;
-      if (!lockAcquired) return reply.conflict("Could not reserve this business cash register; try again");
       await connection.beginTransaction();
       const [open] = await connection.query("SELECT id FROM cash_register_sessions WHERE business_id = ? AND status = 'open' FOR UPDATE", [request.params.businessId]);
       if (open.length) { await connection.rollback(); return reply.conflict("A cash register is already open"); }
@@ -57,7 +52,6 @@ export default async function operationsRoutes(app) {
       await connection.commit();
       return reply.code(201).send({ session: { id, status: "open", opening_amount: openingAmount } });
     } catch (error) { await connection.rollback(); throw error; } finally {
-      if (lockAcquired) await connection.query("SELECT RELEASE_LOCK(?)", [lockName]).catch(() => {});
       connection.release();
     }
   });

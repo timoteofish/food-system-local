@@ -36,10 +36,15 @@
   },
   "bundle": {
     "active": true,
-    "icon": ["icons/icon.ico"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
     "resources": {
-      "../backend/": "backend/",
-      "../desktop/": "desktop/",
+      "../backend/src/": "backend/src/",
+      "../backend/sqlite/": "backend/sqlite/",
+      "../backend/node_modules/": "backend/node_modules/",
+      "../backend/package.json": "backend/package.json",
+      "../desktop/launcher.mjs": "desktop/launcher.mjs",
+      "../desktop/cleanup-backups.mjs": "desktop/cleanup-backups.mjs",
+      "../desktop/runtime/": "desktop/runtime/",
       "../frontend/": "frontend/"
     },
     "targets": ["msi", "nsis"],

@@ -4,17 +4,13 @@ import { createServer as createHttpServer, request as createHttpRequest } from "
 import { createServer as createHttpsServer } from "node:https";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import net from "node:net";
 import { homedir } from "node:os";
 import { extname, isAbsolute, join, normalize, relative as relativePath, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { removeStalePlaintextBackups } from "./cleanup-backups.mjs";
-import { configuredMariaRoot as readConfiguredMariaRoot } from "./mariadb-config.mjs";
 
 const execFile = promisify(execFileCallback);
-let startedDatabase = null;
-let startedDatabaseReady = false;
 let backend = null;
 let backendRestoreInProgress = false;
 let frontend = null;
@@ -38,11 +34,6 @@ const defaultDataDir = process.env.APPDATA
         : join(homedir(), ".local", "share", "com.foodsystem.local");
 const dataDir = process.env.FOOD_SYSTEM_DATA_DIR || defaultDataDir;
 const environmentFile = process.env.FOOD_SYSTEM_ENV_FILE || join(dataDir, "config.env");
-const configuredMariaRoot = readConfiguredMariaRoot({ environmentRoot: process.env.MARIADB_ROOT || "", environmentFile });
-const mariaRoots = [configuredMariaRoot, "C:\\Program Files\\MariaDB 11.8", "C:\\Program Files\\MariaDB 13.0"].filter(Boolean);
-const mariaRoot = mariaRoots.find((candidate) => existsSync(join(candidate, "bin", "mariadbd.exe"))) || mariaRoots[0];
-const mariaServer = join(mariaRoot, "bin", "mariadbd.exe");
-const mariaDefaults = join(mariaRoot, "data", "my.ini");
 const frontendPort = Number(process.env.FRONTEND_PORT || 4173);
 const frontendHost = process.env.FRONTEND_HOST || "127.0.0.1";
 const nodeEnvironment = process.env.NODE_ENV || "production";
@@ -107,42 +98,6 @@ const safePath = (urlPath) => {
   return file;
 };
 
-const canConnectDatabase = () => new Promise((resolveConnection) => {
-  const socket = net.createConnection({ host: "127.0.0.1", port: 3306 });
-  const finish = (value) => { socket.destroy(); resolveConnection(value); };
-  socket.once("connect", () => finish(true));
-  socket.once("error", () => finish(false));
-  socket.setTimeout(500, () => finish(false));
-});
-
-const ensureDatabase = async () => {
-  if (await canConnectDatabase()) return;
-  if (!existsSync(mariaServer) || !existsSync(mariaDefaults)) {
-    const setupScript = join(desktopRoot, "setup-mariadb.ps1");
-    throw new Error(`Food System database setup is incomplete. Close the app, open PowerShell as Administrator under the same Windows account that runs Food System, and run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${setupScript}". The guided setup installs verified MariaDB 11.8 LTS when needed, restricts it to 127.0.0.1, and provisions protected local credentials. If MariaDB is already installed in a different folder, pass -MariaRoot '<MariaDB install folder>'.`);
-  }
-  startedDatabase = spawn(mariaServer, [`--defaults-file=${mariaDefaults}`, "--console"], {
-    cwd: mariaRoot,
-    stdio: "ignore",
-    windowsHide: true,
-  });
-  startedDatabase.on("error", (error) => {
-    console.error("Food System could not start MariaDB:", error.message);
-    shutdown();
-    process.exitCode = 1;
-  });
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    if (startedDatabase.exitCode !== null || startedDatabase.signalCode !== null) {
-      throw new Error(`MariaDB exited before becoming ready (code ${startedDatabase.exitCode ?? startedDatabase.signalCode})`);
-    }
-    if (await canConnectDatabase()) {
-      return;
-    }
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
-  }
-  throw new Error("MariaDB did not accept connections within 5 seconds. Check the MariaDB service and its data directory.");
-};
-
 const waitForChildExit = (child, timeoutMs) => {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
   return new Promise((resolveExit) => {
@@ -186,48 +141,6 @@ const waitForApiListener = (child, timeoutMs = 10_000) => new Promise((resolveAp
   child.once("error", onError);
 });
 
-const readMaintenanceCredentials = async () => {
-  let configText = "";
-  try { configText = await readFile(environmentFile, "utf8"); } catch {}
-  const lines = configText.split(/\r?\n/);
-  const value = (key) => process.env[key] || lines.find((line) => line.startsWith(`${key}=`))?.slice(key.length + 1).trim() || "";
-  const user = value("MYSQL_MAINTENANCE_USER");
-  const password = value("MYSQL_MAINTENANCE_PASSWORD");
-  if (!/^[A-Za-z0-9_]{1,32}$/.test(user) || !/^[a-f0-9]{64}$/i.test(password)) return null;
-  return { user, password };
-};
-
-const stopStartedDatabaseGracefully = async () => {
-  if (!startedDatabase || startedDatabase.exitCode !== null || startedDatabase.signalCode !== null) return true;
-  if (!startedDatabaseReady) {
-    console.warn("Food System is leaving its unready MariaDB process running rather than terminating it abruptly.");
-    startedDatabase.unref();
-    return false;
-  }
-  const credentials = await readMaintenanceCredentials();
-  const adminCandidates = ["mariadb-admin.exe", "mysqladmin.exe"];
-  const admin = adminCandidates.map((name) => join(mariaRoot, "bin", name)).find((candidate) => existsSync(candidate));
-  if (!credentials || !admin) {
-    console.warn("Food System could not find the local MariaDB shutdown client credentials; leaving the database process running.");
-    startedDatabase.unref();
-    return false;
-  }
-  try {
-    await execFile(admin, ["--protocol=tcp", "--host=127.0.0.1", "--port=3306", `--user=${credentials.user}`, "shutdown"], {
-      env: { ...process.env, MYSQL_PWD: credentials.password },
-      timeout: 15_000,
-      windowsHide: true,
-    });
-    const stopped = await waitForChildExit(startedDatabase, 15_000);
-    if (!stopped) console.warn("MariaDB accepted the shutdown request but has not exited yet; the launcher will not force-stop it.");
-    return stopped;
-  } catch (error) {
-    console.warn(`Food System could not shut MariaDB down cleanly; leaving it running: ${error.message}`);
-    startedDatabase.unref();
-    return false;
-  }
-};
-
 const shutdown = () => {
   if (shutdownPromise) return shutdownPromise;
   shuttingDown = true;
@@ -257,19 +170,16 @@ const shutdown = () => {
       }
       const stopped = await waitForChildExit(backend, 400_000);
       if (!stopped) {
-        console.warn("Food System API is still finishing an operation; leaving the API and MariaDB running rather than interrupting it.");
+        console.warn("Food System API is still finishing an operation; leaving the API running rather than interrupting it.");
         if (backend.connected) backend.disconnect();
         backend.unref();
-        startedDatabase?.unref();
         return;
       }
     }
     if (backendRestoreInProgress || existsSync(recoveryMarker)) {
-      console.warn("A database restore is still active or requires recovery; leaving MariaDB running for administrator review.");
-      startedDatabase?.unref();
+      console.warn("A database restore is still active or requires recovery; leaving the API running for administrator review.");
       return;
     }
-    await stopStartedDatabaseGracefully();
   })();
   return shutdownPromise;
 };
@@ -483,21 +393,8 @@ frontend.timeout = 60_000;
 frontend.keepAliveTimeout = 5_000;
 const frontendProtocol = tlsKeyPath && tlsCertPath ? "https" : "http";
 
-try {
-  await ensureDatabase();
-} catch (error) {
-  console.error("Food System could not start MariaDB:", error.message);
-  await shutdown();
-  process.exitCode = 1;
-  throw error;
-}
-if (shuttingDown) {
-  await shutdown();
-  process.exit(0);
-}
 const backendEnv = {
   ...process.env,
-  MARIADB_ROOT: mariaRoot,
   NODE_ENV: nodeEnvironment,
   FOOD_SYSTEM_LOCAL_ACCESS_TOKEN: localAccessToken,
   FOOD_SYSTEM_SECRET_KEY: secretKey,
@@ -513,9 +410,6 @@ migrationPromise = execFile(process.execPath, ["src/migrate.js"], {
 });
 try {
   await migrationPromise;
-  // The migration runner verifies @@basedir, port, bind address, and database
-  // before doing work. Only then is it safe for shutdown to target this server.
-  startedDatabaseReady = Boolean(startedDatabase);
 } catch (error) {
   if (shuttingDown) {
     await shutdown();
@@ -574,7 +468,7 @@ const waitForReadiness = async () => {
         console.log("Food System database: ready");
         return;
       }
-      if (attempt === 20) console.warn("Food System API started, but the database is unavailable. Check MariaDB and the MYSQL_* settings.");
+      if (attempt === 20) console.warn("Food System API started, but its local SQLite database is unavailable.");
     } catch {
       if (attempt === 20) console.warn("Food System API did not respond. Check port 3000 and the backend installation.");
     }

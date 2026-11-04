@@ -126,7 +126,7 @@ app.get("/api/v1/health", async (_request, reply) => {
     await checkDatabase();
     return { status: "ok", database: "ok" };
   } catch (error) {
-    app.log.error(error, "MySQL health check failed");
+    app.log.error(error, "SQLite health check failed");
     return reply.code(503).send({ status: "error", database: "unavailable" });
   }
 });

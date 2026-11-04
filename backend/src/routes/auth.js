@@ -100,7 +100,7 @@ export default async function authRoutes(app) {
     if (name.length < 2 || name.length > 160) return reply.badRequest("Business name must be between 2 and 160 characters");
     const settings = JSON.stringify({ currency: "BRL" });
     await pool.query(
-      "INSERT INTO businesses (id, name, description, settings) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)",
+      "INSERT INTO businesses (id, name, description, settings) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description",
       [LOCAL_BUSINESS_ID, name, "Local application", settings],
     );
     const [rows] = await pool.query("SELECT id, name, description, primary_color, settings FROM businesses WHERE id = ? LIMIT 1", [LOCAL_BUSINESS_ID]);

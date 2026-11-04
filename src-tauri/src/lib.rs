@@ -116,7 +116,10 @@ pub fn run() {
                 let secret_key = load_or_create_secret_key(&secret_path)
                     .map_err(|error| format!("Could not load the local encryption key: {error}"))?;
                 let launcher = resource_dir.join("desktop").join("launcher.mjs");
+                #[cfg(target_os = "windows")]
                 let bundled_node = resource_dir.join("desktop").join("runtime").join("node.exe");
+                #[cfg(not(target_os = "windows"))]
+                let bundled_node = resource_dir.join("desktop").join("runtime").join("node");
                 if !bundled_node.is_file() {
                     return Err("The bundled Node.js runtime was not found. Repair the installation.".into());
                 }
@@ -155,6 +158,8 @@ pub fn run() {
             }
             if let Some(window) = app.get_webview_window("main") {
                 window.set_title("Food System")?;
+                let app_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?;
+                window.set_icon(app_icon)?;
             }
             Ok(())
         })
