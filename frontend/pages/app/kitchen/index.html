@@ -7,7 +7,7 @@
     <title>Kitchen | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -61,20 +61,25 @@
       <main class="content menu-content">
         <header class="page-title">
           <div>
-            <p class="eyebrow">Production</p>
             <h1>Kitchen display</h1>
-            <p class="kitchen-intro">Track each stage and update preparation</p>
           </div>
+          <span class="kitchen-loading" id="kitchenLoading" role="status" aria-live="polite" hidden><span data-kitchen-loading-label>Loading</span><span class="kitchen-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </header>
         <section class="kitchen-toolbar" aria-label="Kitchen display controls">
-          <p id="kitchenStatus" class="kitchen-status" role="status" aria-live="polite">Updating orders</p>
-          <label for="kitchenStation">Station
-            <select id="kitchenStation"><option value="">All stations</option></select>
-          </label>
+          <p id="kitchenStatus" class="kitchen-status" role="status" aria-live="polite"></p>
+          <select id="kitchenStation" aria-label="Station"><option value="">All stations</option></select>
           <button class="btn btn--secondary" id="refreshKitchen" type="button">Refresh</button>
         </section>
-        <section class="kitchen-board" id="kitchenBoard" aria-label="Orders by stage" aria-busy="true" tabindex="0"><p class="kitchen-board__loading" role="status">Loading orders</p></section>
+        <section class="kitchen-board" id="kitchenBoard" aria-label="Orders by stage" aria-busy="true" tabindex="0"></section>
       </main>
+    </div>
+    <div class="kitchen-error-modal" id="kitchenErrorModal" hidden>
+      <button class="kitchen-error-modal__backdrop" type="button" data-close-kitchen-error aria-label="Close"></button>
+      <section class="kitchen-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="kitchenLoadError">
+        <button class="kitchen-error-panel__close" id="kitchenErrorClose" type="button" data-close-kitchen-error aria-label="Close">×</button>
+        <p id="kitchenLoadError" class="kitchen-load-error" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary kitchen-retry" id="kitchenRetry" type="button">Try again</button>
+      </section>
     </div>
     <script src="../../../env.js"></script>
     <script type="module" src="../../../shared/i18n/legacy-control.js"></script>

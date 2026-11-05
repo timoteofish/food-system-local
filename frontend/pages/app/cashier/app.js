@@ -1,4 +1,4 @@
-import { getLocale, translate } from "../../../shared/i18n/i18n.js";
+import { getLanguage, getLocale, translate } from "../../../shared/i18n/i18n.js";
 import { localizeSystemMessage } from "../../../shared/i18n/system-messages.js";
 import { PAYMENT_METHODS } from "../../../shared/domain/payment-methods.js";
 import { escapeHtml, formatPrice, formatTime } from "../../../shared/utils/utils.js";
@@ -46,13 +46,52 @@ const movementSubmit = document.getElementById("movementSubmit");
 const movementAvailability = document.getElementById("movementAvailability");
 const loadMessage = document.getElementById("cashLoadMessage");
 const loadRetry = document.getElementById("cashLoadRetry");
+const loadAlert = document.getElementById("cashLoadAlert");
+const loadAlertClose = document.getElementById("cashLoadAlertClose");
 const cashSummary = document.querySelector(".cash-summary");
+const pageLoading = document.getElementById("cashPageLoading");
 const actionMessage = document.getElementById("cashActionMessage");
+const moneyInputs = document.querySelectorAll(".cash-money-input");
 let registerBusy = false;
 let movementBusy = false;
 let hasLoadedCash = false;
 let refreshInProgress = false;
 let appShellReady = false;
+
+const normalizeMoneyInput = (input) => {
+  let raw = input.value.trim().replace(/R\$|\$/gi, "").replace(/\s/g, "");
+  if (!raw) return null;
+  const isEnglish = getLanguage() === "en";
+  const valid = isEnglish
+    ? /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(raw)
+    : /^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(raw);
+  if (!valid) return null;
+  raw = isEnglish ? raw.replace(/,/g, "") : raw.replace(/\./g, "").replace(",", ".");
+  const amount = Number(raw);
+  return Number.isFinite(amount) ? amount : null;
+};
+
+moneyInputs.forEach((input) => {
+  input.placeholder = formatPrice(0);
+  input.addEventListener("input", () => {
+    const isEnglish = getLanguage() === "en";
+    const decimalSeparator = isEnglish ? "." : ",";
+    const groupSeparator = isEnglish ? "," : ".";
+    let value = input.value.replace(/\D/g, "");
+    if (value.length > 2) {
+      value = `${value.slice(0, -2)}${decimalSeparator}${value.slice(-2)}`;
+    }
+    input.value = value.replace(new RegExp(`\\${decimalSeparator}(?=.*\\${decimalSeparator})`, "g"), "").replaceAll(groupSeparator, "");
+  });
+  input.addEventListener("focus", () => {
+    const amount = normalizeMoneyInput(input);
+    if (amount !== null) input.value = formatPrice(amount, { prefix: false });
+  });
+  input.addEventListener("blur", () => {
+    const amount = normalizeMoneyInput(input);
+    if (amount !== null) input.value = formatPrice(amount);
+  });
+});
 
 const setMessage = (element, message, state = "") => {
   if (!element) return;
@@ -62,8 +101,33 @@ const setMessage = (element, message, state = "") => {
   else element.removeAttribute("data-state");
 };
 
+const showLoadAlert = (message) => {
+  pageLoading.hidden = true;
+  setMessage(loadMessage, message, "error");
+  loadRetry.hidden = false;
+  loadRetry.disabled = false;
+  loadAlert.hidden = false;
+  document.body.classList.add("modal-open");
+  loadAlertClose.focus();
+};
+
+const hideLoadAlert = () => {
+  loadAlert.hidden = true;
+  document.body.classList.remove("modal-open");
+  setMessage(loadMessage, "");
+  loadRetry.hidden = true;
+};
+
+loadAlert?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-cash-alert]")) hideLoadAlert();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !loadAlert.hidden) hideLoadAlert();
+});
+
 const renderRegister = () => {
   const open = Boolean(currentRegister);
+  registerStatus.hidden = false;
   registerStatus.textContent = open
     ? currentRegister.opened_at ? translate("cashOpenSince").replace("$1", formatDate(currentRegister.opened_at)) : translate("cashOpened")
     : translate("cashClosed");
@@ -72,10 +136,13 @@ const renderRegister = () => {
   registerAction.textContent = translate(open ? "cashCloseRegister" : "cashOpenRegister");
   registerAction.disabled = registerBusy || !hasLoadedCash;
   registerAmountLabel.textContent = translate(open ? "cashCountedClosingValue" : "cashOpeningAmount");
+  registerAmountLabel.hidden = !open;
   registerNotesField.hidden = !open;
   movementSubmit.disabled = !open || movementBusy || !hasLoadedCash;
   movementAvailability.hidden = open;
-  document.getElementById("cashRegisterTitle").textContent = translate(open ? "cashShiftInProgress" : "cashStartShift");
+  const registerTitle = document.getElementById("cashRegisterTitle");
+  registerTitle.hidden = false;
+  registerTitle.textContent = translate(open ? "cashShiftInProgress" : "cashRegisterSituation");
   registerAmount.value = "";
   registerNotes.value = "";
 };
@@ -223,7 +290,12 @@ registerForm?.addEventListener("submit", async (event) => {
   registerAction.disabled = true;
   setMessage(registerMessage, "");
   try {
-    const amount = Number(registerAmount.value);
+    const amount = normalizeMoneyInput(registerAmount);
+    if (amount === null || amount < 0) {
+      registerAmount.focus();
+      setMessage(registerMessage, translate("cashUpdateError"), "error");
+      return;
+    }
     if (currentRegister) {
       const confirmation = translate("cashConfirmClose").replace("$1", formatPrice(amount));
       if (!window.confirm(confirmation)) return;
@@ -252,9 +324,15 @@ movementForm?.addEventListener("submit", async (event) => {
   movementSubmit.disabled = true;
   setMessage(movementMessage, "");
   try {
+    const movementAmount = normalizeMoneyInput(document.getElementById("movementAmount"));
+    if (movementAmount === null || movementAmount <= 0) {
+      document.getElementById("movementAmount").focus();
+      setMessage(movementMessage, translate("cashMovementError"), "error");
+      return;
+    }
     await createCashMovement(businessId, {
       type: document.getElementById("movementType").value,
-      amount: Number(document.getElementById("movementAmount").value),
+      amount: movementAmount,
       description: document.getElementById("movementDescription").value.trim(),
     });
     event.target.reset();
@@ -292,6 +370,7 @@ log?.addEventListener("click", async (event) => {
 const refresh = async () => {
   if (refreshInProgress) return;
   refreshInProgress = true;
+  pageLoading.hidden = false;
   if (!hasLoadedCash) {
     cashSummary?.setAttribute("aria-busy", "true");
     log?.setAttribute("aria-busy", "true");
@@ -307,17 +386,18 @@ const refresh = async () => {
     movements = data.movements;
     stats = data.stats;
     hasLoadedCash = true;
+    pageLoading.hidden = true;
     cashSummary?.setAttribute("aria-busy", "false");
     renderRegister();
     render();
-    setMessage(loadMessage, "");
+    hideLoadAlert();
   } catch {
-    setMessage(loadMessage, translate("cashRefreshError"), "error");
+    pageLoading.hidden = true;
+    showLoadAlert(translate("cashRefreshError"));
     if (!hasLoadedCash) {
       cashSummary?.setAttribute("aria-busy", "false");
       log.innerHTML = `<div class="cash-empty">${translate("cashDataUnavailable")}</div>`;
     }
-    loadRetry.hidden = false;
   } finally {
     refreshInProgress = false;
     loadRetry.disabled = false;
@@ -328,9 +408,9 @@ const refresh = async () => {
 loadRetry?.addEventListener("click", () => void initializeCashier());
 
 const initializeCashier = async () => {
-  loadRetry.hidden = true;
+  hideLoadAlert();
+  pageLoading.hidden = false;
   loadRetry.disabled = true;
-  setMessage(loadMessage, "");
   try {
     if (!appShellReady) {
       await initAppShell({ activeNav: "cashier" });
@@ -338,13 +418,12 @@ const initializeCashier = async () => {
     }
     await refresh();
   } catch {
-    setMessage(loadMessage, translate("cashOpenError"), "error");
+    showLoadAlert(translate("cashOpenError"));
     cashSummary?.setAttribute("aria-busy", "false");
     log?.setAttribute("aria-busy", "false");
     if (!hasLoadedCash && log) {
       log.innerHTML = `<div class="cash-empty" role="alert">${translate("cashDataUnavailable")}</div>`;
     }
-    loadRetry.hidden = false;
   } finally {
     loadRetry.disabled = false;
   }

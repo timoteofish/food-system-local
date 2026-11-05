@@ -24,9 +24,7 @@ const ensurePanel = () => {
   panel.innerHTML = `
     <button type="button" class="category-user-panel__close" data-category-user-close aria-label="${translate("Close")}">×</button>
     <div class="category-user-panel__header">
-      <p class="category-user-panel__eyebrow">${translate("Category")}</p>
       <h3>${translate("New category")}</h3>
-      <p class="category-user-panel__subtitle">${translate("Organize your products by category")}</p>
     </div>
     <div class="category-user-panel__body">
       <label class="category-user-panel__field" for="categoryUserInput">

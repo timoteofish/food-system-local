@@ -7,7 +7,7 @@
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -68,14 +68,10 @@
       <main class="content menu-content">
         <div class="page-title dashboard-page-title">
           <div>
-            <p class="eyebrow">Today</p>
             <h1>Hello, <span id="welcomeName">team</span></h1>
-            <p class="dashboard-intro">Track the key figures for your operation</p>
           </div>
-          <a class="btn btn--primary dashboard-action" href="../orders/index.html">Open orders</a>
+          <span class="dashboard-loading" id="dashboardLoading" role="status" aria-live="polite"><span data-dashboard-loading-label>Loading</span><span class="dashboard-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
-        <p id="dashboardFeedback" class="dashboard-feedback" role="alert" hidden></p>
-        <button class="btn btn--secondary dashboard-retry" id="dashboardRetry" type="button" hidden>Try again</button>
         <section class="dashboard-stats" aria-label="Today's key figures" aria-busy="true">
           <article class="panel stat stat--featured">
             <span>Today's sales</span><strong id="ordersValueToday">—</strong>
@@ -92,14 +88,20 @@
         </section>
         <section class="dashboard-lower">
           <div class="dashboard-section-head">
-            <div><p class="eyebrow">Activity</p><h2>Orders recentes</h2></div>
-            <a href="../orders/index.html">View all</a>
+            <div><h2>Orders recentes</h2></div>
+            <a class="btn btn--primary" href="../orders/index.html">View all</a>
           </div>
-          <div id="recentOrders" class="recent-orders" aria-busy="true">
-            <p class="dashboard-empty" role="status">Loading orders</p>
-          </div>
+          <div id="recentOrders" class="recent-orders" aria-busy="true"></div>
         </section>
       </main>
+    </div>
+    <div class="dashboard-error-modal" id="dashboardErrorModal" hidden>
+      <button class="dashboard-error-modal__backdrop" type="button" data-close-dashboard-error aria-label="Close"></button>
+      <section class="dashboard-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="dashboardFeedback">
+        <button class="dashboard-error-panel__close" id="dashboardErrorClose" type="button" data-close-dashboard-error aria-label="Close">×</button>
+        <p id="dashboardFeedback" class="dashboard-feedback" role="alert"></p>
+        <button class="btn btn--secondary dashboard-retry" id="dashboardRetry" type="button">Try again</button>
+      </section>
     </div>
     <script src="../../../env.js"></script><script type="module" src="../../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="../../../shared/ui/profile-menu-boot.js"></script>

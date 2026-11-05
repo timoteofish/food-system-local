@@ -14,11 +14,44 @@ const feedback = document.getElementById("reportFeedback");
 const reportMetrics = document.getElementById("reportMetrics");
 const productRows = document.getElementById("productRows");
 const criticalStock = document.getElementById("criticalStock");
+const reportPageLoading = document.getElementById("reportPageLoading");
+const reportErrorModal = document.getElementById("reportErrorModal");
+const reportLoadError = document.getElementById("reportLoadError");
+const reportRetry = document.getElementById("reportRetry");
+const reportErrorClose = document.getElementById("reportErrorClose");
 const money = new Intl.NumberFormat(getLocale(), { style: "currency", currency: "BRL" });
 const percent = new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 });
 const quantity = new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 3 });
 const count = new Intl.NumberFormat(getLocale());
 let reportLoading = false;
+let appShellReady = false;
+
+const setReportLoading = (isLoading) => {
+  reportPageLoading.hidden = !isLoading;
+  if (isLoading) {
+    reportPageLoading.querySelector("[data-report-loading-label]").textContent = translate("Loading");
+  }
+};
+
+const hideReportError = () => {
+  reportErrorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showReportError = (message) => {
+  setReportLoading(false);
+  reportLoadError.textContent = message;
+  reportErrorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  reportErrorClose.focus();
+};
+
+reportErrorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-report-error]")) hideReportError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !reportErrorModal.hidden) hideReportError();
+});
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;",
@@ -115,12 +148,13 @@ const loadReport = async () => {
   }
 
   reportLoading = true;
+  hideReportError();
+  setReportLoading(true);
   loadButton.disabled = true;
-  loadButton.textContent = translate("reportUpdating");
   reportMetrics.setAttribute("aria-busy", "true");
   productRows.setAttribute("aria-busy", "true");
   criticalStock.setAttribute("aria-busy", "true");
-  setFeedback("reportUpdating", "loading");
+  setFeedback();
 
   try {
     const query = new URLSearchParams({ from: start, to: end });
@@ -160,18 +194,18 @@ const loadReport = async () => {
       hasUnavailableData = true;
     }
 
-    if (hasUnavailableData) setFeedback("reportPartialError", "error");
+    if (hasUnavailableData) showReportError(translate("reportPartialError"));
     else setFeedback();
   } catch (error) {
     setUnavailableReport();
-    setFeedback("reportLoadError", "error");
+    showReportError(translate("reportPageLoadError"));
   } finally {
     reportLoading = false;
+    setReportLoading(false);
     reportMetrics.setAttribute("aria-busy", "false");
     productRows.setAttribute("aria-busy", "false");
     criticalStock.setAttribute("aria-busy", "false");
     loadButton.disabled = false;
-    loadButton.textContent = translate("reportUpdateButton");
   }
 };
 
@@ -184,16 +218,26 @@ reportForm.addEventListener("submit", (event) => {
 });
 
 const start = async () => {
+  hideReportError();
+  setReportLoading(true);
+  reportRetry.disabled = true;
   try {
-    await initAppShell({ activeNav: "reports" });
+    if (!appShellReady) {
+      await initAppShell({ activeNav: "reports" });
+      appShellReady = true;
+    }
     await loadReport();
   } catch (error) {
     setUnavailableReport();
     reportMetrics.setAttribute("aria-busy", "false");
     productRows.setAttribute("aria-busy", "false");
     criticalStock.setAttribute("aria-busy", "false");
-    setFeedback("reportOpenError", "error");
+    showReportError(translate("reportOpenError"));
+  } finally {
+    setReportLoading(false);
+    reportRetry.disabled = false;
   }
 };
 
+reportRetry.addEventListener("click", () => void start());
 void start();

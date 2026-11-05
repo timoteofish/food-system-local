@@ -3,7 +3,27 @@
   box-shadow: var(--shadow-card);
 }
 
-.fiscal-configuration,
+.fiscal-loading { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: .9rem; white-space: nowrap; }
+.fiscal-loading[hidden] { display: none; }
+.fiscal-loading__dots { display: inline-flex; gap: 1px; }
+.fiscal-loading__dots i { font-style: normal; animation: fiscal-loading-dot 1s ease-in-out infinite; }
+.fiscal-loading__dots i:nth-child(2) { animation-delay: .15s; }
+.fiscal-loading__dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes fiscal-loading-dot {
+  0%, 60%, 100% { opacity: .25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) { .fiscal-loading__dots i { animation: none; opacity: 1; } }
+
+.fiscal-error-modal[hidden] { display: none; }
+.fiscal-error-modal { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 20px; }
+.fiscal-error-modal__backdrop { position: absolute; inset: 0; border: 0; background: rgba(20, 20, 20, .56); backdrop-filter: blur(3px); cursor: pointer; }
+.fiscal-error-panel { position: relative; display: grid; gap: 18px; width: min(100%, 520px); padding: 32px; border: 1px solid color-mix(in srgb, var(--danger) 18%, white); border-radius: 14px; background: #fff; color: #171717; box-shadow: 0 24px 70px rgba(0, 0, 0, .24); }
+.fiscal-load-error { margin: 0; padding: 4px 42px 4px 0; color: #171717; font-size: 1rem; line-height: 1.5; text-align: center; }
+.fiscal-error-panel .fiscal-retry { justify-self: center; width: auto; min-height: 44px; margin: 0; color: #171717; }
+.fiscal-error-panel__close { position: absolute; top: 16px; right: 16px; display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 8px; background: #f5f5f5; color: var(--danger); font: inherit; font-size: 27px; line-height: 1; cursor: pointer; }
+.fiscal-error-panel__close:focus-visible { outline: 3px solid color-mix(in srgb, var(--danger) 25%, transparent); outline-offset: 2px; }
+
 .fiscal-create,
 .fiscal-queue {
   gap: 15px;
@@ -11,67 +31,11 @@
   box-shadow: var(--shadow-card) !important;
 }
 
-.fiscal-configuration h2,
 .fiscal-create h2,
 .fiscal-queue h2 {
   font-size: 1.02rem;
   letter-spacing: -.02em;
 }
-
-.fiscal-configuration__help {
-  max-width: 76ch;
-  margin: -7px 0 0;
-  color: var(--muted);
-  font-size: .84rem;
-  line-height: 1.55;
-}
-
-.fiscal-config-state {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.fiscal-config-state__item {
-  display: flex;
-  min-width: 0;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 11px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: .78rem;
-  line-height: 1.45;
-}
-
-.fiscal-config-state__item > span {
-  display: grid;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: .72rem;
-  font-weight: 800;
-}
-
-.fiscal-config-state__item.is-ready {
-  border-color: rgba(197, 34, 54, .14);
-  background: var(--accent-soft);
-  color: var(--accent-dark);
-}
-
-.fiscal-config-state__item.is-ready > span {
-  background: var(--accent);
-  color: var(--surface);
-  box-shadow: 0 0 9px rgba(239, 75, 88, .14);
-}
-
-.fiscal-config-state__item.is-missing { border-color: var(--line); }
 
 .fiscal-form label {
   display: grid;
@@ -94,6 +58,14 @@
   color: var(--text);
   font-size: .9rem;
   transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.fiscal-form select {
+  padding-right: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%236b7280' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  appearance: none;
 }
 
 .fiscal-form input:focus,
@@ -190,10 +162,9 @@
 .fiscal-retry { min-height: 42px; }
 
 @media (max-width: 800px) {
-  .fiscal-configuration,
+  .menu-content > .page-title { align-items: center; flex-direction: row; }
   .fiscal-create,
   .fiscal-queue { padding: 15px !important; }
-  .fiscal-config-state { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 520px) {

@@ -6,11 +6,11 @@
     <title>Loyalty | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
-    <link rel="stylesheet" href="../contacts/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
       <script type="module" src="../../../shared/ui/appearance-boot.js"></script>
   </head>
   <body data-contact-view="loyalty">
@@ -58,18 +58,18 @@
       </aside>
 
       <main class="content menu-content">
-        <header class="page-title"><div><p class="eyebrow">Customer relationships</p><h1>Loyalty</h1><p class="contacts-intro">Add or redeem customer points</p></div></header>
-        <p id="contactsLoadError" class="contacts-load-error" role="alert" hidden></p>
-        <button class="btn btn--secondary contacts-load-retry" id="contactsLoadRetry" type="button" hidden>Try again</button>
+        <header class="page-title">
+          <div><h1>Loyalty</h1></div>
+          <span class="contacts-page-loading" id="contactsPageLoading" role="status" aria-live="polite" hidden><span data-contacts-loading-label>Loading</span><span class="contacts-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
+        </header>
         <section class="contact-grid contact-grid--single" aria-label="Loyalty">
           <article class="panel">
-            <h2>Loyalty points</h2>
-            <p class="contact-panel__intro">Add points or record a redemption</p>
+            <h2>Add points or record a redemption</h2>
             <form class="contact-form" id="loyaltyForm">
               <label class="field"><span>Customer</span><select id="loyaltyCustomer" required>
                 <option value="">Select a customer</option>
               </select></label>
-              <label class="field"><span>Points</span><input name="points" type="number" min="1" step="1" required placeholder="e.g. 10" /></label>
+              <label class="field"><span>Points</span><input name="points" type="text" inputmode="numeric" pattern="[0-9]+" maxlength="9" required placeholder="e.g. 10" /></label>
               <div class="loyalty-actions">
                 <button class="btn btn--primary" type="submit" data-loyalty-action="earn">Add points</button>
                 <button class="btn btn--secondary" type="submit" data-loyalty-action="redeem">Redeem points</button>
@@ -81,9 +81,18 @@
       </main>
     </div>
 
+    <div class="contacts-error-modal" id="contactsErrorModal" hidden>
+      <button class="contacts-error-modal__backdrop" type="button" data-close-contact-error aria-label="Close"></button>
+      <section class="contacts-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="contactsLoadError">
+        <button class="contacts-error-panel__close" type="button" data-close-contact-error aria-label="Close">×</button>
+        <p id="contactsLoadError" class="contacts-load-error" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary contacts-load-retry" id="contactsLoadRetry" type="button">Try again</button>
+      </section>
+    </div>
+
     <script src="../../../env.js"></script>
     <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="../../../shared/ui/profile-menu-boot.js"></script>
-    <script type="module" src="../contacts/app.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

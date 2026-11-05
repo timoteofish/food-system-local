@@ -1,0 +1,8 @@
+.backup-list {
+  display: grid;
+  gap: 12px;
+}
+
+.backup-list .operation-empty {
+  margin: 0;
+}

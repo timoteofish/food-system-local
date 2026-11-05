@@ -7,7 +7,7 @@
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -61,16 +61,14 @@
       <main class="content menu-content">
         <div class="page-title">
           <div>
-            <p class="eyebrow" data-i18n="teamEyebrow">Team directory</p>
             <h1 data-i18n="teamTitle">Team</h1>
-            <p class="team-intro" data-i18n="teamIntro">Manage your team directory. Since the system runs locally and has no individual sign-in, these roles are informational only.</p>
           </div>
+          <span class="team-page-loading" id="teamPageLoading" role="status" aria-live="polite" hidden><span data-team-loading-label>Loading</span><span class="team-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
         <section class="team-layout">
           <form class="panel team-invite" id="teamInviteForm">
             <div class="team-invite__intro">
               <h2 data-i18n="teamAddPerson">Add a person</h2>
-              <p data-i18n="teamInviteHelp">Add team members without creating accounts or passwords.</p>
             </div>
             <label class="field">
               <span data-i18n="teamName">Name</span>
@@ -91,11 +89,18 @@
               <span id="teamCount">—</span>
             </div>
             <div class="team-list__items" id="teamList" aria-live="polite" aria-busy="true">
-              <p class="team-empty" role="status" data-i18n="teamLoading">Loading the team</p>
             </div>
           </section>
         </section>
       </main>
+    </div>
+    <div class="team-error-modal" id="teamErrorModal" hidden>
+      <button class="team-error-modal__backdrop" type="button" data-close-team-error aria-label="Close"></button>
+      <section class="team-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="teamLoadError">
+        <button class="team-error-panel__close" id="teamErrorClose" type="button" data-close-team-error aria-label="Close">×</button>
+        <p id="teamLoadError" class="team-load-error" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary team-retry" id="teamRetry" type="button">Try again</button>
+      </section>
     </div>
     <script src="../../../env.js"></script><script type="module" src="../../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="../../../shared/ui/profile-menu-boot.js"></script>

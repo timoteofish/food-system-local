@@ -10,7 +10,7 @@ const readFrontend = (file) => fs.readFile(new URL(`../../frontend/${file}`, imp
 const readRoot = (file) => fs.readFile(new URL(`../../${file}`, import.meta.url), "utf8");
 
 test("schema contains the operational tables", async () => {
-  const sql = await read("sql/001_initial.sql");
+  const sql = await read("sql/migrations/001_initial.sql");
   for (const table of ["users", "businesses", "categories", "products", "restaurant_tables", "orders", "order_items", "cash_movements"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
 });
 
@@ -34,7 +34,7 @@ test("SQLite is the only database engine and its schema is created locally", asy
 });
 
 test("schema contains the integration boundary tables", async () => {
-  const sql = await read("sql/002_integrations.sql");
+  const sql = await read("sql/migrations/002_integrations.sql");
   for (const table of ["integration_connections", "external_orders", "integration_events", "delivery_assignments"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
   assert.match(sql, /uq_external_order_provider_id/);
 });
@@ -59,13 +59,13 @@ test("public menu responses use an allowlisted flat shape", async () => {
 });
 
 test("schema contains inventory and recipe tables", async () => {
-  const sql = await read("sql/003_inventory.sql");
+  const sql = await read("sql/migrations/003_inventory.sql");
   for (const table of ["inventory_items", "product_ingredients", "inventory_movements"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
   assert.match(sql, /uq_inventory_order_item/);
 });
 
 test("schema contains operational management tables", async () => {
-  const sql = await read("sql/004_operations.sql");
+  const sql = await read("sql/migrations/004_operations.sql");
   for (const table of ["cash_register_sessions", "customers", "suppliers", "discounts", "loyalty_accounts"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
 });
 
@@ -439,7 +439,7 @@ test("database queries and migrations use local SQLite", async () => {
 });
 
 test("orders persist and apply discount totals", async () => {
-  const sql = await read("sql/007_order_discounts.sql");
+  const sql = await read("sql/migrations/007_order_discounts.sql");
   const routes = await read("src/routes/orders.js");
   assert.match(sql, /discount_amount/);
   assert.match(routes, /Invalid or expired discount code/);
@@ -484,8 +484,8 @@ test("catalog updates validate tenant-owned relations and database field bounds"
 
 test("backend request and product-image limits match the MEDIUMTEXT image column", async () => {
   const server = await read("src/server.js");
-  const createSchema = await read("sql/001_initial.sql");
-  const migration = await read("sql/019_product_images.sql");
+  const createSchema = await read("sql/migrations/001_initial.sql");
+  const migration = await read("sql/migrations/019_product_images.sql");
   assert.match(server, /bodyLimit: 5 \* 1024 \* 1024/);
   assert.match(createSchema, /image_url MEDIUMTEXT NULL/);
   assert.match(migration, /MODIFY COLUMN image_url MEDIUMTEXT NULL/);
@@ -713,10 +713,10 @@ test("integration routes expose connection and event boundaries", async () => {
   assert.match(routes, /Object\.keys\(credentials\)\.some\(\(key\) => key !== "webhook_secret"\)/);
   assert.doesNotMatch(routes, /credentials\.api_token/);
   assert.doesNotMatch(routes, /success: connected|return \{ connected,/);
-  const migration = await read("sql/024_integration_reachability_status.sql");
+  const migration = await read("sql/migrations/024_integration_reachability_status.sql");
   assert.match(migration, /UPDATE integration_connections SET status = 'reachable' WHERE status = 'connected'/);
   assert.match(migration, /ENUM\('disconnected','pending','reachable','error','disabled'\)/);
-  const timestampMigration = await read("sql/025_integration_last_checked_at.sql");
+  const timestampMigration = await read("sql/migrations/025_integration_last_checked_at.sql");
   assert.match(timestampMigration, /CHANGE COLUMN last_synced_at last_checked_at DATETIME NULL/);
   assert.match(routes, /last_checked_at/);
   assert.doesNotMatch(routes, /last_synced_at/);
@@ -979,7 +979,7 @@ test("inventory batch operations cap work and stay within database decimal range
 });
 
 test("order migration persists public customer names", async () => {
-  const migration = await read("sql/021_order_customer_name.sql");
+  const migration = await read("sql/migrations/021_order_customer_name.sql");
   const orders = await read("src/routes/orders.js");
   const businesses = await read("src/routes/businesses.js");
   const auth = await readFrontend("shared/auth/auth.js");
@@ -990,7 +990,7 @@ test("order migration persists public customer names", async () => {
 });
 
 test("order migrations add a business-scoped idempotency key", async () => {
-  const key = await read("sql/022_order_idempotency_key.sql");
+  const key = await read("sql/migrations/022_order_idempotency_key.sql");
   assert.match(key, /ADD COLUMN idempotency_key CHAR\(36\) NULL/);
   assert.match(key, /ADD COLUMN idempotency_hash CHAR\(64\) NULL/);
   assert.match(key, /UNIQUE KEY uq_orders_business_idempotency \(business_id, idempotency_key\)/);
@@ -998,7 +998,7 @@ test("order migrations add a business-scoped idempotency key", async () => {
 
 test("courier location writes are throttled and retain only the latest position", async () => {
   const delivery = await read("src/routes/delivery.js");
-  const migration = await read("sql/020_courier_latest_location.sql");
+  const migration = await read("sql/migrations/020_courier_latest_location.sql");
   const server = await read("src/server.js");
   const db = await read("src/db.js");
   assert.match(delivery, /const courierLocationWrites = new Map\(\)/);
@@ -1100,7 +1100,7 @@ test("business validators enforce name, UTF-8 description, and color boundaries"
 });
 
 test("local team is a business-scoped roster and does not claim per-person access control", async () => {
-  const sql = await read("sql/023_local_team_roster.sql");
+  const sql = await read("sql/migrations/023_local_team_roster.sql");
   const routes = await read("src/routes/platform.js");
   const page = await readFrontend("pages/app/team/index.html");
   const app = await readFrontend("pages/app/team/app.js");
@@ -1123,7 +1123,7 @@ test("local team is a business-scoped roster and does not claim per-person acces
 test("local administrator mutations are written to the audit log without a fake user account", async () => {
   const audit = await read("src/audit.js");
   const server = await read("src/server.js");
-  const schema = await read("sql/008_security.sql");
+  const schema = await read("sql/migrations/008_security.sql");
   assert.match(audit, /if \(!user\) return/);
   assert.match(audit, /const auditUserId = user\.local \? null : user\.id \|\| null/);
   assert.match(audit, /user\.business_id \|\| null, auditUserId/);

@@ -763,6 +763,7 @@ export default {
   "Não foi possível carregar o caixa": "Could not load the cash register",
   "Não foi possível carregar o cardápio pela API": "Could not load the menu from the API",
   "Não foi possível carregar os cadastros": "Could not load records",
+  "Não foi possível carregar os descontos, verifique a conexão e tente novamente": "Could not load discounts, check your connection and try again",
   "Não foi possível criar o QR da mesa": "Could not create the table QR code",
   "Não identificado": "Unknown",
   "Não informada": "Not specified",

@@ -7,9 +7,9 @@
     <title>Deliveries | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
-    <link rel="stylesheet" href="../operations.css" />
+    <link rel="stylesheet" href="../../../styles/shared/operations.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
     <link rel="stylesheet" href="./styles.css" />
@@ -62,13 +62,10 @@
       <main class="content menu-content">
         <div class="page-title">
           <div>
-            <p class="eyebrow">Deliveries</p>
             <h1>Delivery management</h1>
-            <p class="delivery-intro">Add drivers and track delivery progress</p>
           </div>
+          <span class="delivery-loading" id="deliveryPageLoading" role="status" aria-live="polite"><span data-delivery-loading-label>Loading</span><span class="delivery-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
-        <p class="delivery-load-error" id="deliveryLoadError" role="alert" hidden></p>
-        <button class="btn btn--secondary delivery-load-retry" id="deliveryLoadRetry" type="button" hidden>Try again</button>
 
         <div class="operation-grid delivery-grid">
           <section class="panel delivery-couriers" aria-labelledby="courierHeading">
@@ -85,16 +82,25 @@
             <p class="operation-message" id="courierMessage" role="status" aria-live="polite"></p>
 
             <h2 class="delivery-couriers__list-title">Registered drivers</h2>
-            <div class="courier-list" id="courierList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Loading drivers</p></div>
+            <div class="courier-list" id="courierList" aria-live="polite" aria-busy="true"></div>
           </section>
 
           <section class="panel delivery-queue" aria-labelledby="deliveryHeading">
             <h2 id="deliveryHeading">Delivery queue</h2>
-            <div class="operation-list delivery-list" id="deliveryList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Loading deliveries</p></div>
+            <div class="operation-list delivery-list" id="deliveryList" aria-live="polite" aria-busy="true"></div>
             <p class="operation-message" id="deliveryMessage" role="status" aria-live="polite"></p>
           </section>
         </div>
       </main>
+    </div>
+
+    <div class="delivery-error-modal" id="deliveryErrorModal" hidden>
+      <button class="delivery-error-modal__backdrop" type="button" data-close-delivery-error aria-label="Close"></button>
+      <section class="delivery-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="deliveryLoadError">
+        <button class="delivery-error-panel__close" id="deliveryErrorClose" type="button" data-close-delivery-error aria-label="Close">×</button>
+        <p id="deliveryLoadError" class="delivery-load-error" role="alert"></p>
+        <button class="btn btn--secondary delivery-load-retry" id="deliveryLoadRetry" type="button">Try again</button>
+      </section>
     </div>
 
     <script src="../../../env.js"></script>

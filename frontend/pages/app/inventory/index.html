@@ -8,7 +8,7 @@
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -61,17 +61,14 @@
       <main class="content menu-content">
         <header class="page-title inventory-title">
           <div>
-            <p class="eyebrow">Operations</p>
             <h1>Inventory</h1>
-            <p class="inventory-intro">Manage stock levels, purchases, and product recipes</p>
           </div>
+          <span class="inventory-loading" id="inventoryLoading" role="status" aria-live="polite" hidden><span data-inventory-loading-label>Loading</span><span class="inventory-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </header>
-        <p id="inventoryLoadMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
-        <button class="btn btn--secondary inventory-load-retry" id="inventoryLoadRetry" type="button" hidden>Try again</button>
 
         <section class="inventory-workspace" aria-label="Inventory actions">
           <article class="panel inventory-panel">
-            <div class="inventory-panel__heading"><h2>New ingredient</h2><p>Set the opening quantity and minimum stock level</p></div>
+            <div class="inventory-panel__heading"><h2>New ingredient</h2></div>
             <form class="inventory-form" id="inventoryForm">
               <label for="itemName"><span>Ingredient name</span><input id="itemName" required maxlength="160" placeholder="e.g Beef" /></label>
               <label for="itemUnit"><span>Unit</span><select id="itemUnit"><option value="unit">Unit</option><option value="g">Grams</option><option value="kg">Kilograms</option><option value="ml">Milliliters</option><option value="l">Liters</option></select></label>
@@ -83,7 +80,7 @@
           </article>
 
           <article class="panel inventory-panel">
-            <div class="inventory-panel__heading"><h2>Adjustment or waste</h2><p>Correct the available quantity or record waste</p></div>
+            <div class="inventory-panel__heading"><h2>Adjustment or waste</h2></div>
             <form class="inventory-form" id="movementForm">
               <label for="movementItem"><span>Ingredient</span><select id="movementItem" disabled><option value="">Loading ingredients</option></select></label>
               <label for="movementType"><span>Movement type</span><select id="movementType"><option value="adjustment">Adjustment</option><option value="loss">Waste</option></select></label>
@@ -96,7 +93,7 @@
           </article>
 
           <article class="panel inventory-panel">
-            <div class="inventory-panel__heading"><h2>Record purchase</h2><p>Update the stock balance and average cost</p></div>
+            <div class="inventory-panel__heading"><h2>Record purchase</h2></div>
             <form class="inventory-form" id="purchaseForm">
               <label for="purchaseSupplier"><span>Supplier <span class="inventory-optional">Optional</span></span><select id="purchaseSupplier" disabled><option value="">Loading suppliers</option></select></label>
               <label for="purchaseItem"><span>Ingredient</span><select id="purchaseItem" disabled><option value="">Loading ingredients</option></select></label>
@@ -108,8 +105,7 @@
           </article>
 
           <article class="panel inventory-panel">
-            <div class="inventory-panel__heading"><h2>Product recipe</h2><p>Enter the ingredients and quantities for each product</p></div>
-            <p class="inventory-note" role="note">Saving replaces the previous recipe. Add every ingredient before continuing.</p>
+            <div class="inventory-panel__heading"><h2>Product recipe</h2></div>
             <form class="inventory-form inventory-recipe-form" id="recipeForm">
               <label for="recipeProduct"><span>Product</span><select id="recipeProduct" disabled><option value="">Loading products</option></select></label>
               <div class="inventory-recipe-form__add-row">
@@ -125,7 +121,7 @@
         </section>
 
         <section class="panel inventory-list-panel">
-          <div class="inventory-list-panel__heading"><div><p class="eyebrow">CURRENT STOCK</p><h2>Registered ingredients</h2></div><span id="inventoryCount" class="inventory-count">—</span></div>
+          <div class="inventory-list-panel__heading"><div><h2>Registered ingredients</h2></div><span id="inventoryCount" class="inventory-count">—</span></div>
           <div class="inventory-table-wrap">
             <table class="inventory-table" aria-label="Registered ingredients">
               <thead><tr><th>Ingredient</th><th>Unit</th><th>Current quantity</th><th>Minimum stock</th><th>Status</th></tr></thead>
@@ -134,6 +130,14 @@
           </div>
         </section>
       </main>
+    </div>
+    <div class="inventory-error-modal" id="inventoryErrorModal" hidden>
+      <button class="inventory-error-modal__backdrop" type="button" data-close-inventory-error aria-label="Close"></button>
+      <section class="inventory-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="inventoryLoadError">
+        <button class="inventory-error-panel__close" id="inventoryErrorClose" type="button" data-close-inventory-error aria-label="Close">×</button>
+        <p id="inventoryLoadError" class="inventory-load-error" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary inventory-retry" id="inventoryRetry" type="button">Try again</button>
+      </section>
     </div>
     <script src="../../../env.js"></script>
     <script type="module" src="../../../shared/i18n/legacy-control.js"></script>

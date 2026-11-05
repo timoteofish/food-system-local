@@ -36,6 +36,39 @@ const elements = {
   list: document.getElementById("teamList"),
   count: document.getElementById("teamCount"),
 };
+const pageLoading = document.getElementById("teamPageLoading");
+const errorModal = document.getElementById("teamErrorModal");
+const loadErrorMessage = document.getElementById("teamLoadError");
+const retryButton = document.getElementById("teamRetry");
+const errorClose = document.getElementById("teamErrorClose");
+
+const setLoading = (isLoading) => {
+  pageLoading.hidden = !isLoading;
+  if (isLoading) {
+    pageLoading.querySelector("[data-team-loading-label]").textContent = translate("Loading");
+  }
+};
+
+const hideLoadError = () => {
+  errorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showLoadError = (message) => {
+  setLoading(false);
+  loadErrorMessage.textContent = message;
+  retryButton.disabled = false;
+  errorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  errorClose.focus();
+};
+
+errorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-team-error]")) hideLoadError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !errorModal.hidden) hideLoadError();
+});
 
 const businessId = () => getBusiness()?.id;
 
@@ -79,23 +112,29 @@ const renderTeam = () => {
 };
 
 const loadTeam = async () => {
+  hideLoadError();
+  setLoading(true);
   if (!businessId()) {
     elements.count.textContent = "—";
     elements.list.setAttribute("aria-busy", "false");
-    elements.list.innerHTML = `<p class="team-empty" role="status">${translate("teamBusinessUnavailable")}</p>`;
+    elements.list.replaceChildren();
+    showLoadError(translate("teamBusinessUnavailable"));
     return false;
   }
   elements.count.textContent = "—";
   elements.list.setAttribute("aria-busy", "true");
-  elements.list.innerHTML = `<p class="team-empty" role="status">${translate("teamLoading")}</p>`;
+  elements.list.replaceChildren();
   try {
     state.members = await loadTeamMembersRemote();
     renderTeam();
     return true;
   } catch {
     elements.list.setAttribute("aria-busy", "false");
-    elements.list.innerHTML = `<div class="team-empty" role="alert"><p>${translate("teamLoadError")}</p><button class="btn btn--secondary" type="button" data-team-retry>${translate("Try again")}</button></div>`;
+    elements.list.replaceChildren();
+    showLoadError(translate("teamLoadError"));
     return false;
+  } finally {
+    setLoading(false);
   }
 };
 
@@ -143,10 +182,6 @@ elements.list.addEventListener("change", async (event) => {
 });
 
 elements.list.addEventListener("click", async (event) => {
-  if (event.target.closest("[data-team-retry]")) {
-    await start();
-    return;
-  }
   const button = event.target.closest("[data-team-disable]");
   if (!button) return;
   const card = button.closest("[data-member-id]");
@@ -166,6 +201,9 @@ elements.list.addEventListener("click", async (event) => {
 });
 
 const start = async () => {
+  hideLoadError();
+  setLoading(true);
+  retryButton.disabled = true;
   try {
     if (!appShellReady) {
       await initAppShell({ activeNav: "team" });
@@ -174,8 +212,13 @@ const start = async () => {
     await loadTeam();
   } catch {
     elements.list.setAttribute("aria-busy", "false");
-    elements.list.innerHTML = `<div class="team-empty" role="alert"><p>${translate("teamOpenError")}</p><button class="btn btn--secondary" type="button" data-team-retry>${translate("Try again")}</button></div>`;
+    elements.list.replaceChildren();
+    showLoadError(translate("teamOpenError"));
+  } finally {
+    setLoading(false);
+    retryButton.disabled = false;
   }
 };
 
+retryButton.addEventListener("click", () => void start());
 void start();

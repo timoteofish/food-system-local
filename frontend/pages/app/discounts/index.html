@@ -6,11 +6,11 @@
     <title>Discounts | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
-    <link rel="stylesheet" href="../contacts/styles.css" />
+    <link rel="stylesheet" href="./styles.css" />
       <script type="module" src="../../../shared/ui/appearance-boot.js"></script>
   </head>
   <body data-contact-view="discounts">
@@ -58,13 +58,10 @@
       </aside>
 
       <main class="content menu-content">
-        <header class="page-title"><div><p class="eyebrow">Customer relationships</p><h1>Discounts</h1><p class="contacts-intro">Create discount codes and rules for orders</p></div></header>
-        <p id="contactsLoadError" class="contacts-load-error" role="alert" hidden></p>
-        <button class="btn btn--secondary contacts-load-retry" id="contactsLoadRetry" type="button" hidden>Try again</button>
+        <header class="page-title"><div><h1>Discounts</h1></div><span class="contacts-page-loading" id="contactsPageLoading" role="status" aria-live="polite"><span data-contacts-loading-label>Loading</span><span class="contacts-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span></header>
         <section class="contact-grid contact-grid--single" aria-label="Discounts">
           <article class="panel">
-            <h2>Discounts</h2>
-            <p class="contact-panel__intro">Set discount codes and rules</p>
+            <h2>Set discount codes and rules</h2>
             <form class="contact-form" id="discountForm">
               <label class="field"><span>Discount name</span><input name="name" required maxlength="120" placeholder="e.g Welcome" /></label>
               <label class="field"><span>Discount code</span><input name="code" required maxlength="40" placeholder="e.g WELCOME10" /></label>
@@ -72,18 +69,27 @@
                 <option value="percentage">Percentage</option>
                 <option value="fixed">Fixed amount</option>
               </select></label>
-              <label class="field"><span>Discount amount</span><input name="value" type="number" min="0.01" step="0.01" required placeholder="e.g. 10" /></label>
+              <label class="field"><span>Discount amount</span><span class="discount-value-control"><span class="discount-value-control__prefix" data-discount-currency hidden>R$</span><input name="value" type="text" inputmode="decimal" autocomplete="off" required placeholder="e.g. 10" /><span class="discount-value-control__suffix" data-discount-percent>%</span></span></label>
               <button class="btn btn--primary" type="submit">Create discount</button>
             </form>
-            <div class="contact-list" id="discountList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Loading discounts</p></div>
+            <div class="contact-list" id="discountList" aria-live="polite" aria-busy="true"></div>
           </article>
         </section>
       </main>
     </div>
 
+    <div class="contacts-error-modal" id="contactsErrorModal" hidden>
+      <button class="contacts-error-modal__backdrop" type="button" data-close-contact-error aria-label="Close"></button>
+      <section class="contacts-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="contactsLoadError">
+        <button class="contacts-error-panel__close" type="button" data-close-contact-error aria-label="Close">×</button>
+        <p id="contactsLoadError" class="contacts-load-error" role="alert" aria-live="assertive">Não foi possível carregar os descontos, verifique a conexão e tente novamente</p>
+        <button class="btn btn--secondary contacts-load-retry" id="contactsLoadRetry" type="button">Try again</button>
+      </section>
+    </div>
+
     <script src="../../../env.js"></script>
     <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="../../../shared/ui/profile-menu-boot.js"></script>
-    <script type="module" src="../contacts/app.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

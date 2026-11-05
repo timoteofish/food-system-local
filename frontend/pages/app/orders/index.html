@@ -7,7 +7,7 @@
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -61,10 +61,9 @@
       <main class="content menu-content">
         <div class="page-title orders-title">
           <div>
-            <p class="eyebrow" data-i18n="ordersEyebrow">Operations</p>
             <h1 data-i18n="ordersTitle">Orders in progress</h1>
-          <p class="orders-intro" data-i18n="ordersIntro">Track orders and move each one through preparation</p>
           </div>
+          <span class="orders-page-loading" id="ordersPageLoading" role="status" aria-live="polite" hidden><span data-orders-loading-label>Loading</span><span class="orders-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
         <section class="orders-board" aria-label="Order tracking">
           <div class="orders-board__overview" id="ordersOverview">
@@ -92,13 +91,17 @@
             </div>
           </div>
           <p id="ordersFeedback" class="orders-feedback" role="status" aria-live="polite" hidden></p>
-          <div id="ordersList" class="orders-board__grid" role="region" aria-labelledby="ordersHeadingTitle" aria-busy="true">
-            <article class="orders-empty" role="status">
-              <strong data-i18n="ordersLoading">Loading orders</strong>
-            </article>
-          </div>
+          <div id="ordersList" class="orders-board__grid" role="region" aria-labelledby="ordersHeadingTitle" aria-busy="true"></div>
         </section>
       </main>
+    </div>
+    <div class="orders-error-modal" id="ordersErrorModal" hidden>
+      <button class="orders-error-modal__backdrop" type="button" data-close-orders-error aria-label="Close"></button>
+      <section class="orders-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="ordersLoadError">
+        <button class="orders-error-panel__close" id="ordersErrorClose" type="button" data-close-orders-error aria-label="Close">×</button>
+        <p id="ordersLoadError" class="orders-load-error" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary orders-retry" id="ordersRetry" type="button" data-i18n="ordersRetry">Try again</button>
+      </section>
     </div>
     <script src="../../../env.js"></script><script type="module" src="../../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="../../../shared/ui/profile-menu-boot.js"></script>

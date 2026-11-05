@@ -7,7 +7,7 @@
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -64,18 +64,15 @@
       <main class="content menu-content">
         <header class="page-title products-title">
           <div>
-            <p class="eyebrow">Catalog</p>
             <h1>Products</h1>
-            <p class="products-intro">Add products and keep the menu up to date</p>
           </div>
-          <span id="productCount" class="products-count">Loading products</span>
+          <span class="products-page-loading" id="productsPageLoading" role="status" aria-live="polite" hidden><span data-products-loading-label>Loading</span><span class="products-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
+          <span id="productCount" class="products-count" hidden></span>
         </header>
         <p id="productFeedback" class="products-feedback" role="status" aria-live="polite" hidden></p>
-        <button class="btn btn--secondary products-retry" id="productsRetry" type="button" hidden>Try again</button>
         <section class="panel product-form-panel">
           <div class="product-form-panel__heading">
             <h2>New product</h2>
-            <p>Enter a name, price, and category The description is optional</p>
           </div>
           <form class="product-form" id="productForm">
             <div class="field field--image-inline" role="group" aria-labelledby="productImageLabel">
@@ -95,7 +92,7 @@
               </div>
               <div class="field field--price">
                 <label for="productPrice">Price</label>
-                <input id="productPrice" name="price" inputmode="decimal" placeholder="0.00" required />
+                <input id="productPrice" name="price" type="text" inputmode="decimal" autocomplete="off" placeholder="R$ 0,00" required />
               </div>
             </div>
             <div class="field field--category">
@@ -116,18 +113,26 @@
           </form>
         </section>
         <section class="panel table-panel" aria-labelledby="productsListTitle">
-          <div class="products-list-heading"><div><h2 id="productsListTitle">Saved products</h2><p>Manage prices and availability</p></div></div>
+          <div class="products-list-heading"><div><h2 id="productsListTitle">Saved products</h2></div></div>
           <div class="table-controls">
             <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-5.34C15.39 5.59 12.3 3 8.7 3S2 5.59 2 8.39 4.09 13.78 7.69 13.78c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM7.69 12.28C5.1 12.28 3 10.28 3 8.39S5.1 4.5 7.69 4.5 12.38 6.5 12.38 8.39 10.28 12.28 7.69 12.28z"/></svg>
             <input id="productSearch" type="search" placeholder="Search by name, category, or code" aria-label="Search products" disabled />
           </div>
-          <div class="mobile-product-list" id="mobileProductList" aria-live="polite"><p class="mobile-product-list__empty" role="status">Loading products</p></div>
+          <div class="mobile-product-list" id="mobileProductList" aria-live="polite"></div>
           <table aria-label="Saved products">
             <thead><tr><th>Image</th><th>Product</th><th>Code</th><th>Category</th><th>Price</th><th>Status</th></tr></thead>
-            <tbody id="productList" aria-busy="true"><tr><td class="products-table-empty" colspan="6" role="status">Loading products</td></tr></tbody>
+            <tbody id="productList" aria-busy="true"></tbody>
           </table>
         </section>
       </main>
+    </div>
+    <div class="products-error-modal" id="productsErrorModal" hidden>
+      <button class="products-error-modal__backdrop" type="button" data-close-products-error aria-label="Close"></button>
+      <section class="products-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="productsLoadError">
+        <button class="products-error-panel__close" id="productsErrorClose" type="button" data-close-products-error aria-label="Close">×</button>
+        <p id="productsLoadError" class="products-load-error" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary products-retry" id="productsRetry" type="button">Try again</button>
+      </section>
     </div>
     <script src="../../../env.js"></script><script type="module" src="../../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="../../../shared/ui/profile-menu-boot.js"></script>

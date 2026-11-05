@@ -8,8 +8,11 @@ const session = getSession();
 const businessId = session?.businessId;
 const rows = document.getElementById("inventoryRows");
 const count = document.getElementById("inventoryCount");
-const loadMessage = document.getElementById("inventoryLoadMessage");
-const loadRetry = document.getElementById("inventoryLoadRetry");
+const loadingIndicator = document.getElementById("inventoryLoading");
+const errorModal = document.getElementById("inventoryErrorModal");
+const loadErrorMessage = document.getElementById("inventoryLoadError");
+const retryButton = document.getElementById("inventoryRetry");
+const errorClose = document.getElementById("inventoryErrorClose");
 const movementType = document.getElementById("movementType");
 const movementDirectionField = document.getElementById("movementDirectionField");
 const recipeIngredientsList = document.getElementById("recipeIngredients");
@@ -22,6 +25,34 @@ let hasLoadedProducts = false;
 let hasLoadedSuppliers = false;
 let loading = false;
 let appShellReady = false;
+
+const setLoading = (isLoading) => {
+  loadingIndicator.hidden = !isLoading;
+  if (isLoading) {
+    loadingIndicator.querySelector("[data-inventory-loading-label]").textContent = translate("Loading");
+  }
+};
+
+const hideLoadError = () => {
+  errorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showLoadError = () => {
+  setLoading(false);
+  loadErrorMessage.textContent = translate("inventoryLoadError");
+  retryButton.disabled = false;
+  errorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  errorClose.focus();
+};
+
+errorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-inventory-error]")) hideLoadError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !errorModal.hidden) hideLoadError();
+});
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>\'"]/g, (char) => ({
   "&": "&amp;",
@@ -108,6 +139,7 @@ const renderRecipeIngredients = () => {
 const renderInventory = () => {
   if (!hasLoadedInventory) return;
   rows.setAttribute("aria-busy", "false");
+  count.hidden = false;
   const itemWord = translate(items.length === 1 ? "ingredient" : "ingredients");
   count.textContent = `${formatNumber(items.length)} ${itemWord}`;
   if (!items.length) {
@@ -139,13 +171,12 @@ const renderInventory = () => {
 const load = async () => {
   if (loading) return false;
   loading = true;
-  loadRetry.hidden = true;
-  loadRetry.disabled = true;
-  clearMessage(loadMessage);
+  hideLoadError();
+  setLoading(true);
   if (!hasLoadedInventory) {
     count.textContent = "—";
     rows.setAttribute("aria-busy", "true");
-    rows.innerHTML = `<tr><td class="inventory-empty" colspan="5" role="status">${translate("inventoryLoadingItems")}</td></tr>`;
+    rows.replaceChildren();
   }
   try {
     const results = await Promise.allSettled([
@@ -163,7 +194,8 @@ const load = async () => {
     } else {
       hasLoadError = true;
       if (!hasLoadedInventory) {
-        count.textContent = translate("inventoryUnavailable");
+        count.textContent = "";
+        count.hidden = true;
         rows.setAttribute("aria-busy", "false");
         rows.innerHTML = `<tr><td class="inventory-empty" colspan="5">${translate("inventoryNotAvailable")}</td></tr>`;
       }
@@ -185,27 +217,26 @@ const load = async () => {
 
     renderSelectOptions();
     if (hasLoadError) {
-      setMessage(loadMessage, translate("inventoryLoadError"));
-      loadRetry.hidden = false;
+      showLoadError();
       return false;
     }
     return true;
   } catch {
-    setMessage(loadMessage, translate("inventoryLoadError"));
-    loadRetry.hidden = false;
+    showLoadError();
     if (!hasLoadedInventory) {
-      count.textContent = translate("inventoryUnavailable");
+      count.textContent = "";
+      count.hidden = true;
       rows.setAttribute("aria-busy", "false");
       rows.innerHTML = `<tr><td class="inventory-empty" colspan="5">${translate("inventoryNotAvailable")}</td></tr>`;
     }
     return false;
   } finally {
     loading = false;
-    loadRetry.disabled = false;
+    setLoading(false);
   }
 };
 
-loadRetry.addEventListener("click", () => void initializeInventory());
+retryButton.addEventListener("click", () => void initializeInventory());
 
 movementType.addEventListener("change", () => {
   movementDirectionField.hidden = movementType.value !== "adjustment";
@@ -357,9 +388,9 @@ document.getElementById("recipeForm").addEventListener("submit", async (event) =
 });
 
 const initializeInventory = async () => {
-  loadRetry.hidden = true;
-  loadRetry.disabled = true;
-  clearMessage(loadMessage);
+  hideLoadError();
+  setLoading(true);
+  retryButton.disabled = true;
   try {
     if (!appShellReady) {
       await initAppShell({ activeNav: "inventory" });
@@ -367,10 +398,10 @@ const initializeInventory = async () => {
     }
     await load();
   } catch {
-    setMessage(loadMessage, translate("Could not open inventory"));
-    loadRetry.hidden = false;
+    showLoadError();
   } finally {
-    loadRetry.disabled = false;
+    retryButton.disabled = false;
+    if (!loading) setLoading(false);
   }
 };
 

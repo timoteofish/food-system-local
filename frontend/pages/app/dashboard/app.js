@@ -10,17 +10,35 @@ const dashboardStats = document.querySelector(".dashboard-stats");
 const recentOrders = document.getElementById("recentOrders");
 const feedback = document.getElementById("dashboardFeedback");
 const retryButton = document.getElementById("dashboardRetry");
+const loadingIndicator = document.getElementById("dashboardLoading");
+const errorModal = document.getElementById("dashboardErrorModal");
+const errorClose = document.getElementById("dashboardErrorClose");
 let loading = false;
 let hasLoadedDashboard = false;
+let appShellReady = false;
+
+const hideDashboardError = () => {
+  errorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
 
 const showDashboardError = () => {
+  loadingIndicator.hidden = true;
   dashboardStats.setAttribute("aria-busy", "false");
   recentOrders.setAttribute("aria-busy", "false");
-  recentOrders.innerHTML = `<p class="dashboard-empty" role="status">${translate("Recent orders are unavailable")}</p>`;
+  recentOrders.replaceChildren();
   feedback.textContent = translate("Could not load the dashboard Check your connection and try again");
-  feedback.hidden = false;
-  retryButton.hidden = false;
+  errorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  errorClose.focus();
 };
+
+errorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-dashboard-error]")) hideDashboardError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !errorModal.hidden) hideDashboardError();
+});
 
 const renderRecentOrders = (orders) => {
   recentOrders.replaceChildren();
@@ -56,14 +74,12 @@ const renderRecentOrders = (orders) => {
 const loadDashboard = async () => {
   if (loading) return;
   loading = true;
-  retryButton.hidden = true;
+  hideDashboardError();
+  loadingIndicator.hidden = false;
   retryButton.disabled = true;
-  feedback.hidden = true;
   dashboardStats.setAttribute("aria-busy", "true");
   recentOrders.setAttribute("aria-busy", "true");
-  if (!hasLoadedDashboard) {
-    recentOrders.innerHTML = `<p class="dashboard-empty" role="status">${translate("Loading orders")}</p>`;
-  }
+  if (!hasLoadedDashboard) recentOrders.replaceChildren();
 
   try {
     const { stats, orders } = await loadDashboardData();
@@ -73,6 +89,7 @@ const loadDashboard = async () => {
     document.getElementById("activeLocations").textContent = numberFormat.format(stats.activeLocations || 0);
     renderRecentOrders(orders);
     hasLoadedDashboard = true;
+    loadingIndicator.hidden = true;
     dashboardStats.setAttribute("aria-busy", "false");
     recentOrders.setAttribute("aria-busy", "false");
   } catch {
@@ -88,14 +105,22 @@ if (session?.name) {
   if (welcome) welcome.textContent = session.name.split(" ")[0];
 }
 
-retryButton.addEventListener("click", () => void loadDashboard());
+retryButton.addEventListener("click", () => void initializeDashboard());
 
-(async () => {
+const initializeDashboard = async () => {
+  hideDashboardError();
+  loadingIndicator.hidden = false;
+  loadingIndicator.querySelector("[data-dashboard-loading-label]").textContent = translate("Loading");
   try {
-    await initAppShell({ activeNav: "dashboard" });
+    if (!appShellReady) {
+      await initAppShell({ activeNav: "dashboard" });
+      appShellReady = true;
+    }
     await loadDashboard();
   } catch {
     showDashboardError();
     retryButton.disabled = false;
   }
-})();
+};
+
+void initializeDashboard();

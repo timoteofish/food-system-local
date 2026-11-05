@@ -6,7 +6,7 @@
     <title>Customers | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -60,17 +60,12 @@
       <main class="content menu-content">
         <div class="page-title">
           <div>
-            <p class="eyebrow">Customers and partners</p>
-            <h1>Customers</h1>
             <p class="contacts-intro">Add and browse your customers</p>
           </div>
+          <span class="contacts-page-loading" id="contactsPageLoading" role="status" aria-live="polite" hidden><span data-contacts-loading-label>Loading</span><span class="contacts-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
-        <p id="contactsLoadError" class="contacts-load-error" role="alert" hidden></p>
-        <button class="btn btn--secondary contacts-load-retry" id="contactsLoadRetry" type="button" hidden>Try again</button>
-
         <section class="contact-grid contact-grid--single" aria-label="Customers"><article class="panel">
-            <h2>Customers</h2>
-            <p class="contact-panel__intro">Keep customer contact details</p>
+            <p class="contact-panel__intro contact-panel__intro--title">Keep customer contact details</p>
             <form class="contact-form" id="customerForm">
               <label class="field"><span>Customer name</span><input name="name" autocomplete="name" required maxlength="160" placeholder="e.g Ana Souza" /></label>
               <label class="field"><span>Phone <span class="contact-optional">Optional</span></span><input name="phone" type="tel" autocomplete="tel" maxlength="40" placeholder="(00) 00000-0000" /></label>
@@ -80,6 +75,15 @@
             <div class="contact-list" id="customerList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Loading customers</p></div>
           </article></section>
         </main>
+    </div>
+
+    <div class="contacts-error-modal" id="contactsErrorModal" hidden>
+      <button class="contacts-error-modal__backdrop" type="button" data-close-contact-error aria-label="Close"></button>
+      <section class="contacts-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="contactsLoadError">
+        <button class="contacts-error-panel__close" type="button" data-close-contact-error aria-label="Close">×</button>
+        <p id="contactsLoadError" class="contacts-load-error" role="alert"></p>
+        <button class="btn btn--secondary contacts-load-retry" id="contactsLoadRetry" type="button">Try again</button>
+      </section>
     </div>
 
     <script src="../../../env.js"></script>

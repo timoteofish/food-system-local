@@ -17,6 +17,35 @@
   margin: 0;
 }
 
+.cash-page-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.cash-page-loading[hidden] { display: none; }
+.cash-page-loading__dots {
+  display: inline-flex;
+  gap: 1px;
+}
+.cash-page-loading__dots i {
+  font-style: normal;
+  animation: cash-loading-dot 1s ease-in-out infinite;
+}
+.cash-page-loading__dots i:nth-child(2) { animation-delay: .15s; }
+.cash-page-loading__dots i:nth-child(3) { animation-delay: .3s; }
+
+@keyframes cash-loading-dot {
+  0%, 60%, 100% { opacity: .25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cash-page-loading__dots i { animation: none; opacity: 1; }
+}
+
 .cash-page-intro {
   margin: 7px 0 0;
   color: var(--muted);
@@ -46,7 +75,57 @@
   color: var(--accent-dark);
 }
 
-.cash-load-retry{justify-self:start;margin-top:-8px}
+.cash-load-modal[hidden] { display: none; }
+.cash-load-modal {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.cash-load-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(20, 20, 20, .56);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+.cash-load-alert {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  width: min(100%, 520px);
+  padding: 32px;
+  border: 1px solid color-mix(in srgb, var(--danger) 18%, white);
+  border-radius: 14px;
+  background: #fff;
+  color: #171717;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .24);
+}
+
+.cash-load-alert .cash-feedback { padding: 4px 42px 4px 0; border: 0; background: transparent; color: #171717; font-size: 1rem; text-align: center; }
+.cash-load-retry { justify-self: center; min-height: 44px; }
+.cash-load-alert__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: var(--danger);
+  font: inherit;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cash-load-alert__close:focus-visible { outline: 3px solid color-mix(in srgb, var(--danger) 25%, transparent); outline-offset: 2px; }
 .cash-feedback[hidden],
 .cash-helper[hidden] {
   display: none;
@@ -104,24 +183,16 @@
   gap: 5px;
 }
 
-.cash-movement-panel__heading .eyebrow,
-.cash-movement-panel__heading h2,
 .cash-movement-panel__heading .cash-helper {
   margin: 0;
 }
 
-.cash-movement-panel__heading .eyebrow {
-  color: var(--accent-dark);
-}
-
-.cash-movement-panel__heading h2 {
-  font-size: 1.15rem;
-  letter-spacing: -.02em;
-}
-
 .cash-movement-panel__heading .cash-helper {
-  color: var(--muted);
-  font-size: .82rem;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -.02em;
 }
 
 .cash-optional {
@@ -136,7 +207,7 @@
   width: max-content;
   max-width: 100%;
   align-items: center;
-  gap: 7px;
+  gap: 0;
   padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -146,27 +217,13 @@
   font-weight: 700;
 }
 
-.cash-register-status::before {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 7px;
-  border-radius: 50%;
-  background: currentColor;
-  content: "";
-  opacity: .55;
-}
+.cash-register-status[hidden] { display: none; }
 
 .cash-register-status.is-open {
   border-color: color-mix(in srgb, var(--accent) 18%, var(--line));
   background: var(--accent-soft);
   color: var(--accent-dark);
   box-shadow: none;
-}
-
-.cash-register-status.is-open::before {
-  background: var(--accent-neon);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--accent-neon) 28%, transparent);
-  opacity: 1;
 }
 
 .cash-register-status.is-closed {
@@ -488,6 +545,14 @@
   background: var(--surface);
   color: var(--text);
   transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.cash-movement-form select {
+  padding-right: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%236b7280' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  appearance: none;
 }
 
 .cash-register-form input:focus,

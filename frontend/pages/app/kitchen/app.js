@@ -8,6 +8,11 @@ const board = document.getElementById("kitchenBoard");
 const statusMessage = document.getElementById("kitchenStatus");
 const stationSelect = document.getElementById("kitchenStation");
 const refreshButton = document.getElementById("refreshKitchen");
+const loadingIndicator = document.getElementById("kitchenLoading");
+const errorModal = document.getElementById("kitchenErrorModal");
+const loadErrorMessage = document.getElementById("kitchenLoadError");
+const retryButton = document.getElementById("kitchenRetry");
+const errorClose = document.getElementById("kitchenErrorClose");
 const columns = [
   ["pending", "New", "confirmed"],
   ["confirmed", "Waiting for preparation", "preparing"],
@@ -50,6 +55,35 @@ const setStatus = (message, state = "") => {
   if (state) statusMessage.dataset.state = state;
   else statusMessage.removeAttribute("data-state");
 };
+
+const setLoading = (isLoading) => {
+  loadingIndicator.hidden = !isLoading;
+  if (isLoading) {
+    loadingIndicator.querySelector("[data-kitchen-loading-label]").textContent = translate("Loading");
+  }
+};
+
+const hideLoadError = () => {
+  errorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showLoadError = () => {
+  setLoading(false);
+  refreshButton.disabled = false;
+  retryButton.disabled = false;
+  loadErrorMessage.textContent = translate("kitchenLoadError");
+  errorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  errorClose.focus();
+};
+
+errorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-kitchen-error]")) hideLoadError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !errorModal.hidden) hideLoadError();
+});
 
 const openPrintTicket = (ticket) => {
   const popup = window.open("", "_blank", "width=420,height=640");
@@ -129,7 +163,8 @@ const renderBoard = (orders) => {
 
 const load = async () => {
   board.setAttribute("aria-busy", "true");
-  setStatus(translate("Updating orders"));
+  hideLoadError();
+  setLoading(true);
   refreshButton.disabled = true;
   const stationQuery = stationSelect.value ? `?station_id=${encodeURIComponent(stationSelect.value)}` : "";
 
@@ -142,10 +177,11 @@ const load = async () => {
       .replace("$1", String(activeCount));
     setStatus(countLabel);
   } catch (error) {
-    board.innerHTML = `<div class="kitchen-board__error" role="alert"><p>${translate("Could not load orders Check your connection and try again")}</p><button class="btn btn--secondary" type="button" data-kitchen-retry>${translate("Try again")}</button></div>`;
-    setStatus(translate("Orders unavailable"), "error");
+    setStatus("");
+    showLoadError();
   } finally {
     board.setAttribute("aria-busy", "false");
+    setLoading(false);
     refreshButton.disabled = false;
   }
 };
@@ -192,7 +228,10 @@ let initializing = false;
 const initializeKitchen = async () => {
   if (initializing) return;
   initializing = true;
+  hideLoadError();
+  setLoading(true);
   refreshButton.disabled = true;
+  retryButton.disabled = true;
   try {
     if (!appShellReady) {
       await initAppShell({ activeNav: "kitchen" });
@@ -219,18 +258,18 @@ const initializeKitchen = async () => {
     await load();
   } catch {
     board.setAttribute("aria-busy", "false");
-    board.innerHTML = `<div class="kitchen-board__error" role="alert"><p>${translate("Could not open the kitchen display")}</p><button class="btn btn--secondary" type="button" data-kitchen-retry>${translate("Try again")}</button></div>`;
-    setStatus(translate("Orders unavailable"), "error");
+    setStatus("");
+    showLoadError();
   } finally {
     initializing = false;
+    setLoading(false);
     refreshButton.disabled = false;
+    retryButton.disabled = false;
   }
 };
 
 refreshButton.addEventListener("click", () => void initializeKitchen());
 stationSelect.addEventListener("change", load);
-board.addEventListener("click", (event) => {
-  if (event.target.closest("[data-kitchen-retry]")) void initializeKitchen();
-});
+retryButton.addEventListener("click", () => void initializeKitchen());
 
 void initializeKitchen();

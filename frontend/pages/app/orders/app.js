@@ -14,6 +14,44 @@ const ACTIVE_STATUSES = ["new", "preparing", "ready"];
 const mobileOrdersQuery = window.matchMedia("(max-width: 767px)");
 let appShellInitialized = false;
 let refreshTimerStarted = false;
+const ordersPageLoading = document.getElementById("ordersPageLoading");
+const ordersErrorModal = document.getElementById("ordersErrorModal");
+const ordersLoadError = document.getElementById("ordersLoadError");
+const ordersRetry = document.getElementById("ordersRetry");
+const ordersErrorClose = document.getElementById("ordersErrorClose");
+
+const setOrdersLoading = (isLoading) => {
+  ordersPageLoading.hidden = !isLoading;
+  if (isLoading) {
+    ordersPageLoading.querySelector("[data-orders-loading-label]").textContent = translate("Loading");
+  }
+};
+
+const hideOrdersError = () => {
+  ordersErrorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showOrdersError = () => {
+  setOrdersLoading(false);
+  ordersLoadError.textContent = translate("ordersPageLoadError");
+  ordersErrorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  ordersErrorClose.focus();
+};
+
+ordersErrorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-orders-error]")) hideOrdersError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !ordersErrorModal.hidden) hideOrdersError();
+});
+
+const startRefreshTimer = () => {
+  if (refreshTimerStarted) return;
+  window.setInterval(refreshOrders, AUTO_REFRESH_INTERVAL_MS);
+  refreshTimerStarted = true;
+};
 
 const formatDateTime = (value) => {
   const date = new Date(value);
@@ -241,11 +279,12 @@ const renderOrders = (orders) => {
 const refreshOrders = async () => {
   if (refreshInProgress || document.hidden) return;
   refreshInProgress = true;
+  if (!hasLoadedOrders) setOrdersLoading(true);
   if (!hasLoadedOrders) {
     const list = document.getElementById("ordersList");
     if (list) {
       list.setAttribute("aria-busy", "true");
-      list.innerHTML = `<article class="orders-empty" role="status"><strong>${translate("ordersLoading")}</strong></article>`;
+      list.replaceChildren();
     }
   }
   try {
@@ -258,6 +297,7 @@ const refreshOrders = async () => {
       feedback.removeAttribute("data-state");
     }
     renderOrders(orders);
+    startRefreshTimer();
   } catch {
     const feedback = document.getElementById("ordersFeedback");
     if (feedback && hasLoadedOrders) {
@@ -268,36 +308,39 @@ const refreshOrders = async () => {
       feedback.hidden = true;
     }
     if (!hasLoadedOrders) {
-      const list = document.getElementById("ordersList");
-      if (list) {
-        list.setAttribute("aria-busy", "false");
-        list.innerHTML = `<article class="orders-empty" role="alert"><strong>${translate("ordersNotLoaded")}</strong><p>${translate("ordersConnectionRetry")}</p><button class="btn btn--secondary" type="button" data-orders-retry>${translate("ordersRetry")}</button></article>`;
-      }
+      document.getElementById("ordersList")?.setAttribute("aria-busy", "false");
+      showOrdersError();
     }
   } finally {
     refreshInProgress = false;
+    setOrdersLoading(false);
   }
 };
 
 const initializeOrders = async () => {
+  setOrdersLoading(true);
   try {
     if (!appShellInitialized) {
       await initAppShell({ activeNav: "orders" });
       appShellInitialized = true;
     }
     await refreshOrders();
-    if (!refreshTimerStarted) {
-      window.setInterval(refreshOrders, AUTO_REFRESH_INTERVAL_MS);
-      refreshTimerStarted = true;
-    }
   } catch {
-    const list = document.getElementById("ordersList");
-    if (list) {
-      list.setAttribute("aria-busy", "false");
-      list.innerHTML = `<article class="orders-empty" role="alert"><strong>${translate("ordersOpenError")}</strong><button class="btn btn--secondary" type="button" data-orders-retry>${translate("ordersRetry")}</button></article>`;
-    }
+    document.getElementById("ordersList")?.setAttribute("aria-busy", "false");
+    showOrdersError();
+  } finally {
+    if (!hasLoadedOrders) setOrdersLoading(false);
+    ordersRetry.disabled = false;
   }
 };
+
+ordersRetry.addEventListener("click", async () => {
+  hideOrdersError();
+  ordersRetry.disabled = true;
+  if (!appShellInitialized) await initializeOrders();
+  else await refreshOrders();
+  ordersRetry.disabled = false;
+});
 
 void initializeOrders();
 
@@ -306,11 +349,6 @@ mobileOrdersQuery.addEventListener("change", () => {
 });
 
 document.addEventListener("click", async (event) => {
-  if (event.target.closest("[data-orders-retry]")) {
-    if (!appShellInitialized) await initializeOrders();
-    else await refreshOrders();
-    return;
-  }
   const filterButton = event.target.closest("[data-order-filter]");
   if (filterButton) {
     activeFilter = filterButton.dataset.orderFilter || "all";

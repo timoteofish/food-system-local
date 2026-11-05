@@ -19,6 +19,9 @@ const form = document.getElementById("firstRunForm");
 const businessInput = document.getElementById("businessName");
 const languageInput = document.getElementById("businessLanguage");
 const error = document.getElementById("setupError");
+const termsModal = document.getElementById("termsModal");
+const openTerms = document.getElementById("openTerms");
+const termsAgreement = document.getElementById("termsAgreement");
 
 const applyLanguage = (language) => {
   const copy = translations[language] || translations.en;
@@ -34,6 +37,9 @@ const applyLanguage = (language) => {
     const value = copy[element.dataset.copy];
     if (value?.includes("<br")) element.innerHTML = value.replace(/<(?!br\s*\/?>)[^>]*>/gi, "");
     else if (value) element.textContent = value;
+  });
+  termsModal.querySelectorAll("[aria-label]").forEach((element) => {
+    element.setAttribute("aria-label", copy.closeTerms);
   });
   businessInput.placeholder = copy.placeholder;
   if (!error.hidden) error.textContent = copy.error;
@@ -67,6 +73,22 @@ if (hasExistingSetup) {
 } else {
   applyLanguage(language);
 
+  const closeTerms = () => {
+    termsModal.hidden = true;
+    openTerms.focus();
+  };
+
+  openTerms.addEventListener("click", () => {
+    termsModal.hidden = false;
+    termsModal.querySelector(".first-run__terms-close").focus();
+  });
+  termsModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-terms]")) closeTerms();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !termsModal.hidden) closeTerms();
+  });
+
   languageInput.addEventListener("change", () => {
     language = languageInput.value === "en" ? "en" : "pt";
     applyLanguage(language);
@@ -75,6 +97,10 @@ if (hasExistingSetup) {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     language = languageInput.value === "en" ? "en" : "pt";
+    if (!termsAgreement.checked) {
+      termsAgreement.focus();
+      return;
+    }
     const name = businessInput.value.trim();
     if (name.length < 2 || name.length > 160) {
       businessInput.focus();

@@ -67,8 +67,41 @@ const tableShortcutList = document.getElementById("tableShortcutList");
 const browserBar = document.querySelector(".browser-bar");
 const menuLoadMessage = document.getElementById("menuLoadMessage");
 const menuLoadRetry = document.getElementById("menuLoadRetry");
+const menuPageLoading = document.getElementById("menuPageLoading");
+const menuLoadErrorModal = document.getElementById("menuLoadErrorModal");
+const menuLoadErrorClose = document.getElementById("menuLoadErrorClose");
 const menuSaveStatus = document.getElementById("menuSaveStatus");
 const menuSaveRetry = document.getElementById("menuSaveRetry");
+
+const setMenuLoading = (isLoading) => {
+  menuPageLoading.hidden = !isLoading;
+  if (isLoading) {
+    menuPageLoading.querySelector("[data-menu-loading-label]").textContent = translate("Loading");
+  }
+};
+
+const hideMenuLoadError = () => {
+  menuLoadErrorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showMenuLoadError = () => {
+  setMenuLoading(false);
+  menuLoadMessage.textContent = translate("menuPageLoadError");
+  menuLoadMessage.hidden = false;
+  menuLoadRetry.hidden = false;
+  menuLoadRetry.disabled = false;
+  menuLoadErrorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  menuLoadErrorClose.focus();
+};
+
+menuLoadErrorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-menu-load-error]")) hideMenuLoadError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !menuLoadErrorModal.hidden) hideMenuLoadError();
+});
 
 const setMenuEditorDisabled = (disabled) => {
   Object.values(fields).forEach((field) => {
@@ -281,22 +314,20 @@ const renderQrCode = async () => {
   if (qrCodeLink) qrCodeLink.value = targetUrl;
 };
 
-const renderMenuLoadError = (message) => {
+const renderMenuLoadError = () => {
   menuLoadFailed = true;
   products = [];
   categoryNames = [];
   syncCategoryField();
   setMenuEditorDisabled(true);
-  menuLoadMessage.textContent = message;
-  menuLoadMessage.hidden = false;
-  menuLoadRetry.hidden = false;
+  showMenuLoadError();
   applyPreviewGradient();
   preview.business.textContent = settings.businessName || "Food System";
   preview.title.textContent = settings.menuName || translate("menuTitle");
   preview.banner.textContent = settings.menuBanner || "";
   preview.banner.hidden = !settings.menuBanner?.trim();
   preview.categories.innerHTML = "";
-  preview.list.innerHTML = `<div class="menu-preview-empty">${translate("menuLoadingError")}</div>`;
+  preview.list.replaceChildren();
   syncOrderCapacityDots();
 };
 
@@ -470,7 +501,7 @@ const syncFromFields = () => {
     heroMood: fields.heroMood.value,
     menuDensity: fields.menuDensity.value,
     menuBanner: fields.menuBanner?.value || "",
-    deliveryFee: Number(fields.deliveryFee?.value || 0),
+    deliveryFee: fields.deliveryFee ? Number(fields.deliveryFee.value || 0) : settings.deliveryFee ?? 0,
     showAllProducts: fields.showAllProducts?.checked ?? true,
     selectedCategories,
   };
@@ -630,6 +661,8 @@ downloadQrPdf?.addEventListener("click", async () => {
 const initializeMenu = async () => {
   if (menuLoading) return false;
   menuLoading = true;
+  hideMenuLoadError();
+  setMenuLoading(true);
   menuLoadRetry.hidden = true;
   menuLoadRetry.disabled = true;
   menuLoadMessage.hidden = true;
@@ -642,11 +675,12 @@ const initializeMenu = async () => {
     products = (await loadProducts()).map(normalizeProduct);
     categoryNames = await loadCategories();
     restaurantTables = await loadRestaurantTablesRemote();
-  } catch (error) {
-    renderMenuLoadError(translate(error.message || "menuLoadError"));
+  } catch {
+    renderMenuLoadError();
     return false;
   } finally {
     menuLoading = false;
+    setMenuLoading(false);
     menuLoadRetry.disabled = false;
   }
 

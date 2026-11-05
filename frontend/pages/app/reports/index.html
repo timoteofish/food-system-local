@@ -7,9 +7,9 @@
     <title>Reports | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
-    <link rel="stylesheet" href="../operations.css" />
+    <link rel="stylesheet" href="../../../styles/shared/operations.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
     <link rel="stylesheet" href="./styles.css" />
@@ -62,9 +62,9 @@
       <main class="content menu-content">
         <div class="page-title">
           <div>
-            <p class="eyebrow" data-i18n="reportEyebrow">Business metrics</p>
             <h1 data-i18n="reportTitle">Reports</h1>
           </div>
+          <span class="report-page-loading" id="reportPageLoading" role="status" aria-live="polite" hidden><span data-report-loading-label>Loading</span><span class="report-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
 
         <form id="reportForm" class="panel report-filter-panel" aria-label="Report period">
@@ -92,7 +92,7 @@
               <thead>
                 <tr><th scope="col" data-i18n="reportProduct">Product</th><th scope="col" data-i18n="reportQuantity">Quantity</th><th scope="col" data-i18n="reportRevenue">Revenue</th></tr>
               </thead>
-              <tbody id="productRows" aria-live="polite" aria-busy="true"><tr><td colspan="3" class="report-empty" role="status" data-i18n="reportLoading">Loading report</td></tr></tbody>
+              <tbody id="productRows" aria-live="polite" aria-busy="true"></tbody>
             </table>
           </div>
         </section>
@@ -100,11 +100,19 @@
         <section class="panel report-section">
           <div class="report-section-heading">
             <h2 data-i18n="reportCriticalStock">Critical stock</h2>
-            <span data-i18n="reportCurrentPosition">Current status</span>
           </div>
-          <div id="criticalStock" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status" data-i18n="reportLoading">Loading report</p></div>
+          <div id="criticalStock" aria-live="polite" aria-busy="true"></div>
         </section>
       </main>
+    </div>
+
+    <div class="report-error-modal" id="reportErrorModal" hidden>
+      <button class="report-error-modal__backdrop" type="button" data-close-report-error aria-label="Close"></button>
+      <section class="report-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="reportLoadError">
+        <button class="report-error-panel__close" id="reportErrorClose" type="button" data-close-report-error aria-label="Close">×</button>
+        <p id="reportLoadError" class="report-load-error" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary report-retry" id="reportRetry" type="button">Try again</button>
+      </section>
     </div>
 
     <script src="../../../env.js"></script>

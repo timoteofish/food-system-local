@@ -7,7 +7,7 @@
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -60,25 +60,20 @@
       <main class="content menu-content">
         <div class="page-title">
           <div>
-            <p class="eyebrow" data-i18n="customizeMenuEyebrow">Customization</p>
             <h1 data-i18n="menuSettingsTitle">Menu and QR codes</h1>
-            <p class="menu-page-intro" data-i18n="menuSettingsIntro">Customize the menu and generate table QR codes</p>
           </div>
+          <span class="menu-page-loading" id="menuPageLoading" role="status" aria-live="polite" hidden><span data-menu-loading-label>Loading</span><span class="menu-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
-        <p id="menuLoadMessage" class="menu-load-message" role="alert" hidden></p>
-        <button class="btn btn--secondary menu-load-retry" id="menuLoadRetry" type="button" hidden>Try again</button>
         <section class="menu-builder">
           <aside class="panel menu-config">
             <div class="menu-config__intro">
               <h2 data-i18n="menuContentPresentation">Content and presentation</h2>
-              <p data-i18n="menuAutoSaveHelp">Changes appear in the preview and are saved automatically</p>
             </div>
             <p id="menuSaveStatus" class="menu-save-status" role="status" aria-live="polite" hidden></p>
             <button class="btn btn--secondary menu-save-retry" id="menuSaveRetry" type="button" hidden data-i18n="saveAgainLabel">Save again</button>
             <div class="field"><label for="businessName" data-i18n="businessNameLabel">Business name</label><input id="businessName" placeholder="e.g. Mountain Cafe" /></div>
             <div class="field"><label for="menuName" data-i18n="menuTitleLabel">Menu title</label><input id="menuName" placeholder="e.g. Cafe menu" /></div>
             <div class="field"><label for="menuBanner" data-i18n="customerNoticeLabel">Short customer notice</label><textarea id="menuBanner" rows="3" placeholder="e.g. Orders available until 10 pm"></textarea></div>
-            <div class="field"><label for="deliveryFeeSetting" data-i18n="deliveryFeeLabel">Delivery fee (R$)</label><input id="deliveryFeeSetting" type="number" min="0" max="99999999.99" step="0.01" value="0" /><small data-i18n="deliveryFeeHelp">This amount is calculated by the server and shown on the public menu.</small></div>
             <div class="field"><label for="primaryColor" data-i18n="brandColorLabel">Brand color</label><input id="primaryColor" type="color" /></div>
             <input id="gradientStart" type="hidden" />
             <input id="gradientEnd" type="hidden" />
@@ -93,13 +88,8 @@
                   <input id="showAllProducts" type="checkbox" />
                   <span data-i18n="showAllProductsLabel">Show all products</span>
                 </label>
-                <p class="field-hint" data-i18n="categorySelectionHelp">Uncheck to choose categories</p>
               </div>
               <div class="category-list category-list--menu" id="categoryList"></div>
-            </div>
-            <div class="table-shortcuts" aria-label="Table shortcuts">
-              <div><strong data-i18n="tableShortcutsLabel">Table shortcuts</strong><p data-i18n="tableShortcutsHelp">Select a table to generate its QR code</p></div>
-              <div id="tableShortcutList"></div>
             </div>
           </aside>
           <section class="preview-area">
@@ -122,15 +112,13 @@
               <section class="qr-code-panel panel" id="qrCodePanel" aria-label="Menu QR code">
               <div class="qr-code-panel__header">
                 <div>
-                  <p class="eyebrow">QR Code</p>
                   <h3 data-i18n="qrPerTableLabel">QR code per table</h3>
                 </div>
                 <button class="btn btn--secondary menu-qr__button" id="generateQrCode" type="button" data-i18n="generateQrCodeLabel">Generate QR code</button>
               </div>
               <div class="qr-code-panel__body">
                 <label class="field" for="qrCodeTable">
-                  <span data-i18n="qrTableLabel">Table for this QR code</span>
-                  <input id="qrCodeTable" type="text" placeholder="e.g. Table 07" />
+                  <input id="qrCodeTable" type="text" aria-label="Table" placeholder="e.g. Table 07" />
                 </label>
                 <img id="qrCodeImage" alt="Menu QR code" />
                 <p data-i18n="qrTableHelp">Use a different QR code for each table</p>
@@ -153,6 +141,14 @@
           </section>
         </section>
       </main>
+    </div>
+    <div class="menu-load-error-modal" id="menuLoadErrorModal" hidden>
+      <button class="menu-load-error-modal__backdrop" type="button" data-close-menu-load-error aria-label="Close"></button>
+      <section class="menu-load-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="menuLoadMessage">
+        <button class="menu-load-error-panel__close" id="menuLoadErrorClose" type="button" data-close-menu-load-error aria-label="Close">×</button>
+        <p id="menuLoadMessage" class="menu-load-message" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary menu-load-retry" id="menuLoadRetry" type="button">Try again</button>
+      </section>
     </div>
     <script src="../../../env.js"></script><script type="module" src="../../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="../../../shared/ui/profile-menu-boot.js"></script>

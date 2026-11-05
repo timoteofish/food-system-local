@@ -7,10 +7,43 @@ import { initAppShell } from "../../../shared/ui/ui.js";
 
 const businessId = getSession()?.businessId;
 const documentList = document.getElementById("fiscalList");
-const configState = document.getElementById("fiscalConfigurationState");
+const loadingIndicator = document.getElementById("fiscalLoading");
+const errorModal = document.getElementById("fiscalErrorModal");
+const loadErrorMessage = document.getElementById("fiscalLoadError");
+const retryButton = document.getElementById("fiscalRetry");
+const errorClose = document.getElementById("fiscalErrorClose");
 const fiscalMessage = document.getElementById("fiscalMessage");
 const createForm = document.getElementById("fiscalForm");
 const createButton = createForm.querySelector("button[type='submit']");
+let appShellReady = false;
+
+const setLoading = (isLoading) => {
+  loadingIndicator.hidden = !isLoading;
+  if (isLoading) loadingIndicator.querySelector("[data-fiscal-loading-label]").textContent = translate("Loading");
+};
+
+const hideLoadError = () => {
+  errorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showLoadError = (error) => {
+  setLoading(false);
+  documentList.setAttribute("aria-busy", "false");
+  documentList.replaceChildren();
+  loadErrorMessage.textContent = translate(userFacingError(error));
+  retryButton.disabled = false;
+  errorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  errorClose.focus();
+};
+
+errorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-fiscal-error]")) hideLoadError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !errorModal.hidden) hideLoadError();
+});
 
 const statusLabels = {
   draft: "fiscalDraft",
@@ -33,10 +66,6 @@ const setMessage = (element, text = "", type = "success") => {
   element.hidden = !text;
   element.classList.toggle("is-error", type === "error" && Boolean(text));
   element.classList.toggle("is-success", type === "success" && Boolean(text));
-};
-
-const renderConfiguration = () => {
-  configState.innerHTML = `<span class="fiscal-config-state__item is-missing"><span aria-hidden="true">!</span>${translate("fiscalIssuanceDisabled")}</span>`;
 };
 
 const renderDocuments = (documents) => {
@@ -74,24 +103,38 @@ const renderDocuments = (documents) => {
 };
 
 const load = async () => {
+  setLoading(true);
   documentList.setAttribute("aria-busy", "true");
-  documentList.innerHTML = `<p class="operation-empty" role="status">${translate("fiscalLoading")}</p>`;
+  documentList.replaceChildren();
   try {
     const data = await apiRequest(`/businesses/${businessId}/fiscal/documents`);
-    renderConfiguration();
     renderDocuments(Array.isArray(data.documents) ? data.documents : []);
+    setLoading(false);
     return true;
   } catch (error) {
-    documentList.setAttribute("aria-busy", "false");
-    documentList.innerHTML = `<p class="operation-empty" role="alert">${escapeHtml(translate(userFacingError(error)))}</p><button class="btn btn--secondary fiscal-retry" type="button">${translate("fiscalRetry")}</button>`;
-    renderConfiguration();
+    showLoadError(error);
     return false;
   }
 };
 
-documentList.addEventListener("click", (event) => {
-  if (event.target.closest(".fiscal-retry")) void load();
-});
+retryButton.addEventListener("click", () => void start());
+
+const start = async () => {
+  hideLoadError();
+  setLoading(true);
+  retryButton.disabled = true;
+  try {
+    if (!appShellReady) {
+      await initAppShell({ activeNav: "fiscal" });
+      appShellReady = true;
+    }
+    await load();
+  } catch (error) {
+    showLoadError(error);
+  } finally {
+    retryButton.disabled = false;
+  }
+};
 
 createForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -118,15 +161,5 @@ createForm.addEventListener("submit", async (event) => {
     createButton.disabled = false;
   }
 });
-
-const start = async () => {
-  try {
-    await initAppShell({ activeNav: "fiscal" });
-    await load();
-  } catch (error) {
-    setMessage(fiscalMessage, userFacingError(error), "error");
-    documentList.setAttribute("aria-busy", "false");
-  }
-};
 
 void start();

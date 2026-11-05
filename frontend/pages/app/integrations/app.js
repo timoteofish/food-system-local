@@ -9,7 +9,40 @@ const form = document.getElementById("integrationForm");
 const list = document.getElementById("integrationList");
 const message = document.getElementById("integrationMessage");
 const createButton = form.querySelector("button[type='submit']");
+const loadingIndicator = document.getElementById("integrationLoading");
+const errorModal = document.getElementById("integrationErrorModal");
+const loadErrorMessage = document.getElementById("integrationLoadError");
+const retryButton = document.getElementById("integrationRetry");
+const errorClose = document.getElementById("integrationErrorClose");
 let appShellReady = false;
+
+const setLoading = (isLoading) => {
+  loadingIndicator.hidden = !isLoading;
+  if (isLoading) loadingIndicator.querySelector("[data-integration-loading-label]").textContent = translate("Loading");
+};
+
+const hideLoadError = () => {
+  errorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showLoadError = () => {
+  setLoading(false);
+  list.setAttribute("aria-busy", "false");
+  list.replaceChildren();
+  loadErrorMessage.textContent = translate("integrationLoadError");
+  retryButton.disabled = false;
+  errorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  errorClose.focus();
+};
+
+errorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-integration-error]")) hideLoadError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !errorModal.hidden) hideLoadError();
+});
 
 const providerLabels = {
   ifood: "iFood",
@@ -108,18 +141,21 @@ const renderConnections = (connections) => {
 };
 
 const load = async () => {
+  setLoading(true);
   list.setAttribute("aria-busy", "true");
-  list.innerHTML = renderEmpty("Loading connections");
+  list.replaceChildren();
   try {
     const data = await apiRequest(`/businesses/${businessId}/integrations`);
     renderConnections(Array.isArray(data.connections) ? data.connections : []);
+    setLoading(false);
     return true;
   } catch (error) {
-    list.setAttribute("aria-busy", "false");
-    list.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate(userFacingError(error)))}</p><button class="btn btn--secondary" type="button" data-integration-retry>${translate("Try again")}</button></div>`;
+    showLoadError();
     return false;
   }
 };
+
+retryButton.addEventListener("click", () => void start());
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -208,10 +244,6 @@ list.addEventListener("submit", async (event) => {
 });
 
 list.addEventListener("click", async (event) => {
-  if (event.target.closest("[data-integration-retry]")) {
-    void start();
-    return;
-  }
   const button = event.target.closest("[data-test-integration]");
   if (!button || button.disabled) return;
 
@@ -240,6 +272,9 @@ list.addEventListener("click", async (event) => {
 });
 
 const start = async () => {
+  hideLoadError();
+  setLoading(true);
+  retryButton.disabled = true;
   try {
     if (!appShellReady) {
       await initAppShell({ activeNav: "integrations" });
@@ -247,10 +282,9 @@ const start = async () => {
     }
     await load();
   } catch (error) {
-    const messageText = userFacingError(error);
-    setMessage(messageText, "error");
-    list.setAttribute("aria-busy", "false");
-    list.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate(messageText))}</p><button class="btn btn--secondary" type="button" data-integration-retry>${translate("Try again")}</button></div>`;
+    showLoadError();
+  } finally {
+    retryButton.disabled = false;
   }
 };
 

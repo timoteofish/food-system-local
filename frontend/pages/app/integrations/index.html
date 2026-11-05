@@ -6,9 +6,9 @@
     <title>Integrations | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
-    <link rel="stylesheet" href="../operations.css" />
+    <link rel="stylesheet" href="../../../styles/shared/operations.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
     <link rel="stylesheet" href="./styles.css" />
@@ -61,16 +61,14 @@
       <main class="content menu-content">
         <div class="page-title">
           <div>
-            <p class="eyebrow">Connectivity</p>
             <h1>Integrations</h1>
-            <p class="subtitle">Experimental area: provider connectors are not implemented yet</p>
           </div>
+          <span class="integration-loading" id="integrationLoading" role="status" aria-live="polite"><span data-integration-loading-label>Loading</span><span class="integration-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
 
         <div class="operation-grid integration-grid">
           <section class="panel integration-create" aria-labelledby="integrationFormTitle">
             <h2 id="integrationFormTitle">Test configuration</h2>
-            <p class="integration-form__help">Connectors for iFood, 99Food, Keeta, payments, and logistics are not implemented. This screen only tests HTTPS URL reachability and can store an HMAC secret for the experimental generic webhook. That webhook records signed order.received events as external orders; it does not authenticate with provider APIs, send orders, or sync statuses.</p>
             <form class="operation-form integration-form" id="integrationForm">
               <label for="integrationProvider">Provider
                 <select id="integrationProvider" required>
@@ -94,7 +92,6 @@
                   required
                 />
               </label>
-              <small class="integration-form__help">The test only makes a public HTTPS GET on port 443. It does not authenticate with the provider or use the webhook secret.</small>
               <label for="integrationWebhookSecret">Generic webhook secret (optional)
                 <input
                   id="integrationWebhookSecret"
@@ -102,10 +99,8 @@
                   autocomplete="new-password"
                   minlength="16"
                   maxlength="512"
-                  aria-describedby="integrationWebhookSecretHelp"
                 />
               </label>
-              <small class="integration-form__help" id="integrationWebhookSecretHelp">The secret is stored encrypted and is only used to verify generic webhook HMAC signatures; it is not a provider API credential.</small>
               <button class="btn btn--primary" type="submit">Save integration</button>
             </form>
             <p class="operation-message" id="integrationMessage" role="status" aria-live="polite" hidden></p>
@@ -113,11 +108,19 @@
 
           <section class="panel integration-connections" aria-labelledby="connectionsTitle">
             <h2 id="connectionsTitle">Registered connections</h2>
-            <p class="integration-connections__help">HMAC secrets are encrypted and are not shown. Reachability status only indicates that the test URL responded; no provider is connected.</p>
-            <div class="operation-list integration-list" id="integrationList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Loading connections</p></div>
+            <div class="operation-list integration-list" id="integrationList" aria-live="polite" aria-busy="true"></div>
           </section>
         </div>
       </main>
+    </div>
+
+    <div class="integration-error-modal" id="integrationErrorModal" hidden>
+      <button class="integration-error-modal__backdrop" type="button" data-close-integration-error aria-label="Close"></button>
+      <section class="integration-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="integrationLoadError">
+        <button class="integration-error-panel__close" id="integrationErrorClose" type="button" data-close-integration-error aria-label="Close">×</button>
+        <p id="integrationLoadError" class="integration-load-error" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary integration-retry" id="integrationRetry" type="button">Try again</button>
+      </section>
     </div>
 
     <script src="../../../env.js"></script>

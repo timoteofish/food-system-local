@@ -68,7 +68,7 @@ export const initCalendarPanel = ({ onSelect, onClear } = {}) => {
     panel.innerHTML = `
       <div class="calendar-id-panel__handle" aria-hidden="true"></div>
       <header class="calendar-id-panel__header">
-        <div><p>${translate("calendarFilterByDate")}</p><h2>${translate("calendarSelectDate")}</h2></div>
+        <div><h2>${translate("calendarSelectDate")}</h2></div>
         <button class="calendar-id-panel__close" type="button" data-calendar-close aria-label="${translate("calendarClose")}">×</button>
       </header>
       <div class="calendar-id-panel__month-nav">

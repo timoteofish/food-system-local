@@ -6,9 +6,9 @@
     <title>Tables and tabs | Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
-    <link rel="stylesheet" href="../operations.css" />
+    <link rel="stylesheet" href="../../../styles/shared/operations.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
     <link rel="stylesheet" href="./styles.css" />
@@ -61,10 +61,9 @@
       <main class="content menu-content">
         <div class="page-title">
           <div>
-            <p class="eyebrow">Table service</p>
             <h1>Tables and tabs</h1>
-            <p class="tables-intro">Track tabs and service at each table</p>
           </div>
+          <span class="tables-page-loading" id="tablesPageLoading" role="status" aria-live="polite" hidden><span data-tables-loading-label>Loading</span><span class="tables-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
 
         <section class="panel table-create-panel" aria-labelledby="tableCreateTitle">
@@ -79,8 +78,17 @@
           <p id="status" role="status" aria-live="polite"></p>
         </section>
 
-        <section class="table-grid" id="tableGrid" aria-label="Registered tables" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Loading tables</p></section>
+        <section class="table-grid" id="tableGrid" aria-label="Registered tables" aria-live="polite" aria-busy="true"></section>
       </main>
+    </div>
+
+    <div class="tables-error-modal" id="tablesErrorModal" hidden>
+      <button class="tables-error-modal__backdrop" type="button" data-close-tables-error aria-label="Close"></button>
+      <section class="tables-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="tablesLoadError">
+        <button class="tables-error-panel__close" id="tablesErrorClose" type="button" data-close-tables-error aria-label="Close">×</button>
+        <p id="tablesLoadError" class="tables-load-error" role="alert" aria-live="assertive"></p>
+        <button class="btn btn--secondary tables-retry" id="tablesRetry" type="button">Try again</button>
+      </section>
     </div>
 
     <script src="../../../env.js"></script>

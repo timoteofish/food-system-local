@@ -12,8 +12,39 @@ const courierMessage = document.getElementById("courierMessage");
 const deliveryMessage = document.getElementById("deliveryMessage");
 const deliveryLoadError = document.getElementById("deliveryLoadError");
 const deliveryLoadRetry = document.getElementById("deliveryLoadRetry");
+const deliveryErrorModal = document.getElementById("deliveryErrorModal");
+const deliveryErrorClose = document.getElementById("deliveryErrorClose");
+const deliveryPageLoading = document.getElementById("deliveryPageLoading");
 let appShellReady = false;
 let couriers = [];
+
+const hideDeliveryError = () => {
+  deliveryErrorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showDeliveryError = (message) => {
+  deliveryPageLoading.hidden = true;
+  deliveryLoadError.textContent = message;
+  deliveryLoadRetry.disabled = false;
+  deliveryErrorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  deliveryErrorClose.focus();
+};
+
+const setDeliveryLoading = (isLoading) => {
+  deliveryPageLoading.hidden = !isLoading;
+  if (isLoading) {
+    deliveryPageLoading.querySelector("[data-delivery-loading-label]").textContent = translate("Loading");
+  }
+};
+
+deliveryErrorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-delivery-error]")) hideDeliveryError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !deliveryErrorModal.hidden) hideDeliveryError();
+});
 
 const statusLabels = {
   requested: "Waiting for a driver",
@@ -116,6 +147,7 @@ const renderDeliveries = (deliveries) => {
 };
 
 const load = async () => {
+  setDeliveryLoading(true);
   courierList.setAttribute("aria-busy", "true");
   deliveryList.setAttribute("aria-busy", "true");
   const results = await Promise.allSettled([
@@ -123,29 +155,30 @@ const load = async () => {
       apiRequest(`/businesses/${businessId}/deliveries`),
   ]);
   const [courierResult, deliveryResult] = results;
+  const errors = [];
   if (courierResult.status === "fulfilled") {
     couriers = Array.isArray(courierResult.value.couriers) ? courierResult.value.couriers : [];
     renderCouriers(couriers);
   } else {
     couriers = [];
     courierList.setAttribute("aria-busy", "false");
-    courierList.innerHTML = `<div class="operation-empty" role="alert"><p>${translate("Could not load drivers")}</p><button class="btn btn--secondary" type="button" data-delivery-retry>${translate("Try again")}</button></div>`;
+    courierList.replaceChildren();
+    errors.push(translate("Could not load drivers"));
   }
   if (deliveryResult.status === "fulfilled") {
     const deliveries = Array.isArray(deliveryResult.value.deliveries) ? deliveryResult.value.deliveries : [];
     renderDeliveries(deliveries);
   } else {
     deliveryList.setAttribute("aria-busy", "false");
-    deliveryList.innerHTML = `<div class="operation-empty" role="alert"><p>${translate("Could not load deliveries")}</p><button class="btn btn--secondary" type="button" data-delivery-retry>${translate("Try again")}</button></div>`;
+    deliveryList.replaceChildren();
+    errors.push(translate("Could not load deliveries"));
   }
+  if (errors.length) showDeliveryError(errors.join(" · "));
+  else setDeliveryLoading(false);
   return courierResult.status === "fulfilled" && deliveryResult.status === "fulfilled";
 };
 
-document.querySelector("main").addEventListener("click", async (event) => {
-  if (!event.target.closest("[data-delivery-retry]")) return;
-  if (!appShellReady) await start();
-  else await load();
-});
+deliveryLoadRetry.addEventListener("click", () => void start());
 
 deliveryList.addEventListener("change", (event) => {
   if (!event.target.matches("[data-courier-for-delivery]")) return;
@@ -229,9 +262,9 @@ deliveryList.addEventListener("click", async (event) => {
 });
 
 const start = async () => {
-  deliveryLoadRetry.hidden = true;
+  hideDeliveryError();
+  setDeliveryLoading(true);
   deliveryLoadRetry.disabled = true;
-  deliveryLoadError.hidden = true;
   try {
     if (!appShellReady) {
       await initAppShell({ activeNav: "delivery" });
@@ -239,9 +272,7 @@ const start = async () => {
     }
     await load();
   } catch (error) {
-    deliveryLoadError.textContent = translate("Could not open deliveries");
-    deliveryLoadError.hidden = false;
-    deliveryLoadRetry.hidden = false;
+    showDeliveryError(translate("Could not open deliveries"));
   } finally {
     deliveryLoadRetry.disabled = false;
   }

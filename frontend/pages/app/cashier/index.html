@@ -7,7 +7,7 @@
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
-    <link rel="stylesheet" href="../shell.css" />
+    <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
     <link rel="stylesheet" href="../../../styles/app-responsive.css" />
     <link rel="stylesheet" href="../../../styles/minimal-polish.css" />
     <link rel="stylesheet" href="../../../styles/theme.css" />
@@ -62,37 +62,40 @@
       <main class="content menu-content">
         <header class="page-title cash-page-title">
           <div>
-            <p class="eyebrow" data-i18n="cashPageEyebrow">Cash register</p>
             <h1 data-i18n="cashPageTitle">Cash register summary</h1>
-            <p class="cash-page-intro" data-i18n="cashPageIntro">Track income, expenses, and the running balance</p>
           </div>
+          <span class="cash-page-loading" id="cashPageLoading" role="status" aria-live="polite"><span data-i18n="cashLoading">Loading</span><span class="cash-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </header>
-        <p id="cashLoadMessage" class="cash-feedback" role="status" aria-live="polite" hidden></p>
-        <button class="btn btn--secondary cash-load-retry" id="cashLoadRetry" type="button" data-i18n="retryLabel" hidden>Try again</button>
+        <div class="cash-load-modal" id="cashLoadAlert" hidden>
+          <button class="cash-load-modal__backdrop" type="button" aria-label="Close alert" data-close-cash-alert></button>
+          <section class="cash-load-alert" role="alertdialog" aria-modal="true" aria-labelledby="cashLoadMessage">
+            <button class="cash-load-alert__close" id="cashLoadAlertClose" type="button" aria-label="Close alert" data-close-cash-alert>×</button>
+            <p id="cashLoadMessage" class="cash-feedback" aria-live="assertive" hidden></p>
+            <button class="btn btn--secondary cash-load-retry" id="cashLoadRetry" type="button" data-i18n="retryLabel" hidden>Try again</button>
+          </section>
+        </div>
         <section class="grid cards-3 cash-summary" aria-busy="true">
-          <article class="panel stat stat--entry"><span data-i18n="cashEntries">Income</span><strong id="entriesTotal">—</strong><small data-i18n="cashSalesAndManualIncome">Sales and manual income</small></article>
-          <article class="panel stat stat--exit"><span data-i18n="cashExits">Expenses</span><strong id="exitsTotal">—</strong><small data-i18n="cashManualWithdrawals">Manual withdrawals</small></article>
-          <article class="panel stat stat--balance"><span data-i18n="cashBalance">Running balance</span><strong id="balanceTotal">—</strong><small data-i18n="cashIncomeMinusExpenses">Income minus expenses</small></article>
+          <article class="panel stat stat--entry"><span data-i18n="cashEntries">Income</span><strong id="entriesTotal">—</strong></article>
+          <article class="panel stat stat--exit"><span data-i18n="cashExits">Expenses</span><strong id="exitsTotal">—</strong></article>
+          <article class="panel stat stat--balance"><span data-i18n="cashBalance">Running balance</span><strong id="balanceTotal">—</strong></article>
         </section>
         <section class="panel cash-register-panel">
-          <div class="cash-history__head"><div><p class="eyebrow" data-i18n="cashShiftLabel">Shift</p><h2 id="cashRegisterTitle" data-i18n="cashRegisterSituation">Register status</h2></div><span class="cash-register-status" id="cashRegisterStatus" role="status" aria-live="polite" data-i18n="cashLoading">Loading</span></div>
+          <div class="cash-history__head"><div><h2 id="cashRegisterTitle" data-i18n="cashRegisterSituation">Opening balance</h2></div><span class="cash-register-status" id="cashRegisterStatus" role="status" aria-live="polite" hidden></span></div>
           <form id="cashRegisterForm" class="cash-controls cash-register-form">
-            <label for="cashRegisterAmount"><span id="cashRegisterAmountLabel">Opening balance</span><input id="cashRegisterAmount" type="number" min="0" step="0.01" inputmode="decimal" required /></label>
-            <label id="cashRegisterNotesField" for="cashRegisterNotes"><span><span data-i18n="cashClosingNotes">Closing notes</span> <span class="cash-optional" data-i18n="optional">Optional</span></span><input id="cashRegisterNotes" maxlength="255" /></label>
+            <label for="cashRegisterAmount"><span id="cashRegisterAmountLabel"></span><input id="cashRegisterAmount" class="cash-money-input" type="text" inputmode="decimal" autocomplete="off" required /></label>
+            <label id="cashRegisterNotesField" for="cashRegisterNotes" hidden><span data-i18n="cashClosingNotes">Closing notes</span><input id="cashRegisterNotes" maxlength="255" /></label>
             <button class="btn btn--primary" id="cashRegisterAction" type="submit" disabled>Open register</button>
           </form>
           <p id="cashRegisterMessage" class="cash-feedback" role="status" aria-live="polite" hidden></p>
         </section>
         <section class="panel cash-movement-panel" aria-labelledby="cashMovementTitle">
           <div class="cash-movement-panel__heading">
-            <p class="eyebrow" data-i18n="cashMovementEyebrow">Movement</p>
-            <h2 id="cashMovementTitle" data-i18n="cashMovementTitle">Record income or expense</h2>
-            <p id="movementAvailability" class="cash-helper" data-i18n="cashMovementAvailability">Open the register to record a movement</p>
+            <p id="cashMovementTitle" class="cash-helper" data-i18n="cashMovementAvailability">Open the register to record a movement</p>
           </div>
           <form id="movementForm" class="cash-controls cash-movement-form">
             <label for="movementType"><span data-i18n="type">Type</span><select id="movementType"><option value="entry" data-i18n="entry">Income</option><option value="withdrawal" data-i18n="withdrawal">Expense</option></select></label>
-            <label for="movementAmount"><span data-i18n="amount">Amount</span><input id="movementAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required /></label>
-            <label for="movementDescription"><span><span data-i18n="description">Description</span> <span class="cash-optional" data-i18n="optional">Optional</span></span><input id="movementDescription" maxlength="255" placeholder="e.g. Ingredient purchase" /></label>
+            <label for="movementAmount"><span data-i18n="amount">Amount</span><input id="movementAmount" class="cash-money-input" type="text" inputmode="decimal" autocomplete="off" required /></label>
+            <label for="movementDescription"><span data-i18n="description">Description</span><input id="movementDescription" maxlength="255" placeholder="e.g. Ingredient purchase" /></label>
             <button class="btn btn--primary" id="movementSubmit" type="submit" disabled data-i18n="cashRecordMovement">Record movement</button>
           </form>
           <p id="movementMessage" class="cash-feedback" role="status" aria-live="polite" hidden></p>
@@ -100,8 +103,7 @@
         <section class="panel cash-list cash-history">
           <div class="cash-history__head">
             <div>
-              <p class="eyebrow" data-i18n="history">History</p>
-              <h2 id="cashHistoryTitle" data-i18n="cashMovements">Movements</h2>
+              <h2 id="cashHistoryTitle" data-i18n="history">History</h2>
             </div>
           </div>
           <div class="cash-controls">

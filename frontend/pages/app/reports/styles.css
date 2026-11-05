@@ -3,6 +3,93 @@
   box-shadow: var(--shadow-card);
 }
 
+.report-page-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: .9rem;
+  white-space: nowrap;
+}
+.report-page-loading[hidden] { display: none; }
+.report-page-loading__dots { display: inline-flex; gap: 1px; }
+.report-page-loading__dots i { font-style: normal; animation: report-page-loading-dot 1s ease-in-out infinite; }
+.report-page-loading__dots i:nth-child(2) { animation-delay: .15s; }
+.report-page-loading__dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes report-page-loading-dot {
+  0%, 60%, 100% { opacity: .25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .report-page-loading__dots i { animation: none; opacity: 1; }
+}
+
+.report-error-modal[hidden] { display: none; }
+.report-error-modal {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.report-error-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(20, 20, 20, .56);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+.report-error-panel {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  width: min(100%, 520px);
+  padding: 32px;
+  border: 1px solid color-mix(in srgb, var(--danger) 18%, white);
+  border-radius: 14px;
+  background: #fff;
+  color: #171717;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .24);
+}
+.report-load-error {
+  margin: 0;
+  padding: 4px 42px 4px 0;
+  color: #171717;
+  font-size: 1rem;
+  line-height: 1.5;
+  text-align: center;
+}
+.report-error-panel .report-retry {
+  justify-self: center;
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  color: #171717;
+}
+.report-error-panel__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: var(--danger);
+  font: inherit;
+  font-size: 27px;
+  line-height: 1;
+  cursor: pointer;
+}
+.report-error-panel__close:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--danger) 25%, transparent);
+  outline-offset: 2px;
+}
+
 .report-filter-panel {
   gap: 14px;
   border-color: var(--line);
@@ -165,6 +252,7 @@
 }
 
 @media (max-width: 700px) {
+  .menu-content > .page-title { flex-direction: row; align-items: center; }
   .report-controls { grid-template-columns: minmax(0, 1fr); }
   .report-controls .btn { width: 100%; }
 }

@@ -14,6 +14,7 @@ import { translate } from "../../../shared/i18n/i18n.js";
 
 let products = [];
 let productsLoadFailed = false;
+let productsLoaded = false;
 
 const list = document.getElementById("productList");
 const mobileList = document.getElementById("mobileProductList");
@@ -24,6 +25,7 @@ const imagePickerTitle = document.getElementById("imagePickerTitle");
 const openImageUserPanelButton = document.getElementById("openImageUserPanel");
 const imagePreview = document.getElementById("imagePreview");
 const priceInput = document.getElementById("productPrice");
+const brlInputFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const searchInput = document.getElementById("productSearch");
 const categorySelect = document.getElementById("productCategory");
 const productCategoryButton = document.getElementById("productCategoryButton");
@@ -32,6 +34,37 @@ const categoryList = document.getElementById("categoryList");
 const productFeedback = document.getElementById("productFeedback");
 const productCount = document.getElementById("productCount");
 const productsRetry = document.getElementById("productsRetry");
+const productsPageLoading = document.getElementById("productsPageLoading");
+const productsErrorModal = document.getElementById("productsErrorModal");
+const productsLoadError = document.getElementById("productsLoadError");
+const productsErrorClose = document.getElementById("productsErrorClose");
+
+const setProductsLoading = (isLoading) => {
+  productsPageLoading.hidden = !isLoading;
+  if (isLoading) {
+    productsPageLoading.querySelector("[data-products-loading-label]").textContent = translate("Loading");
+  }
+};
+
+const hideProductsError = () => {
+  productsErrorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showProductsError = (message) => {
+  setProductsLoading(false);
+  productsLoadError.textContent = message;
+  productsErrorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  productsErrorClose.focus();
+};
+
+productsErrorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-products-error]")) hideProductsError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !productsErrorModal.hidden) hideProductsError();
+});
 
 let searchQuery = "";
 let productImage = "";
@@ -151,13 +184,16 @@ const clearProductImage = () => {
 };
 
 if (priceInput) {
-  priceInput.addEventListener("input", (event) => {
-    event.target.value = event.target.value.replace(/[^0-9.,]/g, "");
-  });
-  priceInput.addEventListener("blur", (event) => {
-    event.target.value = formatPrice(parsePrice(event.target.value), { prefix: false });
+  priceInput.addEventListener("input", () => {
+    const digits = priceInput.value.replace(/\D/g, "");
+    priceInput.value = digits ? brlInputFormatter.format(Number(digits) / 100) : "";
   });
 }
+
+const parseBrlInput = (value) => {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return digits ? Number(digits) / 100 : 0;
+};
 
 const renderImage = (item) => {
   const image = safeImageUrl(item.image);
@@ -188,8 +224,9 @@ const render = () => {
 
   if (productCount) {
     const total = products.length;
-    if (productsLoadFailed) {
-      productCount.textContent = translate("List unavailable");
+    productCount.hidden = productsLoadFailed || !productsLoaded;
+    if (productsLoadFailed || !productsLoaded) {
+      productCount.textContent = "";
     } else if (query) {
       productCount.textContent = translate("$1 of $2 products found")
         .replace("$1", String(visible.length))
@@ -225,7 +262,7 @@ const render = () => {
 
   if (productsLoadFailed) {
     list.setAttribute("aria-busy", "false");
-    list.innerHTML = `<tr><td class="products-table-empty" colspan="6">${translate("The product list is unavailable")}</td></tr>`;
+    list.replaceChildren();
   } else if (visible.length) {
     list.setAttribute("aria-busy", "false");
     list.innerHTML = productRows;
@@ -237,7 +274,7 @@ const render = () => {
 
   if (mobileList) {
     if (productsLoadFailed) {
-      mobileList.innerHTML = `<p class="mobile-product-list__empty">${translate("The product list is unavailable")}</p>`;
+      mobileList.replaceChildren();
     } else if (visible.length) {
       mobileList.innerHTML = visible.map((item) => `
         <button class="mobile-product-list__item" type="button" data-product-detail="${escapeHtml(item.id)}">
@@ -307,7 +344,7 @@ form.addEventListener("submit", async (event) => {
       id: generateId("prod"),
       name,
       category: categorySelect.value,
-      price: formatPrice(parsePrice(priceInput.value), { prefix: false }),
+      price: parseBrlInput(priceInput.value).toFixed(2),
       description: document.getElementById("productDescription").value.trim(),
       image: productImage,
       active: true,
@@ -404,6 +441,8 @@ productsRetry?.addEventListener("click", () => void initializeProducts());
 const initializeProducts = async () => {
   if (productsLoading) return;
   productsLoading = true;
+  hideProductsError();
+  setProductsLoading(true);
   productsRetry.hidden = true;
   productsRetry.disabled = true;
   searchInput.disabled = true;
@@ -412,8 +451,8 @@ const initializeProducts = async () => {
   clearProductFeedback();
   list.setAttribute("aria-busy", "true");
   if (!products.length) {
-    list.innerHTML = `<tr><td class="products-table-empty" colspan="6" role="status">${translate("Loading products")}</td></tr>`;
-    mobileList.innerHTML = `<p class="mobile-product-list__empty" role="status">${translate("Loading products")}</p>`;
+    list.replaceChildren();
+    mobileList.replaceChildren();
   }
   let appShellFailed = false;
   try {
@@ -427,14 +466,16 @@ const initializeProducts = async () => {
       appShellReady = true;
     }
     products = await loadProducts();
+    productsLoaded = true;
     productsLoadFailed = false;
   } catch {
     products = [];
+    productsLoaded = false;
     productsLoadFailed = true;
     render();
-    showProductFeedback(translate(appShellFailed
+    showProductsError(translate(appShellFailed
       ? "Could not open the products page"
-      : "Could not load products Check your connection and try again"));
+      : "productsPageLoadError"));
     productsRetry.hidden = false;
   }
   if (!productsLoadFailed) {
@@ -445,7 +486,7 @@ const initializeProducts = async () => {
       productsRetry.hidden = true;
     } catch {
       categoryNames = [];
-      showProductFeedback(translate("Could not load categories You can still add a new category"));
+      showProductsError(translate("Could not load categories You can still add a new category"));
       productsRetry.hidden = false;
     }
     syncCategorySelect();
@@ -453,6 +494,7 @@ const initializeProducts = async () => {
     render();
   }
   productsLoading = false;
+  setProductsLoading(false);
   productsRetry.disabled = false;
 };
 

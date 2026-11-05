@@ -16,11 +16,45 @@ const businessId = getSession()?.businessId;
 const grid = document.getElementById("tableGrid");
 const tableForm = document.getElementById("tableForm");
 const status = document.getElementById("status");
+const pageLoading = document.getElementById("tablesPageLoading");
+const errorModal = document.getElementById("tablesErrorModal");
+const loadErrorMessage = document.getElementById("tablesLoadError");
+const retryButton = document.getElementById("tablesRetry");
+const errorClose = document.getElementById("tablesErrorClose");
 const countFormat = new Intl.NumberFormat(getLocale());
 let tables = [];
 let tabs = [];
 let actionInProgress = false;
 let appShellReady = false;
+
+const setLoading = (isLoading) => {
+  pageLoading.hidden = !isLoading;
+  if (isLoading) {
+    pageLoading.querySelector("[data-tables-loading-label]").textContent = translate("Loading");
+  }
+};
+
+const hideLoadError = () => {
+  errorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+};
+
+const showLoadError = (message = translate("Could not load tables")) => {
+  setLoading(false);
+  loadErrorMessage.textContent = message;
+  retryButton.hidden = false;
+  retryButton.disabled = false;
+  errorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  errorClose.focus();
+};
+
+errorModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-tables-error]")) hideLoadError();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !errorModal.hidden) hideLoadError();
+});
 
 const getOpenTab = (tableId) => tabs.find((tab) => tab.table_id === tableId && tab.status === "open");
 
@@ -72,8 +106,10 @@ const render = () => {
 };
 
 const load = async () => {
+  hideLoadError();
+  setLoading(true);
   grid.setAttribute("aria-busy", "true");
-  grid.innerHTML = `<p class="operation-empty" role="status">${translate("Loading tables")}</p>`;
+  grid.replaceChildren();
   try {
     [tables, tabs] = await Promise.all([
       fetchRestaurantTables(businessId),
@@ -84,10 +120,12 @@ const load = async () => {
     return true;
   } catch (error) {
     const message = translate("Could not load tables");
-    grid.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(message)}</p><button class="btn btn--secondary" type="button" data-table-retry>${translate("Try again")}</button></div>`;
+    grid.replaceChildren();
     grid.setAttribute("aria-busy", "false");
-    showToast(message, { type: "error" });
+    showLoadError(message);
     return false;
+  } finally {
+    setLoading(false);
   }
 };
 
@@ -135,10 +173,6 @@ const runTableAction = async (button, action, successMessage) => {
 };
 
 grid.addEventListener("click", (event) => {
-  if (event.target.closest("[data-table-retry]")) {
-    void start();
-    return;
-  }
   const openButton = event.target.closest("[data-open]");
   const closeButton = event.target.closest("[data-close]");
 
@@ -171,6 +205,9 @@ grid.addEventListener("change", (event) => {
 });
 
 const start = async () => {
+  hideLoadError();
+  setLoading(true);
+  retryButton.disabled = true;
   try {
     if (!appShellReady) {
       await initAppShell({ activeNav: "tables" });
@@ -179,10 +216,14 @@ const start = async () => {
     await load();
   } catch (error) {
     const message = translate("Could not open tables and tabs");
-    grid.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(message)}</p><button class="btn btn--secondary" type="button" data-table-retry>${translate("Try again")}</button></div>`;
+    grid.replaceChildren();
     grid.setAttribute("aria-busy", "false");
-    showToast(message, { type: "error" });
+    showLoadError(message);
+  } finally {
+    setLoading(false);
+    retryButton.disabled = false;
   }
 };
 
+retryButton.addEventListener("click", () => void start());
 void start();
