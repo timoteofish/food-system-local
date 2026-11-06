@@ -38,9 +38,9 @@ const hideReportError = () => {
   document.body.classList.remove("modal-open");
 };
 
-const showReportError = (message) => {
+const showReportError = () => {
   setReportLoading(false);
-  reportLoadError.textContent = message;
+  reportLoadError.textContent = translate("loadRetryError");
   reportErrorModal.hidden = false;
   document.body.classList.add("modal-open");
   reportErrorClose.focus();
@@ -194,11 +194,11 @@ const loadReport = async () => {
       hasUnavailableData = true;
     }
 
-    if (hasUnavailableData) showReportError(translate("reportPartialError"));
+    if (hasUnavailableData) showReportError();
     else setFeedback();
-  } catch (error) {
+  } catch {
     setUnavailableReport();
-    showReportError(translate("reportPageLoadError"));
+    showReportError();
   } finally {
     reportLoading = false;
     setReportLoading(false);
@@ -227,12 +227,12 @@ const start = async () => {
       appShellReady = true;
     }
     await loadReport();
-  } catch (error) {
+  } catch {
     setUnavailableReport();
     reportMetrics.setAttribute("aria-busy", "false");
     productRows.setAttribute("aria-busy", "false");
     criticalStock.setAttribute("aria-busy", "false");
-    showReportError(translate("reportOpenError"));
+    showReportError();
   } finally {
     setReportLoading(false);
     reportRetry.disabled = false;

@@ -45,7 +45,8 @@ const messages = {
 export const translateCourier = (key) => {
   const entry = messages[key];
   if (entry) return entry[getLanguage()] || entry.en;
-  return translate(key);
+  const translated = translate(key);
+  return translated === key ? "Não foi possível concluir a operação. Tente novamente." : translated;
 };
 
 export const applyCourierTranslations = (root = document) => {

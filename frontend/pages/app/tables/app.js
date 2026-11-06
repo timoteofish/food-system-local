@@ -39,9 +39,9 @@ const hideLoadError = () => {
   document.body.classList.remove("modal-open");
 };
 
-const showLoadError = (message = translate("Could not load tables")) => {
+const showLoadError = () => {
   setLoading(false);
-  loadErrorMessage.textContent = message;
+  loadErrorMessage.textContent = translate("loadRetryError");
   retryButton.hidden = false;
   retryButton.disabled = false;
   errorModal.hidden = false;
@@ -118,11 +118,10 @@ const load = async () => {
     render();
     grid.setAttribute("aria-busy", "false");
     return true;
-  } catch (error) {
-    const message = translate("Could not load tables");
+  } catch {
     grid.replaceChildren();
     grid.setAttribute("aria-busy", "false");
-    showLoadError(message);
+    showLoadError();
     return false;
   } finally {
     setLoading(false);
@@ -144,7 +143,7 @@ tableForm.addEventListener("submit", async (event) => {
     form.reset();
     showToast(translate("Table added"));
     await load();
-  } catch (error) {
+  } catch {
     status.textContent = translate("Could not add the table");
   } finally {
     button.disabled = false;
@@ -163,7 +162,7 @@ const runTableAction = async (button, action, successMessage) => {
     await action();
     showToast(translate(successMessage));
     await load();
-  } catch (error) {
+  } catch {
     if (button?.tagName === "SELECT") button.value = "";
     showToast(translate("Could not update the tab"), { type: "error" });
   } finally {
@@ -214,11 +213,10 @@ const start = async () => {
       appShellReady = true;
     }
     await load();
-  } catch (error) {
-    const message = translate("Could not open tables and tabs");
+  } catch {
     grid.replaceChildren();
     grid.setAttribute("aria-busy", "false");
-    showLoadError(message);
+    showLoadError();
   } finally {
     setLoading(false);
     retryButton.disabled = false;

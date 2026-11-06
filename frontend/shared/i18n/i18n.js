@@ -1,9 +1,8 @@
-import englishTranslations from "./locales/en.js";
 import portugueseTranslations from "./locales/pt.js";
 import legacyTextPairs from "./locales/legacy-text-pairs.js";
 import legacyDynamicRules from "./locales/legacy-dynamic-rules.js";
 
-const translations = { en: englishTranslations, pt: portugueseTranslations };
+const translations = { pt: portugueseTranslations };
 const portugueseToEnglish = new Map(Object.entries(legacyTextPairs));
 const englishToPortuguese = new Map();
 
@@ -12,18 +11,13 @@ for (const [portuguese, english] of portugueseToEnglish) {
 }
 
 export const getLanguage = () => {
-  try {
-    const language = localStorage.getItem("food-system-language");
-    return translations[language] ? language : "pt";
-  } catch {
-    return "pt";
-  }
+  return "pt";
 };
 
-export const getLocale = () => getLanguage() === "en" ? "en-US" : "pt-BR";
+export const getLocale = () => "pt-BR";
 
-export const setLanguage = (language) => {
-  const next = translations[language] ? language : "pt";
+export const setLanguage = () => {
+  const next = "pt";
   try {
     localStorage.setItem("food-system-language", next);
   } catch {
@@ -33,7 +27,7 @@ export const setLanguage = (language) => {
 };
 
 export const translate = (key) =>
-  translations[getLanguage()]?.[key] || translations.en[key] || translateLegacyText(key);
+  translations.pt[key] || translateLegacyText(key);
 
 export const applyTranslations = (root = document) => {
   root.querySelectorAll("[data-i18n]").forEach((element) => {
@@ -104,7 +98,7 @@ const shouldTranslateAttribute = (element, attribute) => {
 };
 
 export const applyLegacyTranslations = (root = document) => {
-  root.documentElement && (root.documentElement.lang = getLanguage() === "en" ? "en" : "pt-BR");
+  root.documentElement && (root.documentElement.lang = "pt-BR");
   if (root === document && document.title) {
     const nextTitle = translateLegacyText(document.title);
     if (document.title !== nextTitle) document.title = nextTitle;

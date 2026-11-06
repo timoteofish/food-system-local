@@ -101,9 +101,9 @@ const setMessage = (element, message, state = "") => {
   else element.removeAttribute("data-state");
 };
 
-const showLoadAlert = (message) => {
+const showLoadAlert = () => {
   pageLoading.hidden = true;
-  setMessage(loadMessage, message, "error");
+  setMessage(loadMessage, translate("loadRetryError"), "error");
   loadRetry.hidden = false;
   loadRetry.disabled = false;
   loadAlert.hidden = false;
@@ -393,7 +393,7 @@ const refresh = async () => {
     hideLoadAlert();
   } catch {
     pageLoading.hidden = true;
-    showLoadAlert(translate("cashRefreshError"));
+    showLoadAlert();
     if (!hasLoadedCash) {
       cashSummary?.setAttribute("aria-busy", "false");
       log.innerHTML = `<div class="cash-empty">${translate("cashDataUnavailable")}</div>`;
@@ -418,7 +418,7 @@ const initializeCashier = async () => {
     }
     await refresh();
   } catch {
-    showLoadAlert(translate("cashOpenError"));
+    showLoadAlert();
     cashSummary?.setAttribute("aria-busy", "false");
     log?.setAttribute("aria-busy", "false");
     if (!hasLoadedCash && log) {

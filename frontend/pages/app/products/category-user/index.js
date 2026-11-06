@@ -29,7 +29,7 @@ const ensurePanel = () => {
     <div class="category-user-panel__body">
       <label class="category-user-panel__field" for="categoryUserInput">
         <span>${translate("Category name")}</span>
-        <input id="categoryUserInput" type="text" placeholder="${translate("e.g Appetizers")}" />
+        <input id="categoryUserInput" type="text" maxlength="120" placeholder="${translate("e.g Appetizers")}" />
       </label>
       <p class="category-user-panel__feedback" role="status" aria-live="polite" hidden></p>
       <div class="category-user-panel__actions">

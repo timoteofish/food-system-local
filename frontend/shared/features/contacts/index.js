@@ -14,11 +14,13 @@ const decimalSeparator = localeParts.find((part) => part.type === "decimal")?.va
 const groupSeparator = localeParts.find((part) => part.type === "group")?.value || ",";
 let loading = false;
 let appShellReady = false;
+let customerRows = [];
 const contactsLoadError = document.getElementById("contactsLoadError");
 const contactsLoadRetry = document.getElementById("contactsLoadRetry");
 const contactsErrorModal = document.getElementById("contactsErrorModal");
 const contactsErrorClose = document.querySelector(".contacts-error-panel__close");
 const contactsPageLoading = document.getElementById("contactsPageLoading");
+const customerSearch = document.getElementById("customerSearch");
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -36,6 +38,54 @@ const discountTypeInput = document.querySelector("#discountForm [name='type']");
 const discountValueInput = document.querySelector("#discountForm [name='value']");
 const discountCurrencyPrefix = document.querySelector("[data-discount-currency]");
 const discountPercentSuffix = document.querySelector("[data-discount-percent]");
+const supplierTaxIdInput = document.querySelector("#supplierForm [name='tax_id']");
+
+const formatTaxId = (value) => {
+  const chars = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 14);
+  if (!/[A-Z]/.test(chars) && chars.length <= 11) {
+    if (chars.length > 9) return `${chars.slice(0, 3)}.${chars.slice(3, 6)}.${chars.slice(6, 9)}-${chars.slice(9)}`;
+    if (chars.length > 6) return `${chars.slice(0, 3)}.${chars.slice(3, 6)}.${chars.slice(6)}`;
+    if (chars.length > 3) return `${chars.slice(0, 3)}.${chars.slice(3)}`;
+    return chars;
+  }
+  if (chars.length > 12) return `${chars.slice(0, 2)}.${chars.slice(2, 5)}.${chars.slice(5, 8)}/${chars.slice(8, 12)}-${chars.slice(12)}`;
+  if (chars.length > 8) return `${chars.slice(0, 2)}.${chars.slice(2, 5)}.${chars.slice(5, 8)}/${chars.slice(8)}`;
+  if (chars.length > 5) return `${chars.slice(0, 2)}.${chars.slice(2, 5)}.${chars.slice(5)}`;
+  if (chars.length > 2) return `${chars.slice(0, 2)}.${chars.slice(2)}`;
+  return chars;
+};
+
+const hasValidTaxDigits = (value) => {
+  const calculateDigit = (values, weights) => {
+    const remainder = [...values].reduce((sum, character, index) => sum + (character.charCodeAt(0) - 48) * weights[index], 0) % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+  const digits = value.replace(/\D/g, "");
+  if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(value)) {
+    if (/^(\d)\1+$/.test(digits)) return false;
+    const first = calculateDigit(digits.slice(0, 9), [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const second = calculateDigit(digits.slice(0, 9) + first, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return Number(digits[9]) === first && Number(digits[10]) === second;
+  }
+  if (/^[0-9A-Z]{2}\.[0-9A-Z]{3}\.[0-9A-Z]{3}\/[0-9A-Z]{4}-\d{2}$/.test(value)) {
+    const cnpj = value.replace(/[./-]/g, "");
+    if (/^(\d)\1{13}$/.test(cnpj)) return false;
+    const first = calculateDigit(cnpj.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const second = calculateDigit(cnpj.slice(0, 12) + first, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return Number(cnpj[12]) === first && Number(cnpj[13]) === second;
+  }
+  return false;
+};
+
+supplierTaxIdInput?.addEventListener("input", () => {
+  supplierTaxIdInput.value = formatTaxId(supplierTaxIdInput.value);
+  supplierTaxIdInput.setCustomValidity("");
+});
+supplierTaxIdInput?.addEventListener("blur", () => {
+  const value = supplierTaxIdInput.value.trim();
+  const valid = !value || hasValidTaxDigits(value);
+  supplierTaxIdInput.setCustomValidity(valid ? "" : "Informe um CPF ou CNPJ válido.");
+});
 
 const readDiscountValue = (value) => {
   const raw = String(value ?? "").trim().replaceAll(groupSeparator, "");
@@ -83,15 +133,34 @@ const renderList = (element, rows, emptyMessage, getDetails) => {
   `).join("");
 };
 
-const setListError = (element, message) => {
+const renderCustomerList = () => {
+  const list = document.getElementById("customerList");
+  if (!list) return;
+  const normalizeSearch = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+  const query = normalizeSearch(customerSearch?.value || "").trim();
+  const filtered = customerRows.filter((customer) =>
+    [customer.name, customer.phone, customer.email]
+      .some((value) => normalizeSearch(value).includes(query))
+  );
+  if (customerRows.length && !filtered.length) {
+    list.setAttribute("aria-busy", "false");
+    list.innerHTML = `<p class="operation-empty">Nenhum cliente corresponde à pesquisa.</p>`;
+    return;
+  }
+  renderList(list, filtered, "No customers added", (customer) => customer.phone || customer.email || "");
+};
+
+customerSearch?.addEventListener("input", renderCustomerList);
+
+const setListError = (element) => {
   if (!element) return;
   element.setAttribute("aria-busy", "false");
   element.replaceChildren();
 };
 
-const showContactsError = (message) => {
+const showContactsError = () => {
   setContactsLoading(false);
-  contactsLoadError.textContent = message;
+  contactsLoadError.textContent = translate("loadRetryError");
   contactsLoadError.hidden = false;
   contactsLoadRetry.hidden = false;
   contactsLoadRetry.disabled = false;
@@ -142,6 +211,7 @@ const load = async () => {
   const list = config ? document.getElementById(config[0]) : null;
   if (list) {
     list.setAttribute("aria-busy", "true");
+    if (view === "customers") customerRows = [];
     if (contactsPageLoading) list.replaceChildren();
     else list.innerHTML = `<p class="operation-empty" role="status">${translate(config[1])}</p>`;
   }
@@ -153,11 +223,8 @@ const load = async () => {
     const result = await Promise.allSettled([apiRequest(`/businesses/${businessId}/${endpoint}`)]).then(([item]) => item);
 
     if (result.status === "rejected") {
-      const message = translate(view === "discounts"
-        ? "Could not load discounts, check your connection and try again"
-        : "Could not load records");
-      setListError(list, message);
-      showContactsError(message);
+      setListError(list);
+      showContactsError();
       if (customerSelect) {
         customerSelect.innerHTML = `<option value="">${translate("Could not load customers")}</option>`;
         customerSelect.disabled = true;
@@ -166,7 +233,10 @@ const load = async () => {
     }
 
     const rows = Array.isArray(result.value[property]) ? result.value[property] : [];
-    if (config) renderList(list, rows, config[3], config[4]);
+    if (view === "customers") {
+      customerRows = rows;
+      renderCustomerList();
+    } else if (config) renderList(list, rows, config[3], config[4]);
     if (customerSelect) {
       customerSelect.innerHTML = [
         `<option value="">${translate("Select a customer")}</option>`,
@@ -190,6 +260,10 @@ const bindCreateForm = ({ id, endpoint, resource, successMessage }) => {
   if (!form) return;
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (resource === "supplier" && supplierTaxIdInput) {
+      supplierTaxIdInput.dispatchEvent(new Event("blur"));
+      if (!supplierTaxIdInput.reportValidity()) return;
+    }
     const payload = formPayload(form);
     if (resource === "discount") {
       const value = readDiscountValue(payload.value);
@@ -276,7 +350,7 @@ const start = async () => {
     await load();
   } catch {
     setContactsLoading(false);
-    showContactsError(translate("Could not open records"));
+    showContactsError();
   } finally {
     if (contactsLoadRetry) contactsLoadRetry.disabled = false;
   }

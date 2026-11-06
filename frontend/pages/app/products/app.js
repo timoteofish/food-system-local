@@ -51,9 +51,9 @@ const hideProductsError = () => {
   document.body.classList.remove("modal-open");
 };
 
-const showProductsError = (message) => {
+const showProductsError = () => {
   setProductsLoading(false);
-  productsLoadError.textContent = message;
+  productsLoadError.textContent = translate("loadRetryError");
   productsErrorModal.hidden = false;
   document.body.classList.add("modal-open");
   productsErrorClose.focus();
@@ -454,15 +454,9 @@ const initializeProducts = async () => {
     list.replaceChildren();
     mobileList.replaceChildren();
   }
-  let appShellFailed = false;
   try {
     if (!appShellReady) {
-      try {
-        await initAppShell({ activeNav: "products" });
-      } catch (error) {
-        appShellFailed = true;
-        throw error;
-      }
+      await initAppShell({ activeNav: "products" });
       appShellReady = true;
     }
     products = await loadProducts();
@@ -473,9 +467,7 @@ const initializeProducts = async () => {
     productsLoaded = false;
     productsLoadFailed = true;
     render();
-    showProductsError(translate(appShellFailed
-      ? "Could not open the products page"
-      : "productsPageLoadError"));
+    showProductsError();
     productsRetry.hidden = false;
   }
   if (!productsLoadFailed) {
@@ -486,7 +478,7 @@ const initializeProducts = async () => {
       productsRetry.hidden = true;
     } catch {
       categoryNames = [];
-      showProductsError(translate("Could not load categories You can still add a new category"));
+      showProductsError();
       productsRetry.hidden = false;
     }
     syncCategorySelect();

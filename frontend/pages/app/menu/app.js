@@ -87,7 +87,7 @@ const hideMenuLoadError = () => {
 
 const showMenuLoadError = () => {
   setMenuLoading(false);
-  menuLoadMessage.textContent = translate("menuPageLoadError");
+  menuLoadMessage.textContent = translate("loadRetryError");
   menuLoadMessage.hidden = false;
   menuLoadRetry.hidden = false;
   menuLoadRetry.disabled = false;
@@ -227,6 +227,15 @@ const applyPreviewGradient = () => {
   const start = fields.gradientStart?.value || settings.gradientStart || settings.primaryColor || "#c52236";
   const end = fields.gradientEnd?.value || settings.gradientEnd || "#191919";
   const angle = Number(fields.gradientAngle?.value ?? settings.gradientAngle ?? 140);
+  const rgb = start.match(/^#([\da-f]{6})$/i)?.[1];
+  const luminance = rgb
+    ? [0, 2, 4].reduce((sum, offset, index) => {
+        const channel = Number.parseInt(rgb.slice(offset, offset + 2), 16) / 255;
+        const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+        return sum + linear * [0.2126, 0.7152, 0.0722][index];
+      }, 0)
+    : 0;
+  preview.wrapper.style.setProperty("--menu-header-text", luminance > 0.179 ? "#111111" : "#ffffff");
   preview.wrapper.style.setProperty("--menu-gradient", `linear-gradient(${angle}deg, ${start}, ${end})`);
   preview.wrapper.style.setProperty("--menu-gradient-start", start);
   preview.wrapper.style.setProperty("--menu-gradient-end", end);

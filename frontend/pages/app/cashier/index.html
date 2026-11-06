@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -55,7 +55,7 @@
           <div class="profile-menu">
             <a href="#" data-profile-open="settings">My profile</a>
             <a href="../menu/index.html">Configure menu</a>
-            <a href="#" data-action="close-app">Close app</a>
+            <a href="#" data-action="close-app">Fechar aplicativo</a>
           </div>
         </div>
       </aside>
@@ -67,9 +67,9 @@
           <span class="cash-page-loading" id="cashPageLoading" role="status" aria-live="polite"><span data-i18n="cashLoading">Loading</span><span class="cash-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </header>
         <div class="cash-load-modal" id="cashLoadAlert" hidden>
-          <button class="cash-load-modal__backdrop" type="button" aria-label="Close alert" data-close-cash-alert></button>
+          <button class="cash-load-modal__backdrop" type="button" aria-label="Fechar aviso" data-close-cash-alert></button>
           <section class="cash-load-alert" role="alertdialog" aria-modal="true" aria-labelledby="cashLoadMessage">
-            <button class="cash-load-alert__close" id="cashLoadAlertClose" type="button" aria-label="Close alert" data-close-cash-alert>×</button>
+            <button class="cash-load-alert__close" id="cashLoadAlertClose" type="button" aria-label="Fechar aviso" data-close-cash-alert>×</button>
             <p id="cashLoadMessage" class="cash-feedback" aria-live="assertive" hidden></p>
             <button class="btn btn--secondary cash-load-retry" id="cashLoadRetry" type="button" data-i18n="retryLabel" hidden>Try again</button>
           </section>
@@ -95,7 +95,7 @@
           <form id="movementForm" class="cash-controls cash-movement-form">
             <label for="movementType"><span data-i18n="type">Type</span><select id="movementType"><option value="entry" data-i18n="entry">Income</option><option value="withdrawal" data-i18n="withdrawal">Expense</option></select></label>
             <label for="movementAmount"><span data-i18n="amount">Amount</span><input id="movementAmount" class="cash-money-input" type="text" inputmode="decimal" autocomplete="off" required /></label>
-            <label for="movementDescription"><span data-i18n="description">Description</span><input id="movementDescription" maxlength="255" placeholder="e.g. Ingredient purchase" /></label>
+            <label for="movementDescription"><span data-i18n="description">Description</span><input id="movementDescription" maxlength="255" placeholder="Ex.: Compra de ingredientes" /></label>
             <button class="btn btn--primary" id="movementSubmit" type="submit" disabled data-i18n="cashRecordMovement">Record movement</button>
           </form>
           <p id="movementMessage" class="cash-feedback" role="status" aria-live="polite" hidden></p>
@@ -109,7 +109,8 @@
           <div class="cash-controls">
             <div class="cash-search">
               <svg class="cash-search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.471 6.471 0 001.48-5.34C15.39 5.59 12.3 3 8.7 3S2 5.59 2 8.39 4.09 13.78 7.69 13.78c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM7.69 12.28C5.1 12.28 3 10.28 3 8.39S5.1 4.5 7.69 4.5 12.38 6.5 12.38 8.39 10.28 12.28 7.69 12.28z"/>
+                <circle cx="10.8" cy="10.8" r="6.3" />
+                <path d="m16 16 4.2 4.2" />
               </svg>
               <input id="cashSearch" type="search" placeholder="Search movements" aria-label="Search movements" />
             </div>

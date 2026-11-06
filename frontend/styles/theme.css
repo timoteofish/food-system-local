@@ -1,6 +1,10 @@
 /* Theme overrides shared by authenticated application screens. */
 html[data-theme="dark"] {
   color-scheme: dark;
+  --accent-text: #ff9aa5;
+  --danger-text: #ff8b80;
+  --success-text: #62d99a;
+  --warning-text: #ffd078;
 }
 
 html[data-text-size="large"] {
@@ -26,6 +30,15 @@ html[data-theme="dark"][data-high-contrast="true"] {
   --accent: #ff6678;
   --accent-dark: #ff9aa5;
   --accent-soft: #481018;
+  --accent-on: #111111;
+  --accent-text: #ffb5be;
+  --danger-text: #ffaaa2;
+  --success-text: #8af0b5;
+  --warning-text: #ffe09b;
+}
+
+html[data-theme="dark"] {
+  --danger-soft: #3a2422;
 }
 
 html[data-theme="dark"] body,
@@ -65,6 +78,23 @@ html[data-theme="dark"] input,
 html[data-theme="dark"] select,
 html[data-theme="dark"] textarea,
 html[data-theme="dark"] .btn--secondary {
+  background: var(--surface-soft) !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+}
+
+/* Use a light custom caret on dark surfaces; keep the established inset. */
+html[data-theme="dark"] select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%23c0c0c0' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 16px center !important;
+  background-size: 16px 16px !important;
+  padding-right: 44px;
+}
+
+html[data-theme="dark"] .user-edit-panel__action:not(.user-edit-panel__action--danger) {
   background: var(--surface-soft) !important;
   color: var(--text) !important;
   border-color: var(--line) !important;

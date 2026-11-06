@@ -93,6 +93,7 @@ export default {
     openMenuPreview: "Abrir prévia do cardápio",
     customizeMenuEyebrow: "Personalização",
     retryLabel: "Tentar novamente",
+    loadRetryError: "Não foi possível carregar os pedidos, verifique a conexão e tente novamente",
     saveAgainLabel: "Salvar novamente",
     searchProductPlaceholder: "Pesquisar produto",
     downloadPng: "Baixar PNG",

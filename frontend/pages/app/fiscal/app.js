@@ -56,9 +56,9 @@ const documentTypeLabels = {
 };
 
 const userFacingError = (error) => {
-  const raw = error?.message || "fiscalOperationError";
+  const raw = error?.apiMessage || error?.message || "fiscalOperationError";
   if (raw.includes("Fiscal issuance is disabled")) return "fiscalIssuanceDisabledError";
-  return "fiscalConnectionError";
+  return "loadRetryError";
 };
 
 const setMessage = (element, text = "", type = "success") => {

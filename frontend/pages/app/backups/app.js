@@ -72,7 +72,7 @@ const loadBackups = async () => {
     const data = await apiRequest(`/businesses/${businessId}/backups`);
     renderBackups(Array.isArray(data.backups) ? data.backups : []);
   } catch (error) {
-    backupList.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate("Could not load backups"))}</p><button class="btn btn--secondary" type="button" data-backup-retry>${translate("Try again")}</button></div>`;
+    backupList.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate("loadRetryError"))}</p><button class="btn btn--secondary" type="button" data-backup-retry>${translate("Try again")}</button></div>`;
   }
 };
 

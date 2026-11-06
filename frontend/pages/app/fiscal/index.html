@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -53,7 +53,7 @@
           <div class="profile-menu">
             <a href="#" data-profile-open="settings">My profile</a>
             <a href="../menu/index.html">Configure menu</a>
-            <a href="#" data-action="close-app">Close app</a>
+            <a href="#" data-action="close-app">Fechar aplicativo</a>
           </div>
         </div>
       </aside>
@@ -77,7 +77,7 @@
               </select>
             </label>
             <label for="orderId"><span data-i18n="fiscalOrderIdOptional">Order ID (optional)</span>
-              <input id="orderId" name="order_id" type="text" placeholder="Order ID" autocomplete="off" />
+              <input id="orderId" name="order_id" type="text" data-input-format="identifier" inputmode="text" maxlength="36" pattern="[A-Za-z0-9_-]{1,36}" placeholder="Order ID" autocomplete="off" />
             </label>
             <button class="btn btn--primary" type="submit" data-i18n="fiscalCreateDraft">Create draft</button>
           </form>

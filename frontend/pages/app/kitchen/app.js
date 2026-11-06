@@ -72,7 +72,7 @@ const showLoadError = () => {
   setLoading(false);
   refreshButton.disabled = false;
   retryButton.disabled = false;
-  loadErrorMessage.textContent = translate("kitchenLoadError");
+  loadErrorMessage.textContent = translate("loadRetryError");
   errorModal.hidden = false;
   document.body.classList.add("modal-open");
   errorClose.focus();

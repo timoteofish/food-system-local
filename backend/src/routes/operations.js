@@ -11,6 +11,27 @@ const optionalText = (value, maxLength) => {
   const normalized = value.trim();
   return normalized.length <= maxLength ? { valid: true, value: normalized || null } : { valid: false, value: null };
 };
+const isValidCpfCnpj = (value) => {
+  const digits = value?.replace(/\D/g, "") || "";
+  const calculateDigit = (values, weights) => {
+    const remainder = [...values].reduce((sum, character, index) => sum + (character.charCodeAt(0) - 48) * weights[index], 0) % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+  if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(value)) {
+    if (/^(\d)\1+$/.test(digits)) return false;
+    const first = calculateDigit(digits.slice(0, 9), [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const second = calculateDigit(digits.slice(0, 9) + first, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return Number(digits[9]) === first && Number(digits[10]) === second;
+  }
+  if (/^[0-9A-Z]{2}\.[0-9A-Z]{3}\.[0-9A-Z]{3}\/[0-9A-Z]{4}-\d{2}$/.test(value)) {
+    const cnpj = value.replace(/[./-]/g, "");
+    if (/^(\d)\1{13}$/.test(cnpj)) return false;
+    const first = calculateDigit(cnpj.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const second = calculateDigit(cnpj.slice(0, 12) + first, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return Number(cnpj[12]) === first && Number(cnpj[13]) === second;
+  }
+  return false;
+};
 
 export default async function operationsRoutes(app) {
   app.get("/api/v1/businesses/:businessId/payment-methods", async (request, reply) => {
@@ -93,6 +114,7 @@ export default async function operationsRoutes(app) {
       const notes = optionalText(body.notes, MAX_CONTACT_NOTES_BYTES);
       const taxId = resource === "suppliers" ? optionalText(body.tax_id, 30) : { valid: true, value: null };
       if (!phone.valid || !email.valid || !notes.valid || !taxId.valid) return reply.badRequest("Contact fields exceed their supported limits or have invalid types");
+      if (resource === "suppliers" && taxId.value && !isValidCpfCnpj(taxId.value)) return reply.badRequest("Invalid CPF or CNPJ");
       if (email.value && !/^\S+@\S+\.\S+$/.test(email.value)) return reply.badRequest("Invalid email address");
       if (notes.value && Buffer.byteLength(notes.value, "utf8") > MAX_CONTACT_NOTES_BYTES) return reply.badRequest("Contact notes exceed the 16 KB storage limit");
       const id = randomUUID();

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -52,7 +52,7 @@
           <div class="profile-menu">
             <a href="#" data-profile-open="settings">My profile</a>
             <a href="../menu/index.html">Configure menu</a>
-            <a href="#" data-action="close-app">Close app</a>
+            <a href="#" data-action="close-app">Fechar aplicativo</a>
           </div>
         </div>
       </aside>
@@ -67,8 +67,8 @@
             <h2 data-i18n="suppliersTitle">Suppliers</h2>
             <form class="contact-form" id="supplierForm">
               <label class="field"><span data-i18n="supplierNameLabel">Supplier name</span><input name="name" autocomplete="organization" required maxlength="160" placeholder="Ex.: Distribuidora Central" /></label>
-              <label class="field"><span><span data-i18n="supplierTaxIdLabel">CPF or CNPJ</span> <span class="contact-optional" data-i18n="optional">Optional</span></span><input name="tax_id" autocomplete="off" maxlength="30" placeholder="00.000.000/0000-00" /></label>
-              <label class="field"><span><span data-i18n="phoneLabel">Phone</span> <span class="contact-optional" data-i18n="optional">Optional</span></span><input name="phone" type="tel" autocomplete="tel" maxlength="40" placeholder="(00) 00000-0000" /></label>
+              <label class="field"><span><span data-i18n="supplierTaxIdLabel">CPF or CNPJ</span> <span class="contact-optional" data-i18n="optional">Optional</span></span><input name="tax_id" inputmode="text" autocomplete="off" maxlength="18" placeholder="CPF ou CNPJ" /></label>
+              <label class="field"><span><span data-i18n="phoneLabel">Phone</span> <span class="contact-optional" data-i18n="optional">Optional</span></span><input name="phone" type="tel" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\([0-9]{2}\) [0-9]{4,5}-[0-9]{4}" title="Informe DDD e telefone com 10 ou 11 dígitos." placeholder="(00) 00000-0000" /></label>
               <button class="btn btn--primary" type="submit" data-i18n="supplierAddButton">Add supplier</button>
             </form>
             <div class="contact-list" id="supplierList" aria-live="polite" aria-busy="true"></div>

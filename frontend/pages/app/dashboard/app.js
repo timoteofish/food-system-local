@@ -27,7 +27,7 @@ const showDashboardError = () => {
   dashboardStats.setAttribute("aria-busy", "false");
   recentOrders.setAttribute("aria-busy", "false");
   recentOrders.replaceChildren();
-  feedback.textContent = translate("Could not load the dashboard Check your connection and try again");
+  feedback.textContent = translate("loadRetryError");
   errorModal.hidden = false;
   document.body.classList.add("modal-open");
   errorClose.focus();

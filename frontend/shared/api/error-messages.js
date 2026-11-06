@@ -31,6 +31,7 @@ const portugueseMessages = {
   "A valid email, a name between 2 and 120 characters, and a password between 8 and 1024 bytes are required": "Email válido, nome de 2 a 120 caracteres e senha de 8 a 1024 bytes são obrigatórios",
   "Email is already registered": "Email já cadastrado",
   "Invalid email or password": "Email ou senha inválidos",
+  "Invalid CPF or CNPJ": "Informe um CPF ou CNPJ válido nos formatos correspondentes",
   "Only an owner can invite managers or owners": "Somente um proprietário pode convidar gerentes ou proprietários",
   "The user must register before receiving an invitation": "O usuário precisa se cadastrar antes do convite",
   "The user already belongs to this business": "Usuário já pertence à empresa",
@@ -43,5 +44,5 @@ const portugueseMessages = {
 
 export const localizeApiError = (message) => {
   if (getLanguage() !== "pt") return message;
-  return portugueseMessages[message] || message;
+  return portugueseMessages[message] || "Não foi possível concluir a operação. Verifique os dados e tente novamente.";
 };

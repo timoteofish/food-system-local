@@ -54,7 +54,7 @@
 
 .image-user-panel__eyebrow{
   margin:0;
-  color:var(--accent);
+  color:var(--accent-text, var(--accent));
   font-size:.78rem;
   font-weight:800;
   letter-spacing:.12em;

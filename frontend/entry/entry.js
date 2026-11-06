@@ -1,5 +1,7 @@
 import { getBusiness, getMenuSettings, saveBusiness, saveMenuSettings } from "../shared/data/storage.js";
 import { pingApi, provisionLocalBusiness } from "../shared/api/client.js";
+import { TERMS_SECTIONS } from "../pages/auth/terms/terms-data.js";
+import { translate } from "../shared/i18n/i18n.js";
 import translations from "./translations.js";
 
 const SETUP_KEY = "food-system-initial-setup-complete";
@@ -17,22 +19,19 @@ const targetUrl = (() => {
 })();
 const form = document.getElementById("firstRunForm");
 const businessInput = document.getElementById("businessName");
-const languageInput = document.getElementById("businessLanguage");
 const error = document.getElementById("setupError");
 const termsModal = document.getElementById("termsModal");
+const termsBody = document.getElementById("setupTermsBody");
 const openTerms = document.getElementById("openTerms");
 const termsAgreement = document.getElementById("termsAgreement");
 
-const applyLanguage = (language) => {
-  const copy = translations[language] || translations.en;
-  document.documentElement.lang = language === "en" ? "en" : "pt-BR";
+const applyLanguage = () => {
+  const copy = translations.pt;
+  document.documentElement.lang = "pt-BR";
   document.querySelector(".first-run")?.setAttribute(
     "aria-label",
     copy.ariaLabel
   );
-  languageInput.setAttribute("aria-label", copy.languageLabel);
-  languageInput.querySelector('[value="pt"]').textContent = copy.languageOptions.pt;
-  languageInput.querySelector('[value="en"]').textContent = copy.languageOptions.en;
   document.querySelectorAll("[data-copy]").forEach((element) => {
     const value = copy[element.dataset.copy];
     if (value?.includes("<br")) element.innerHTML = value.replace(/<(?!br\s*\/?>)[^>]*>/gi, "");
@@ -44,19 +43,17 @@ const applyLanguage = (language) => {
   businessInput.placeholder = copy.placeholder;
   if (!error.hidden) error.textContent = copy.error;
   document.title = copy.documentTitle;
-};
-
-const getSavedLanguage = () => {
-  try {
-    const saved = localStorage.getItem("food-system-language");
-    return saved === "en" ? "en" : "pt";
-  } catch {
-    return "pt";
+  if (termsBody) {
+    termsBody.innerHTML = TERMS_SECTIONS.map((section) => `
+      <section class="first-run__terms-section">
+        <h3>${translate(section.title)}</h3>
+        <ul>${section.items.map((item) => `<li>${translate(item)}</li>`).join("")}</ul>
+      </section>
+    `).join("");
   }
 };
 
-let language = getSavedLanguage();
-languageInput.value = language;
+const language = "pt";
 let business = {};
 let hasExistingSetup = false;
 try {
@@ -89,14 +86,8 @@ if (hasExistingSetup) {
     if (event.key === "Escape" && !termsModal.hidden) closeTerms();
   });
 
-  languageInput.addEventListener("change", () => {
-    language = languageInput.value === "en" ? "en" : "pt";
-    applyLanguage(language);
-  });
-
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    language = languageInput.value === "en" ? "en" : "pt";
     if (!termsAgreement.checked) {
       termsAgreement.focus();
       return;
@@ -104,7 +95,7 @@ if (hasExistingSetup) {
     const name = businessInput.value.trim();
     if (name.length < 2 || name.length > 160) {
       businessInput.focus();
-      error.textContent = (translations[language] || translations.en).nameError;
+      error.textContent = translations.pt.nameError;
       error.hidden = false;
       return;
     }
@@ -123,7 +114,7 @@ if (hasExistingSetup) {
       localStorage.setItem(SETUP_KEY, "true");
       window.location.assign(targetUrl.href);
     } catch {
-      error.textContent = (translations[language] || translations.en).error;
+      error.textContent = translations.pt.error;
       error.hidden = false;
       error.focus();
       Object.entries(previousValues || {}).forEach(([key, value]) => {

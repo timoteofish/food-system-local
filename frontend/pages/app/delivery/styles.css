@@ -51,10 +51,10 @@
   gap: 18px;
   width: min(100%, 520px);
   padding: 32px;
-  border: 1px solid color-mix(in srgb, var(--danger) 18%, white);
+  border: 1px solid color-mix(in srgb, var(--danger) 18%, var(--surface));
   border-radius: 14px;
-  background: #fff;
-  color: #171717;
+  background: var(--surface);
+  color: var(--text);
   box-shadow: 0 24px 70px rgba(0, 0, 0, .24);
 }
 .delivery-error-panel .delivery-load-error {
@@ -62,7 +62,7 @@
   padding: 4px 42px 4px 0;
   border: 0;
   background: transparent;
-  color: #171717;
+  color: var(--text);
   font-size: 1rem;
   line-height: 1.5;
   text-align: center;
@@ -78,8 +78,8 @@
   place-items: center;
   border: 0;
   border-radius: 8px;
-  background: #f5f5f5;
-  color: var(--danger);
+  background: var(--surface-soft);
+  color: var(--danger-text, var(--danger));
   font: inherit;
   font-size: 27px;
   line-height: 1;
@@ -128,7 +128,7 @@
 
 .delivery-couriers .operation-form input:focus,
 .delivery-assignment select:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-text, var(--accent));
   box-shadow: 0 0 0 3px rgba(197, 34, 54, .08), 0 0 16px rgba(239, 75, 88, .06);
 }
 
@@ -166,7 +166,7 @@
   border-style: solid;
   border-color: rgba(180, 35, 24, .16);
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-text, var(--danger));
 }
 
 .operation-empty[role="alert"] p { margin: 0; }
@@ -213,7 +213,7 @@
 .delivery-card .operation-card__status {
   border-color: rgba(197, 34, 54, .12);
   background: var(--accent-soft);
-  color: var(--accent-dark);
+  color: var(--accent-text, var(--accent-dark));
 }
 
 .operation-card__status--delivered,
@@ -225,8 +225,8 @@
   color: var(--muted);
 }
 
-.delivery-card--requested { border-left-color: var(--accent-dark); }
-.delivery-card--assigned { border-left-color: var(--accent); }
+.delivery-card--requested { border-left-color: var(--accent-text, var(--accent-dark)); }
+.delivery-card--assigned { border-left-color: var(--accent-text, var(--accent)); }
 .delivery-card--picked_up { border-left-color: var(--accent-neon); }
 .delivery-card--delivered { border-left-color: var(--line); }
 

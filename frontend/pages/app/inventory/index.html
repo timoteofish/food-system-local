@@ -86,7 +86,7 @@
               <label for="movementType"><span>Movement type</span><select id="movementType"><option value="adjustment">Adjustment</option><option value="loss">Waste</option></select></label>
               <label id="movementDirectionField" for="movementDirection" hidden><span>Adjustment direction</span><select id="movementDirection"><option value="1">Add to stock</option><option value="-1">Remove from stock</option></select></label>
               <label for="movementQuantity"><span>Quantity</span><input id="movementQuantity" type="number" min="0.001" step="0.001" required inputmode="decimal" /></label>
-              <label for="movementDescription"><span>Description <span class="inventory-optional">Optional</span></span><input id="movementDescription" maxlength="255" placeholder="Ex.: Weekly count" /></label>
+              <label for="movementDescription"><span>Description <span class="inventory-optional">Optional</span></span><input id="movementDescription" maxlength="255" placeholder="Ex.: Contagem semanal" /></label>
               <button class="btn btn--primary" id="movementSubmit" type="submit" disabled>Record movement</button>
             </form>
             <p id="movementMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>

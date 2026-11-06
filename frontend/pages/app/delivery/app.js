@@ -23,9 +23,9 @@ const hideDeliveryError = () => {
   document.body.classList.remove("modal-open");
 };
 
-const showDeliveryError = (message) => {
+const showDeliveryError = () => {
   deliveryPageLoading.hidden = true;
-  deliveryLoadError.textContent = message;
+  deliveryLoadError.textContent = translate("loadRetryError");
   deliveryLoadRetry.disabled = false;
   deliveryErrorModal.hidden = false;
   document.body.classList.add("modal-open");
@@ -155,7 +155,7 @@ const load = async () => {
       apiRequest(`/businesses/${businessId}/deliveries`),
   ]);
   const [courierResult, deliveryResult] = results;
-  const errors = [];
+  let hasLoadError = false;
   if (courierResult.status === "fulfilled") {
     couriers = Array.isArray(courierResult.value.couriers) ? courierResult.value.couriers : [];
     renderCouriers(couriers);
@@ -163,7 +163,7 @@ const load = async () => {
     couriers = [];
     courierList.setAttribute("aria-busy", "false");
     courierList.replaceChildren();
-    errors.push(translate("Could not load drivers"));
+    hasLoadError = true;
   }
   if (deliveryResult.status === "fulfilled") {
     const deliveries = Array.isArray(deliveryResult.value.deliveries) ? deliveryResult.value.deliveries : [];
@@ -171,9 +171,9 @@ const load = async () => {
   } else {
     deliveryList.setAttribute("aria-busy", "false");
     deliveryList.replaceChildren();
-    errors.push(translate("Could not load deliveries"));
+    hasLoadError = true;
   }
-  if (errors.length) showDeliveryError(errors.join(" · "));
+  if (hasLoadError) showDeliveryError();
   else setDeliveryLoading(false);
   return courierResult.status === "fulfilled" && deliveryResult.status === "fulfilled";
 };
@@ -271,8 +271,8 @@ const start = async () => {
       appShellReady = true;
     }
     await load();
-  } catch (error) {
-    showDeliveryError(translate("Could not open deliveries"));
+  } catch {
+    showDeliveryError();
   } finally {
     deliveryLoadRetry.disabled = false;
   }

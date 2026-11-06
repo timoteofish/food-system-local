@@ -2,7 +2,7 @@ import { getBusiness, getMenuSettings, getSession, saveBusiness, saveMenuSetting
 import { bootstrapApi, completeBusinessOnboarding, isUsingApi, logout, requireAuth, saveMenuSettingsRemote } from "../auth/auth.js";
 import { checkForSystemUpdates } from "../auth/auth.js";
 import { escapeHtml, safeImageUrl } from "../utils/utils.js";
-import { applyLegacyTranslations, getLanguage, getLegacyTranslationCandidates, setLanguage, translate } from "../i18n/i18n.js";
+import { applyLegacyTranslations, getLegacyTranslationCandidates, translate } from "../i18n/i18n.js";
 import { applyAppearancePreferences } from "./appearance.js";
 
 export { requireAuth };
@@ -224,7 +224,7 @@ const ensureBusinessOnboarding = () => {
           </label>
           <label class="field">
             <span>Phone</span>
-            <input name="phone" type="tel" autocomplete="tel" placeholder="(00) 00000-0000" />
+            <input name="phone" type="tel" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\\([0-9]{2}\\) [0-9]{4,5}-[0-9]{4}" title="Informe DDD e telefone com 10 ou 11 dígitos." placeholder="(00) 00000-0000" />
           </label>
           <label class="field field-wide">
             <span>City</span>
@@ -457,12 +457,9 @@ export const initProfileMenu = () => {
   let session = getSession();
   let business = getBusiness();
   let displayName = session?.name || business.name || "User";
-  const clientCategory = "Local application";
   let clientEmail = session?.email || business.email || "";
   const clientPhone = business.phone || session?.phone || "";
   const safeClientAvatar = safeImageUrl(business.avatar);
-  const safeSessionAvatar = safeImageUrl(session?.avatar);
-  const displayPlan = clientCategory;
   let backdrop = document.getElementById("userEditBackdrop");
   let panel = document.getElementById("userEditPanel");
 
@@ -482,30 +479,21 @@ export const initProfileMenu = () => {
     panel.setAttribute("aria-label", translate("User settings"));
     panel.innerHTML = `
       <div class="user-edit-panel__hero">
+        <h2 class="user-edit-panel__hero-title">Profile and app</h2>
         <button type="button" class="user-edit-panel__close" data-user-edit-close aria-label="Close panel">×</button>
-        <div class="user-edit-panel__hero-user">
-          <div class="user-edit-panel__avatar" aria-hidden="true">${safeSessionAvatar ? `<img src="${escapeHtml(safeSessionAvatar)}" alt="" />` : escapeHtml(displayName.slice(0, 1).toUpperCase())}</div>
-          <div class="user-edit-panel__hero-copy">
-            <strong data-merchant-content>${escapeHtml(displayName)}</strong>
-            <span>${escapeHtml(displayPlan)}</span>
-            <small class="user-edit-panel__hero-email" data-merchant-content ${clientEmail ? "" : "hidden"}>${escapeHtml(clientEmail)}</small>
-          </div>
-        </div>
       </div>
       <div class="user-edit-panel__body">
         <div class="user-edit-panel__views">
           <section class="user-edit-panel__view is-current" data-profile-view="home">
             <div class="user-edit-panel__actions-stack">
-              <div class="user-edit-panel__home-intro"><span>YOUR ACCOUNT</span><h2>Profile and app</h2><p>Manage your details, updates, and support</p></div>
               <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="settings"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"/></svg></span><span><strong>Account settings</strong><small>Update your profile and business details</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
-              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="updates"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4.7 9A7.5 7.5 0 0 1 18 6l2 2M4 17v-5h5m10.3 3A7.5 7.5 0 0 1 6 18l-2-2"/></svg></span><span><strong>System updates</strong><small>Check the installed version</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
+              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="updates"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4.7 9A7.5 7.5 0 0 1 18 6l2 2M4 17v-5h5m10.3 3A7.5 7.5 0 0 1 6 18l-2-2"/></svg></span><span><strong>Updates</strong><small>Check the installed version</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
               <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="support"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4v.01M9.6 9a2.4 2.4 0 1 1 4.35 1.42c-.95 1.05-1.95 1.26-1.95 2.83"/></svg></span><span><strong>Contact support</strong><small>Send a message to our team</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
               <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-action="close-app">Close application</button>
             </div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="settings" hidden>
             <div class="user-edit-panel__page-head">
-              <span>Account center</span>
               <strong>Profile details</strong>
             </div>
             <div class="user-edit-panel__page-shell">
@@ -516,27 +504,16 @@ export const initProfileMenu = () => {
                       <img class="user-edit-panel__settings-avatar-image" alt="Business image" ${safeClientAvatar ? `src="${escapeHtml(safeClientAvatar)}"` : "hidden"} />
                       <span class="user-edit-panel__settings-avatar-placeholder" ${safeClientAvatar ? "hidden" : ""}>${escapeHtml(displayName.slice(0, 1).toUpperCase())}</span>
                     </div>
-                    <div class="user-edit-panel__settings-avatar-copy">
-                      <strong>Business image</strong>
-                      <small>Identify your business in the system</small>
-                    </div>
                     <input class="user-edit-panel__file-input" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar>Change photo</button>
-                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar-remove ${safeClientAvatar ? "" : "hidden"}>Remove photo</button>
-                  </div>
-                  <div class="user-edit-panel__settings-summary">
-                    <article class="user-edit-panel__card">
-                      <span>Installed application</span>
-                      <strong>Food System</strong>
-                      <small>Your business settings</small>
-                    </article>
-                    <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-open="updates">Check for updates</button>
+                    <div class="user-edit-panel__settings-avatar-controls">
+                      <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar>Change photo</button>
+                      <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-settings-avatar-remove ${safeClientAvatar ? "" : "hidden"}>Remove photo</button>
+                    </div>
                   </div>
                 </aside>
                 <form class="user-edit-panel__settings-form" data-settings-form>
                   <section class="user-edit-panel__settings-block">
                     <div class="user-edit-panel__settings-block-head">
-                      <span>Account</span>
                       <strong>Basic information</strong>
                     </div>
                     <div class="user-edit-panel__settings-grid">
@@ -550,47 +527,18 @@ export const initProfileMenu = () => {
                       </label>
                       <label class="field">
                         <span>Phone</span>
-                        <input name="phone" type="tel" value="${escapeHtml(clientPhone)}" autocomplete="tel" maxlength="40" placeholder="(00) 00000-0000" />
+                        <input name="phone" type="tel" value="${escapeHtml(clientPhone)}" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\\([0-9]{2}\\) [0-9]{4,5}-[0-9]{4}" title="Informe DDD e telefone com 10 ou 11 dígitos." placeholder="(00) 00000-0000" />
                       </label>
                     </div>
                   </section>
                   <section class="user-edit-panel__settings-block">
-                    <div class="user-edit-panel__settings-block-head">
-                      <span>Contact</span>
-                      <strong>Account email</strong>
-                    </div>
-                    <label class="field">
-                      <span>Email</span>
-                      <input name="email" type="email" value="${escapeHtml(clientEmail)}" autocomplete="email" readonly />
-                      <small class="user-edit-panel__field-note">Contact support to change your email</small>
-                    </label>
-                  </section>
-                  <section class="user-edit-panel__settings-block">
-                    <div class="user-edit-panel__settings-block-head">
-                      <span>Preferences</span>
-                      <strong>Appearance and accessibility</strong>
-                    </div>
                     <div class="user-edit-panel__settings-grid">
-                      <label class="field">
-                        <span>Language</span>
-                        <select data-global-language aria-label="Language">
-                          <option value="en">English</option>
-                          <option value="pt">Portuguese</option>
-                        </select>
-                      </label>
                       <label class="field">
                         <span>Theme</span>
                         <select data-global-theme aria-label="Appearance theme">
                           <option value="light">Light</option>
                           <option value="dark">Dark</option>
                           <option value="system">Automatic</option>
-                        </select>
-                      </label>
-                      <label class="field">
-                        <span>Sidebar</span>
-                        <select data-sidebar-layout aria-label="Sidebar layout">
-                          <option value="expanded">Expanded</option>
-                          <option value="collapsed">Collapsed</option>
                         </select>
                       </label>
                       <label class="field">
@@ -617,37 +565,32 @@ export const initProfileMenu = () => {
                     </div>
                   </section>
                   <p class="user-edit-panel__feedback" data-settings-feedback role="status" aria-live="polite" hidden></p>
-                  <button class="user-edit-panel__action" type="submit" data-settings-save>Save changes</button>
                 </form>
               </section>
               <div class="user-edit-panel__actions-stack">
-                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Back</button>
+                <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-profile-back>Back</button>
               </div>
             </div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="updates" hidden>
             <div class="user-edit-panel__page-head">
-              <span>System</span>
               <strong>Updates</strong>
             </div>
-            <div class="user-edit-panel__page-shell">
+            <div class="user-edit-panel__page-shell user-edit-panel__page-shell--updates">
               <div class="user-edit-panel__update-panel" data-update-panel>
-                <strong>System updates</strong>
-                <p data-update-current>Check whether a new version is available</p>
+                <div class="user-edit-panel__update-indicator" data-update-indicator role="status" aria-live="polite" hidden></div>
+                <p data-update-current></p>
                 <p data-update-notes></p>
                 <button class="user-edit-panel__action" type="button" data-update-check>Check now</button>
-                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-update-later hidden>Remind me later</button>
-              <a class="user-edit-panel__action" data-update-now hidden target="_blank" rel="noopener">Open download page</a>
               </div>
               <p class="user-edit-panel__feedback" data-update-feedback hidden></p>
               <div class="user-edit-panel__actions-stack">
-                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Back</button>
+                <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-profile-back>Back</button>
               </div>
             </div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="support" hidden>
             <div class="user-edit-panel__page-head">
-              <span>Help and support</span>
               <strong>Remote support</strong>
             </div>
             <div class="user-edit-panel__page-shell">
@@ -657,7 +600,7 @@ export const initProfileMenu = () => {
                 <p>Before the session, describe what happened, which screen it happened on, and what you expected to happen</p>
               </div>
               <div class="user-edit-panel__actions-stack">
-                <button class="user-edit-panel__action user-edit-panel__action--ghost" type="button" data-profile-back>Back</button>
+                <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-profile-back>Back</button>
               </div>
             </div>
           </section>
@@ -728,7 +671,7 @@ export const initProfileMenu = () => {
     event.preventDefault();
     event.stopPropagation();
     profileTrigger = target;
-    switchProfileView("settings");
+    switchProfileView("home");
     openPanel();
   };
 
@@ -793,9 +736,6 @@ export const initProfileMenu = () => {
   button.setAttribute("aria-haspopup", "dialog");
   button.setAttribute("aria-controls", panel.id);
 
-  const heroAvatar = () => panel.querySelector(".user-edit-panel__avatar");
-  const heroName = () => panel.querySelector(".user-edit-panel__hero-copy strong");
-  const heroEmail = () => panel.querySelector(".user-edit-panel__hero-email");
   const settingsForm = panel.querySelector("[data-settings-form]");
   const settingsFeedback = panel.querySelector("[data-settings-feedback]");
   const settingsAvatarButton = panel.querySelector("[data-settings-avatar]");
@@ -803,19 +743,10 @@ export const initProfileMenu = () => {
   const settingsAvatarInput = panel.querySelector(".user-edit-panel__file-input");
   const settingsAvatarImage = panel.querySelector(".user-edit-panel__settings-avatar-image");
   const settingsAvatarPlaceholder = panel.querySelector(".user-edit-panel__settings-avatar-placeholder");
-  const languageSelect = panel.querySelector("[data-global-language]");
   const themeSelect = panel.querySelector("[data-global-theme]");
   const motionSelect = panel.querySelector("[data-reduced-motion]");
   const textSizeSelect = panel.querySelector("[data-text-size]");
   const contrastSelect = panel.querySelector("[data-high-contrast]");
-  const sidebarLayoutSelect = panel.querySelector("[data-sidebar-layout]");
-  if (languageSelect) {
-    languageSelect.value = getLanguage();
-    languageSelect.addEventListener("change", () => {
-      setLanguage(languageSelect.value);
-      window.location.reload();
-    });
-  }
   if (themeSelect) {
     let savedTheme = "light";
     try { savedTheme = localStorage.getItem("food-system-theme") || "light"; } catch { /* Default to light theme */ }
@@ -852,19 +783,6 @@ export const initProfileMenu = () => {
       applyAppearancePreferences();
     });
   }
-  if (sidebarLayoutSelect) {
-    let storedLayout = "";
-    try { storedLayout = localStorage.getItem("food-system-sidebar-collapsed") || ""; } catch { /* Use current layout */ }
-    const currentlyCollapsed = storedLayout
-      ? storedLayout === "true"
-      : document.documentElement.classList.contains("menu-sidebar-collapsed") || window.matchMedia("(max-width: 1023px)").matches;
-    sidebarLayoutSelect.value = currentlyCollapsed ? "collapsed" : "expanded";
-    sidebarLayoutSelect.addEventListener("change", () => {
-      const collapsed = sidebarLayoutSelect.value === "collapsed";
-      try { localStorage.setItem("food-system-sidebar-collapsed", String(collapsed)); } catch { /* Apply for this page */ }
-      setSidebarCollapsedState(collapsed);
-    });
-  }
   let pendingAvatar = safeClientAvatar;
 
   const syncPanelIdentity = ({ name, email, phone, businessName, avatar }) => {
@@ -886,20 +804,7 @@ export const initProfileMenu = () => {
         }
       : session;
 
-    const heroAvatarElement = heroAvatar();
     const safeAvatar = safeImageUrl(business.avatar);
-    if (heroAvatarElement) {
-      heroAvatarElement.innerHTML = safeAvatar
-        ? `<img src="${escapeHtml(safeAvatar)}" alt="" />`
-        : escapeHtml(String(business.name || displayName).slice(0, 1).toUpperCase());
-    }
-    const heroNameElement = heroName();
-    if (heroNameElement) heroNameElement.textContent = displayName;
-    const heroEmailElement = heroEmail();
-    if (heroEmailElement) {
-      heroEmailElement.textContent = clientEmail;
-      heroEmailElement.hidden = !clientEmail;
-    }
     button.setAttribute("aria-label", translate("profileOf").replace("$1", displayName));
     if (label) label.textContent = translate("Profile");
 
@@ -1016,7 +921,7 @@ export const initProfileMenu = () => {
       return;
     }
 
-    submitButton.disabled = true;
+    if (submitButton) submitButton.disabled = true;
     settingsFeedback.textContent = translate("Saving");
     settingsFeedback.className = "user-edit-panel__feedback";
     settingsFeedback.hidden = false;
@@ -1059,7 +964,7 @@ export const initProfileMenu = () => {
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
     } finally {
       settingsFeedback.hidden = false;
-      submitButton.disabled = false;
+      if (submitButton) submitButton.disabled = false;
     }
   });
 
@@ -1069,38 +974,50 @@ export const initProfileMenu = () => {
   const updateNotes = panel.querySelector("[data-update-notes]");
   const updateFeedback = panel.querySelector("[data-update-feedback]");
   const updateCheck = panel.querySelector("[data-update-check]");
-  const updateLater = panel.querySelector("[data-update-later]");
-  const updateNow = panel.querySelector("[data-update-now]");
+  const updateIndicator = panel.querySelector("[data-update-indicator]");
 
   const checkSystemUpdate = async () => {
     if (!updateFeedback) return;
+    if (updateCheck) {
+      updateCheck.disabled = true;
+      updateCheck.textContent = translate("Checking for updates");
+    }
+    if (updateIndicator) {
+      updateIndicator.hidden = false;
+      updateIndicator.className = "user-edit-panel__update-indicator is-checking";
+      updateIndicator.textContent = "";
+      updateIndicator.setAttribute("aria-label", translate("Checking for updates"));
+    }
     updateFeedback.hidden = false;
     updateFeedback.textContent = translate("Checking for updates");
     try {
       const result = await checkForSystemUpdates();
       updateCurrent.textContent = translate("installedVersionNotice").replace("$1", result.current_version).replace("$2", result.available_version);
       updateNotes.textContent = translate(result.notes || "The system is up to date");
-      updateLater.hidden = !result.update_available;
-      const safeUpdateUrl = typeof result.download_url === "string" && /^https:\/\//i.test(result.download_url) ? result.download_url : "";
-      updateNow.hidden = !result.update_available || !safeUpdateUrl;
-      updateNow.href = safeUpdateUrl || "#";
-      updateNow.rel = "noopener noreferrer";
+      if (updateIndicator) {
+        updateIndicator.className = `user-edit-panel__update-indicator ${result.update_available ? "is-available" : "is-current"}`;
+        updateIndicator.textContent = result.update_available ? "✓" : "×";
+        updateIndicator.setAttribute("aria-label", translate(result.update_available ? "Update available" : "No updates available"));
+      }
       updateFeedback.textContent = result.update_available
-        ? result.download_url ? translate("A new version is available. The link opens its download page; installation is manual.") : translate("An update is listed, but its installer is not available yet")
+        ? translate("A new version is available. Installation is manual.")
         : translate("The system is up to date");
     } catch (error) {
+      if (updateIndicator) {
+        updateIndicator.className = "user-edit-panel__update-indicator is-error";
+        updateIndicator.textContent = "!";
+        updateIndicator.setAttribute("aria-label", translate("Could not check for updates"));
+      }
       updateFeedback.textContent = translate(error?.message || "Could not check for updates");
+    } finally {
+      if (updateCheck) {
+        updateCheck.disabled = false;
+        updateCheck.textContent = translate("Check now");
+      }
     }
   };
 
   updateCheck?.addEventListener("click", checkSystemUpdate);
-  updateLater?.addEventListener("click", () => {
-    if (updateFeedback) {
-      updateFeedback.textContent = translate("No problem You can check again whenever you like");
-      updateFeedback.hidden = false;
-    }
-  });
-
   profile.addEventListener("click", (event) => {
     const openButton = event.target instanceof Element ? event.target.closest("[data-profile-open]") : null;
     if (!openButton || !profile.contains(openButton)) return;
@@ -1176,7 +1093,12 @@ export const initUserEditPanel = () => {
 
 const ensureProfileTrigger = () => {
   const sidebar = document.querySelector(".menu-sidebar");
-  if (!sidebar || sidebar.querySelector(".profile")) return;
+  if (!sidebar) return;
+  const existingProfile = sidebar.querySelector(".menu-sidebar__profile");
+  if (existingProfile) {
+    sidebar.append(existingProfile);
+    return;
+  }
 
   const profile = document.createElement("div");
   profile.className = "profile menu-sidebar__profile";

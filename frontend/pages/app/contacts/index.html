@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -64,16 +64,28 @@
           </div>
           <span class="contacts-page-loading" id="contactsPageLoading" role="status" aria-live="polite" hidden><span data-contacts-loading-label>Loading</span><span class="contacts-page-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>
-        <section class="contact-grid contact-grid--single" aria-label="Customers"><article class="panel">
+        <section class="contact-grid contact-grid--single" aria-label="Clientes">
+          <article class="panel">
             <p class="contact-panel__intro contact-panel__intro--title">Keep customer contact details</p>
             <form class="contact-form" id="customerForm">
               <label class="field"><span>Customer name</span><input name="name" autocomplete="name" required maxlength="160" placeholder="e.g Ana Souza" /></label>
-              <label class="field"><span>Phone <span class="contact-optional">Optional</span></span><input name="phone" type="tel" autocomplete="tel" maxlength="40" placeholder="(00) 00000-0000" /></label>
+              <label class="field"><span>Phone <span class="contact-optional">Optional</span></span><input name="phone" type="tel" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\([0-9]{2}\) [0-9]{4,5}-[0-9]{4}" title="Informe DDD e telefone com 10 ou 11 dígitos." placeholder="(00) 00000-0000" /></label>
               <label class="field"><span>Email <span class="contact-optional">Optional</span></span><input name="email" type="email" autocomplete="email" maxlength="190" placeholder="name@example.com" /></label>
               <button class="btn btn--primary" type="submit">Add customer</button>
             </form>
+          </article>
+          <section class="panel customer-directory" aria-labelledby="customerDirectoryTitle">
+            <h2 id="customerDirectoryTitle">Clientes cadastrados</h2>
+            <label class="customer-search field" for="customerSearch">
+              <span>Pesquisar cliente</span>
+              <span class="customer-search__input-wrap">
+                <svg class="customer-search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.3" /><path d="m16 16 4.2 4.2" /></svg>
+                <input id="customerSearch" type="search" autocomplete="off" placeholder="Nome, telefone ou e-mail" />
+              </span>
+            </label>
             <div class="contact-list" id="customerList" aria-live="polite" aria-busy="true"><p class="operation-empty" role="status">Loading customers</p></div>
-          </article></section>
+          </section>
+        </section>
         </main>
     </div>
 

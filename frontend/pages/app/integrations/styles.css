@@ -47,16 +47,16 @@
   gap: 18px;
   width: min(100%, 520px);
   padding: 32px;
-  border: 1px solid color-mix(in srgb, var(--danger) 18%, white);
+  border: 1px solid color-mix(in srgb, var(--danger) 18%, var(--surface));
   border-radius: 14px;
-  background: #fff;
-  color: #171717;
+  background: var(--surface);
+  color: var(--text);
   box-shadow: 0 24px 70px rgba(0, 0, 0, .24);
 }
 .integration-load-error {
   margin: 0;
   padding: 4px 42px 4px 0;
-  color: #171717;
+  color: var(--text);
   font-size: 1rem;
   line-height: 1.5;
   text-align: center;
@@ -66,7 +66,7 @@
   width: auto;
   min-height: 44px;
   margin: 0;
-  color: #171717;
+  color: var(--text);
 }
 .integration-error-panel__close {
   position: absolute;
@@ -78,8 +78,8 @@
   place-items: center;
   border: 0;
   border-radius: 8px;
-  background: #f5f5f5;
-  color: var(--danger);
+  background: var(--surface-soft);
+  color: var(--danger-text, var(--danger));
   font: inherit;
   font-size: 27px;
   line-height: 1;
@@ -141,7 +141,7 @@
 .integration-form input:focus,
 .integration-form select:focus,
 .integration-credentials__form input:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-text, var(--accent));
   box-shadow: 0 0 0 3px rgba(197, 34, 54, .08), 0 0 16px rgba(239, 75, 88, .06);
 }
 
@@ -202,7 +202,7 @@
 .integration-card .operation-card__status--reachable {
   border-color: rgba(197, 34, 54, .16);
   background: var(--accent-soft);
-  color: var(--accent-dark);
+  color: var(--accent-text, var(--accent-dark));
 }
 
 .integration-card .operation-card__status--pending,
@@ -217,7 +217,7 @@
 .integration-card .operation-card__status--error {
   border-color: rgba(180, 35, 24, .18);
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-text, var(--danger));
 }
 
 .integration-card__details {
@@ -240,7 +240,7 @@
   border: 1px solid rgba(180, 35, 24, .15);
   border-radius: 9px;
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-text, var(--danger));
   font-size: .82rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -254,7 +254,7 @@
 .integration-credentials summary {
   width: fit-content;
   padding: 3px 0;
-  color: var(--accent-dark);
+  color: var(--accent-text, var(--accent-dark));
   font-size: .84rem;
 }
 
@@ -282,14 +282,14 @@
   gap: 12px;
   border: 1px solid rgba(180, 35, 24, .16);
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-text, var(--danger));
   text-align: left;
 }
 
 .integration-connections > .integration-list > [role="alert"] p { margin: 0; }
 
-#integrationMessage.is-success { color: var(--accent-dark); }
-#integrationMessage.is-error { color: var(--danger); }
+#integrationMessage.is-success { color: var(--accent-text, var(--accent-dark)); }
+#integrationMessage.is-error { color: var(--danger-text, var(--danger)); }
 
 @media (max-width: 800px) {
   .integration-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }

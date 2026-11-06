@@ -93,6 +93,7 @@ export default {
     openMenuPreview: "Open menu preview",
     customizeMenuEyebrow: "Customization",
     retryLabel: "Try again",
+    loadRetryError: "Could not load orders, check your connection and try again",
     saveAgainLabel: "Save again",
     searchProductPlaceholder: "Search products",
     downloadPng: "Download PNG",

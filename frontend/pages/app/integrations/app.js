@@ -30,7 +30,7 @@ const showLoadError = () => {
   setLoading(false);
   list.setAttribute("aria-busy", "false");
   list.replaceChildren();
-  loadErrorMessage.textContent = translate("integrationLoadError");
+  loadErrorMessage.textContent = translate("loadRetryError");
   retryButton.disabled = false;
   errorModal.hidden = false;
   document.body.classList.add("modal-open");
@@ -60,7 +60,7 @@ const statusLabels = {
 };
 
 const userFacingError = (error) => {
-  const raw = error?.message || "Could not complete the operation";
+  const raw = error?.apiMessage || error?.message || "Could not complete the operation";
   if (raw.includes("FOOD_SYSTEM_SECRET_KEY")) {
     return "Server secret storage is not configured. Set the key before saving the webhook secret";
   }

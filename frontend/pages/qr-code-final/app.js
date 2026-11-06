@@ -121,12 +121,21 @@ const applyHeroTheme = () => {
   const start = settings.gradientStart || accent;
   const end = settings.gradientEnd || "#252221";
   const angle = Number(settings.gradientAngle ?? 135);
+  const rgb = start.match(/^#([\da-f]{6})$/i)?.[1];
+  const luminance = rgb
+    ? [0, 2, 4].reduce((sum, offset, index) => {
+        const channel = Number.parseInt(rgb.slice(offset, offset + 2), 16) / 255;
+        const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+        return sum + linear * [0.2126, 0.7152, 0.0722][index];
+      }, 0)
+    : 0;
   elements.preview.dataset.style = settings.style || "clean";
   elements.preview.dataset.mood = settings.heroMood || "hero";
   const densityValue = Number(settings.menuDensity ?? 50);
   elements.preview.dataset.density =
     densityValue < 34 ? "spacious" : densityValue > 66 ? "compact" : "balanced";
   elements.preview.style.setProperty("--menu-accent", accent);
+  elements.preview.style.setProperty("--menu-header-text", luminance > 0.179 ? "#111111" : "#ffffff");
   elements.preview.style.setProperty("--menu-gradient", `linear-gradient(${angle}deg, ${start}, ${end})`);
 };
 
@@ -478,7 +487,7 @@ elements.bagConfirm?.addEventListener("click", async () => {
     try {
       order = await request(pendingOrderRequest.key);
     } catch (error) {
-      if (!String(error.message || "").includes("Idempotency key was already used")) throw error;
+      if (!String(error.apiMessage || error.message || "").includes("Idempotency key was already used")) throw error;
       pendingOrderRequest = { signature: orderSignature, key: globalThis.crypto.randomUUID() };
       try { sessionStorage.setItem(idempotencyStorageKey, pendingOrderRequest.key); } catch { /* Keep the key for this page session. */ }
       order = await request(pendingOrderRequest.key);
@@ -504,7 +513,7 @@ elements.bagConfirm?.addEventListener("click", async () => {
       `;
     }
   } catch (error) {
-    if (String(error.message || "").includes("Idempotency key was already used")) {
+    if (String(error.apiMessage || error.message || "").includes("Idempotency key was already used")) {
       pendingOrderRequest = null;
       try { sessionStorage.removeItem(idempotencyStorageKey); } catch { /* Ignore unavailable session storage. */ }
     }

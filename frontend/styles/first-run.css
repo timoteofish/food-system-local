@@ -136,7 +136,7 @@ body {
 
 .first-run__field input:focus,
 .first-run__field select:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-text, var(--accent));
   box-shadow: 0 0 0 3px rgba(197, 34, 54, .1);
 }
 
@@ -177,7 +177,7 @@ body {
 }
 
 .first-run__submit:hover {
-  border-color: var(--accent-dark);
+  border-color: var(--accent-text, var(--accent-dark));
   background: var(--accent-dark);
 }
 
@@ -203,7 +203,7 @@ body {
   height: 17px;
   flex: 0 0 auto;
   margin: 0 6px 0 0;
-  accent-color: var(--accent);
+  accent-color: var(--accent-text, var(--accent));
   cursor: pointer;
 }
 
@@ -211,7 +211,7 @@ body {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-text, var(--accent));
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
@@ -260,12 +260,17 @@ body {
   font-size: 24px;
 }
 
-.first-run__terms-panel p {
+.first-run__terms-content {
   margin: 0;
   color: #333;
   font-size: 15px;
   line-height: 1.7;
 }
+
+.first-run__terms-section + .first-run__terms-section { margin-top: 18px; }
+.first-run__terms-section h3 { margin: 0 0 6px; font-size: 16px; }
+.first-run__terms-section ul { margin: 0; padding-left: 20px; }
+.first-run__terms-section li + li { margin-top: 6px; }
 
 .first-run__terms-close {
   position: absolute;
@@ -278,7 +283,7 @@ body {
   border: 0;
   border-radius: 8px;
   background: #f2f2f2;
-  color: var(--accent);
+  color: var(--accent-text, var(--accent));
   font: inherit;
   font-size: 27px;
   line-height: 1;
@@ -291,7 +296,7 @@ body {
   border: 1px solid rgba(180, 35, 24, .16);
   border-radius: 8px;
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-text, var(--danger));
   font-size: 13px;
   line-height: 1.5;
 }

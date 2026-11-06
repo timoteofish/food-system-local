@@ -16,12 +16,19 @@ const isLocalAdminApi = (() => {
 })();
 
 const parseResponse = async (response) => {
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : {};
+  let data;
+  try {
+    const text = await response.text();
+    data = text ? JSON.parse(text) : {};
+  } catch (error) {
+    throw new Error("O servidor retornou uma resposta inválida.", { cause: error });
+  }
 
   if (!response.ok) {
     const message = data.error || data.message || "Request failed";
-    throw new Error(localizeApiError(message));
+    const error = new Error(localizeApiError(message));
+    error.apiMessage = message;
+    throw error;
   }
 
   return data;
@@ -55,13 +62,18 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
     if (storedSession?.token) headers.Authorization = `Bearer ${storedSession.token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    credentials: needsAuthentication ? "same-origin" : "omit",
-    redirect: "error",
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      credentials: needsAuthentication ? "same-origin" : "omit",
+      redirect: "error",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    throw new Error("Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.", { cause: error });
+  }
 
   return parseResponse(response);
 };

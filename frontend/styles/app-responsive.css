@@ -131,6 +131,12 @@ textarea{
   align-self:flex-start;
   overflow-y:auto;
   overflow-x:hidden;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+
+.menu-sidebar::-webkit-scrollbar{
+  display:none;
 }
 
 .menu-content{
@@ -227,7 +233,7 @@ body.menu-sidebar-collapsed .profile-label,
 }
 
 .menu-sidebar .profile-btn:hover{
-  color:var(--accent-dark) !important;
+  color:var(--accent-text, var(--accent-dark)) !important;
   background:var(--accent-soft) !important;
 }
 
@@ -370,7 +376,7 @@ body.menu-sidebar-collapsed .profile-label,
     min-height:44px !important;
     align-self:center !important;
     justify-content:center !important;
-    margin-top:auto !important;
+    margin-top:0 !important;
     margin-inline:auto !important;
     padding:0 !important;
     gap:0 !important;
@@ -784,13 +790,13 @@ body.menu-sidebar-collapsed .profile-label,
     border:1px solid var(--line);
     border-radius:14px;
     background:var(--surface);
-    color:var(--accent);
+    color:var(--accent-text, var(--accent));
     box-shadow:0 10px 24px rgba(37,34,33,.04);
     cursor:pointer;
   }
 
-  .cash-date-filter__toggle.is-active{border-color:var(--accent);background:var(--accent-soft)}
-  .cash-date-filter__toggle svg{display:block !important;width:20px;height:20px;color:var(--accent);fill:currentColor}
+  .cash-date-filter__toggle.is-active{border-color:var(--accent-text, var(--accent));background:var(--accent-soft)}
+  .cash-date-filter__toggle svg{display:block !important;width:20px;height:20px;color:var(--accent-text, var(--accent));fill:currentColor}
   .cash-date-filter input{
     position:absolute;
     inset:0;

@@ -40,7 +40,7 @@ const hideLoadError = () => {
 
 const showLoadError = () => {
   setLoading(false);
-  loadErrorMessage.textContent = translate("inventoryLoadError");
+  loadErrorMessage.textContent = translate("loadRetryError");
   retryButton.disabled = false;
   errorModal.hidden = false;
   document.body.classList.add("modal-open");

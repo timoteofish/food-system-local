@@ -34,7 +34,7 @@ const hideOrdersError = () => {
 
 const showOrdersError = () => {
   setOrdersLoading(false);
-  ordersLoadError.textContent = translate("ordersPageLoadError");
+  ordersLoadError.textContent = translate("loadRetryError");
   ordersErrorModal.hidden = false;
   document.body.classList.add("modal-open");
   ordersErrorClose.focus();

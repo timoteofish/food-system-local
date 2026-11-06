@@ -69,23 +69,23 @@
 .contact-row span { color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; text-align: right; }
 .contact-list .operation-empty { margin: 0; padding: 14px 10px; color: var(--muted); text-align: center; }
 .contact-list[aria-busy="true"] .operation-empty { border: 1px solid var(--line); border-radius: 11px; background: linear-gradient(100deg, var(--surface-soft), var(--surface)); }
-.contact-list .operation-empty[role="alert"] { display: grid; justify-items: center; gap: 10px; padding: 16px 12px; border: 1px solid color-mix(in srgb, var(--danger) 18%, white); border-radius: 11px; background: var(--danger-soft); color: var(--danger); }
+.contact-list .operation-empty[role="alert"] { display: grid; justify-items: center; gap: 10px; padding: 16px 12px; border: 1px solid color-mix(in srgb, var(--danger) 18%, var(--surface)); border-radius: 11px; background: var(--danger-soft); color: var(--danger-text, var(--danger)); }
 .contact-list .operation-empty[role="alert"] p { margin: 0; }
 .contact-list .operation-empty:not([role="alert"]) { border: 1px dashed var(--line); border-radius: 11px; background: var(--surface-soft); }
 .value-grid { margin-top: 16px; }
 .value-grid .panel { display: grid; align-content: start; gap: 13px; }
 .loyalty-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .loyalty-actions .btn { flex: 1 1 140px; }
-#loyaltyStatus { margin: 0; color: var(--accent-dark); font-size: .88rem; font-weight: 650; }
+#loyaltyStatus { margin: 0; color: var(--accent-text, var(--accent-dark)); font-size: .88rem; font-weight: 650; }
 #loyaltyStatus[hidden] { display: none; }
 
 .contacts-load-error {
   margin: 0 0 10px;
   padding: 12px 15px;
-  border: 1px solid color-mix(in srgb, var(--danger) 22%, white);
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--surface));
   border-radius: 12px;
-  background: color-mix(in srgb, var(--danger) 5%, white);
-  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+  color: var(--danger-text, var(--danger));
   font-size: .86rem;
 }
 
@@ -94,7 +94,7 @@
 
 .contacts-load-retry { justify-self: start; margin-top: -8px; }
 
-.contacts-load-retry:hover { border-color: var(--accent); color: var(--accent-dark); }
+.contacts-load-retry:hover { border-color: var(--accent-text, var(--accent)); color: var(--accent-text, var(--accent-dark)); }
 
 @media (max-width: 800px) {
   .contacts-load-retry { width: 100%; }
