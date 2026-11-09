@@ -33,10 +33,10 @@ const state = {
 
 const permissionAreas = [
   ["dashboard", "Painel inicial"], ["orders", "Pedidos"], ["kitchen", "Cozinha"],
-  ["cashier", "Caixa"], ["tables", "Mesas"], ["delivery", "Entregas"],
+  ["cashier", "Caixa"], ["delivery", "Entregas"],
   ["products", "Produtos"], ["inventory", "Estoque"], ["menu", "Cardápio"],
-  ["customers", "Clientes"], ["suppliers", "Fornecedores"], ["discounts", "Descontos"],
-  ["loyalty", "Fidelidade"], ["team", "Equipe"], ["reports", "Relatórios"],
+  ["suppliers", "Fornecedores"], ["discounts", "Descontos"],
+  ["team", "Equipe"], ["reports", "Relatórios"],
   ["fiscal", "Fiscal"], ["integrations", "Integrações"], ["backups", "Backups"],
 ];
 

@@ -52,24 +52,9 @@
   padding-right:48px;
 }
 
-.image-user-panel__eyebrow{
-  margin:0;
-  color:var(--accent-text, var(--accent));
-  font-size:.78rem;
-  font-weight:800;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-}
-
 .image-user-panel__header h3{
   margin:0;
   font-size:1.4rem;
-}
-
-.image-user-panel__subtitle{
-  margin:0;
-  color:var(--muted);
-  line-height:1.5;
 }
 
 .image-user-panel__body{

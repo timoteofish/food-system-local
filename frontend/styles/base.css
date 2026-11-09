@@ -295,19 +295,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
 .user-edit-backdrop.is-open{opacity:1}
 .user-edit-panel{
   position:fixed;
-  top:0;
-  right:0;
-  left:auto;
-  transform:translateX(24px);
-  width:min(520px,100vw);
-  height:100dvh;
-  max-height:100dvh;
-  overflow:hidden;
+  top:50%;
+  right:auto;
+  left:50%;
+  transform:translate(-50%,calc(-50% + 24px));
+  width:min(520px,calc(100vw - 32px));
+  height:auto;
+  max-height:calc(100dvh - 32px);
+  overflow:auto;
   background:var(--surface);
-  border:0;
-  border-left:1px solid var(--line);
-  border-radius:0;
-  box-shadow:-12px 0 32px rgba(20,20,20,.08);
+  border:1px solid var(--line);
+  border-radius:var(--radius-panel);
+  box-shadow:var(--shadow-raised);
   opacity:0;
   pointer-events:none;
   transition:opacity .22s ease,transform .22s cubic-bezier(.22,1,.36,1);
@@ -319,10 +318,23 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
 .user-edit-panel.is-open{
   opacity:1;
   pointer-events:auto;
-  transform:translateX(0);
+  transform:translate(-50%,-50%);
+}
+.user-edit-panel.user-edit-panel--home-view{
+  height:auto;
+  max-height:calc(100dvh - 32px);
+}
+.user-edit-panel.user-edit-panel--home-view .user-edit-panel__body,
+.user-edit-panel.user-edit-panel--home-view .user-edit-panel__views{
+  flex:0 1 auto;
+}
+.user-edit-panel.user-edit-panel--settings-view{
+  width:min(860px,calc(100vw - 40px));
 }
 .user-edit-panel__hero{
-  position:relative;
+  position:sticky;
+  top:0;
+  z-index:1;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -424,13 +436,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
   flex-direction:column;
   gap:16px;
   padding:22px 24px 24px;
-  flex:1 1 auto;
+  flex:0 1 auto;
   min-height:0;
-  overflow:hidden;
+  overflow:visible;
 }
 .user-edit-panel__views{
   display:block;
-  flex:1 1 auto;
+  flex:0 1 auto;
   min-height:0;
   overflow:auto;
   padding-right:2px;
@@ -1058,6 +1070,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
   box-shadow:var(--shadow-raised) !important;
   backdrop-filter:none !important;
   -webkit-backdrop-filter:none !important;
+}
+
+.user-edit-panel {
+  border-radius:var(--radius-panel) !important;
+  background:var(--surface) !important;
 }
 
 .auth-copy,

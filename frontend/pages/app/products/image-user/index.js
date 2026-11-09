@@ -36,9 +36,7 @@ const ensurePanel = () => {
   panel.innerHTML = `
     <button type="button" class="image-user-panel__close" data-image-user-close aria-label="${translate("Close")}">×</button>
     <div class="image-user-panel__header">
-      <p class="image-user-panel__eyebrow">${translate("Image")}</p>
       <h3>${translate("Product image")}</h3>
-      <p class="image-user-panel__subtitle">${translate("Adjust the crop")}</p>
     </div>
     <div class="image-user-panel__body">
       <div class="image-user-panel__stage">

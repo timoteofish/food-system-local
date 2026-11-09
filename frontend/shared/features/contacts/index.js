@@ -4,8 +4,8 @@ import { getSession } from "../../data/storage.js";
 import { initAppShell, showToast } from "../../ui/ui.js";
 
 const businessId = getSession()?.businessId;
-const view = document.body.dataset.contactView || "customers";
-const activeNav = view === "customers" ? "contacts" : view;
+const view = document.body.dataset.contactView || "suppliers";
+const activeNav = view;
 const money = new Intl.NumberFormat(getLocale(), { style: "currency", currency: "BRL" });
 const number = new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 2 });
 const discountNumber = new Intl.NumberFormat(getLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -14,13 +14,15 @@ const decimalSeparator = localeParts.find((part) => part.type === "decimal")?.va
 const groupSeparator = localeParts.find((part) => part.type === "group")?.value || ",";
 let loading = false;
 let appShellReady = false;
-let customerRows = [];
+let supplierRows = [];
+let discountRows = [];
 const contactsLoadError = document.getElementById("contactsLoadError");
 const contactsLoadRetry = document.getElementById("contactsLoadRetry");
 const contactsErrorModal = document.getElementById("contactsErrorModal");
 const contactsErrorClose = document.querySelector(".contacts-error-panel__close");
 const contactsPageLoading = document.getElementById("contactsPageLoading");
-const customerSearch = document.getElementById("customerSearch");
+const supplierSearch = document.getElementById("supplierSearch");
+const discountSearch = document.getElementById("discountSearch");
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -133,24 +135,105 @@ const renderList = (element, rows, emptyMessage, getDetails) => {
   `).join("");
 };
 
-const renderCustomerList = () => {
-  const list = document.getElementById("customerList");
+const renderSupplierList = () => {
+  const list = document.getElementById("supplierList");
   if (!list) return;
   const normalizeSearch = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
-  const query = normalizeSearch(customerSearch?.value || "").trim();
-  const filtered = customerRows.filter((customer) =>
-    [customer.name, customer.phone, customer.email]
+  const query = normalizeSearch(supplierSearch?.value || "").trim();
+  const filtered = supplierRows.filter((supplier) =>
+    [supplier.name, supplier.tax_id, supplier.phone, supplier.email, supplier.notes]
       .some((value) => normalizeSearch(value).includes(query))
   );
-  if (customerRows.length && !filtered.length) {
+  if (supplierRows.length && !filtered.length) {
     list.setAttribute("aria-busy", "false");
-    list.innerHTML = `<p class="operation-empty">Nenhum cliente corresponde à pesquisa.</p>`;
+    list.innerHTML = `<p class="operation-empty">${translate("supplierNoSearchResults")}</p>`;
     return;
   }
-  renderList(list, filtered, "No customers added", (customer) => customer.phone || customer.email || "");
+  if (!filtered.length) {
+    renderList(list, [], "No suppliers added", () => "");
+    return;
+  }
+
+  list.setAttribute("aria-busy", "false");
+  list.innerHTML = filtered.map((supplier) => {
+    const fields = [
+      [translate("supplierTaxIdLabel"), supplier.tax_id],
+      [translate("phoneLabel"), supplier.phone],
+      [translate("Email"), supplier.email],
+      [translate("Notes"), supplier.notes],
+    ];
+    return `
+      <article class="supplier-card">
+        <h3>${escapeHtml(supplier.name)}</h3>
+        <dl class="supplier-card__details">
+          ${fields.map(([label, value]) => `
+            <div class="supplier-card__field">
+              <dt>${escapeHtml(label)}</dt>
+              <dd>${escapeHtml(value || "—")}</dd>
+            </div>
+          `).join("")}
+        </dl>
+      </article>
+    `;
+  }).join("");
 };
 
-customerSearch?.addEventListener("input", renderCustomerList);
+const renderDiscountList = () => {
+  const list = document.getElementById("discountList");
+  if (!list) return;
+  const normalizeSearch = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+  const query = normalizeSearch(discountSearch?.value || "").trim();
+  const filtered = discountRows.filter((discount) =>
+    [discount.name, discount.code, discount.type, discount.value, discount.starts_at, discount.ends_at]
+      .some((value) => normalizeSearch(value).includes(query))
+  );
+  if (discountRows.length && !filtered.length) {
+    list.setAttribute("aria-busy", "false");
+    list.innerHTML = `<p class="operation-empty">${translate("discountNoSearchResults")}</p>`;
+    return;
+  }
+  if (!filtered.length) {
+    renderList(list, [], "No discounts added", () => "");
+    return;
+  }
+
+  const formatDate = (value) => {
+    if (!value) return translate("discountNoDateLimit");
+    const dateOnly = String(value).match(/^\d{4}-\d{2}-\d{2}$/);
+    const date = new Date(dateOnly ? `${value}T12:00:00` : value);
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(getLocale(), { dateStyle: "medium" }).format(date);
+  };
+  list.setAttribute("aria-busy", "false");
+  list.innerHTML = filtered.map((discount) => {
+    const isActive = discount.active === true || discount.active === 1 || discount.active === "1";
+    const fields = [
+      [translate("Discount code"), discount.code || translate("No code")],
+      [translate("Discount type"), translate(discount.type === "percentage" ? "Percentage" : "Fixed amount")],
+      [translate("Discount amount"), formatDiscount(discount)],
+      [translate("discountStartsAt"), formatDate(discount.starts_at)],
+      [translate("discountEndsAt"), formatDate(discount.ends_at)],
+    ];
+    return `
+      <article class="discount-card">
+        <div class="discount-card__head">
+          <h3>${escapeHtml(discount.name)}</h3>
+          <span class="discount-card__status" data-active="${isActive}">${translate(isActive ? "discountActive" : "discountInactive")}</span>
+        </div>
+        <dl class="discount-card__details">
+          ${fields.map(([label, value]) => `
+            <div class="discount-card__field">
+              <dt>${escapeHtml(label)}</dt>
+              <dd>${escapeHtml(value)}</dd>
+            </div>
+          `).join("")}
+        </dl>
+      </article>
+    `;
+  }).join("");
+};
+
+supplierSearch?.addEventListener("input", renderSupplierList);
+discountSearch?.addEventListener("input", renderDiscountList);
 
 const setListError = (element) => {
   if (!element) return;
@@ -200,7 +283,6 @@ const load = async () => {
   loading = true;
   setContactsLoading(true);
   const listConfigs = {
-    customers: ["customerList", "Loading customers", "customers", "No customers added", (customer) => customer.phone || customer.email || ""],
     suppliers: ["supplierList", "Loading suppliers", "suppliers", "No suppliers added", (supplier) => supplier.phone || supplier.tax_id || ""],
     discounts: ["discountList", "Loading discounts", "discounts", "No discounts added", (discount) => {
       const code = discount.code ? `${translate("Code: ")}${discount.code}` : translate("No code");
@@ -208,42 +290,34 @@ const load = async () => {
     }],
   };
   const config = listConfigs[view];
+  if (!config) return;
   const list = config ? document.getElementById(config[0]) : null;
   if (list) {
     list.setAttribute("aria-busy", "true");
-    if (view === "customers") customerRows = [];
+    if (view === "suppliers") supplierRows = [];
+    if (view === "discounts") discountRows = [];
     if (contactsPageLoading) list.replaceChildren();
     else list.innerHTML = `<p class="operation-empty" role="status">${translate(config[1])}</p>`;
   }
-  const customerSelect = document.getElementById("loyaltyCustomer");
-
   try {
-    const endpoint = view === "suppliers" ? "suppliers" : view === "discounts" ? "discounts" : "customers";
-    const property = view === "suppliers" ? "suppliers" : view === "discounts" ? "discounts" : "customers";
+    const endpoint = view;
+    const property = view;
     const result = await Promise.allSettled([apiRequest(`/businesses/${businessId}/${endpoint}`)]).then(([item]) => item);
 
     if (result.status === "rejected") {
       setListError(list);
       showContactsError();
-      if (customerSelect) {
-        customerSelect.innerHTML = `<option value="">${translate("Could not load customers")}</option>`;
-        customerSelect.disabled = true;
-      }
       return;
     }
 
     const rows = Array.isArray(result.value[property]) ? result.value[property] : [];
-    if (view === "customers") {
-      customerRows = rows;
-      renderCustomerList();
+    if (view === "suppliers") {
+      supplierRows = rows;
+      renderSupplierList();
+    } else if (view === "discounts") {
+      discountRows = rows;
+      renderDiscountList();
     } else if (config) renderList(list, rows, config[3], config[4]);
-    if (customerSelect) {
-      customerSelect.innerHTML = [
-        `<option value="">${translate("Select a customer")}</option>`,
-        ...rows.map((customer) => `<option value="${escapeHtml(customer.id)}">${escapeHtml(customer.name)}</option>`),
-      ].join("");
-      customerSelect.disabled = false;
-    }
   } finally {
     loading = false;
     setContactsLoading(false);
@@ -291,49 +365,8 @@ const bindCreateForm = ({ id, endpoint, resource, successMessage }) => {
   });
 };
 
-bindCreateForm({ id: "customerForm", endpoint: "customers", resource: "customer", successMessage: "Customer added" });
 bindCreateForm({ id: "supplierForm", endpoint: "suppliers", resource: "supplier", successMessage: "Supplier added" });
 bindCreateForm({ id: "discountForm", endpoint: "discounts", resource: "discount", successMessage: "Discount created" });
-
-const loyaltyPointsInput = document.querySelector("#loyaltyForm [name='points']");
-loyaltyPointsInput?.addEventListener("input", () => {
-  loyaltyPointsInput.value = loyaltyPointsInput.value.replace(/\D/g, "");
-});
-
-document.getElementById("loyaltyForm")?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const button = event.submitter;
-  const status = document.getElementById("loyaltyStatus");
-  const customerId = document.getElementById("loyaltyCustomer").value;
-  const points = Number(new FormData(form).get("points"));
-  const action = button?.dataset.loyaltyAction === "redeem" ? "redeem" : "earn";
-  if (!customerId) {
-    document.getElementById("loyaltyCustomer").focus();
-    return;
-  }
-  if (!Number.isSafeInteger(points) || points < 1) {
-    loyaltyPointsInput?.focus();
-    return;
-  }
-  if (button) button.disabled = true;
-  status.textContent = "";
-  status.hidden = true;
-  try {
-    const data = await apiRequest(`/businesses/${businessId}/customers/${customerId}/loyalty/${action}`, {
-      method: "POST",
-      body: { points },
-    });
-    status.textContent = `${translate("Points balance: ")}${number.format(data.points)}`;
-    status.hidden = false;
-    form.reset();
-    await load();
-  } catch {
-    showToast(translate("Could not update points"), { type: "error" });
-  } finally {
-    if (button) button.disabled = false;
-  }
-});
 
 const start = async () => {
   setContactsLoading(true);

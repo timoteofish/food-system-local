@@ -14,17 +14,14 @@ const loadErrorMessage = document.getElementById("kitchenLoadError");
 const retryButton = document.getElementById("kitchenRetry");
 const errorClose = document.getElementById("kitchenErrorClose");
 const columns = [
-  ["pending", "New", "confirmed"],
-  ["confirmed", "Waiting for preparation", "preparing"],
-  ["preparing", "In progress", "ready"],
-  ["ready", "Ready", "completed"],
+  { statuses: ["pending", "confirmed"], status: "pending", label: "Not picked up", next: "preparing" },
+  { statuses: ["preparing"], status: "preparing", label: "In progress", next: "ready" },
+  { statuses: ["ready"], status: "ready", label: "Ready", next: null },
 ];
-const activeKitchenStatuses = new Set(columns.map(([status]) => status));
+const activeKitchenStatuses = new Set(columns.flatMap(({ statuses }) => statuses));
 const actionLabels = {
-  confirmed: "Confirm order",
   preparing: "Start preparation",
   ready: "Mark as ready",
-  completed: "Complete order",
 };
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>\'"]/g, (char) => ({
   "&": "&amp;",
@@ -127,8 +124,8 @@ const openPrintTicket = (ticket) => {
 };
 
 const renderBoard = (orders) => {
-  board.innerHTML = columns.map(([status, label, next]) => {
-    const matchingOrders = orders.filter((order) => order.status === status);
+  board.innerHTML = columns.map(({ statuses, status, label, next }) => {
+    const matchingOrders = orders.filter((order) => statuses.includes(order.status));
     const orderCountLabel = translate(matchingOrders.length === 1 ? "$1 order" : "$1 orders")
       .replace("$1", String(matchingOrders.length));
     const tickets = matchingOrders.map((order) => {
@@ -143,7 +140,7 @@ const renderBoard = (orders) => {
           </div>
           <ul class="kitchen-ticket__items">${items || `<li>${translate("Items not specified")}</li>`}</ul>
           <div class="kitchen-ticket__actions">
-            <button class="btn btn--primary" data-order-id="${escapeHtml(order.id)}" data-next-status="${next}" type="button">${escapeHtml(translate(actionLabels[next]))}</button>
+            ${next ? `<button class="btn btn--primary" data-order-id="${escapeHtml(order.id)}" data-next-status="${next}" type="button">${escapeHtml(translate(actionLabels[next]))}</button>` : ""}
             <button class="btn btn--secondary" data-print-order="${escapeHtml(order.id)}" type="button">${translate("Print ticket")}</button>
           </div>
         </article>

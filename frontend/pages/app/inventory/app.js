@@ -8,6 +8,7 @@ const session = getSession();
 const businessId = session?.businessId;
 const rows = document.getElementById("inventoryRows");
 const count = document.getElementById("inventoryCount");
+const inventorySearch = document.getElementById("inventorySearch");
 const loadingIndicator = document.getElementById("inventoryLoading");
 const errorModal = document.getElementById("inventoryErrorModal");
 const loadErrorMessage = document.getElementById("inventoryLoadError");
@@ -25,6 +26,7 @@ let hasLoadedProducts = false;
 let hasLoadedSuppliers = false;
 let loading = false;
 let appShellReady = false;
+let inventorySearchQuery = "";
 
 const setLoading = (isLoading) => {
   loadingIndicator.hidden = !isLoading;
@@ -140,14 +142,24 @@ const renderInventory = () => {
   if (!hasLoadedInventory) return;
   rows.setAttribute("aria-busy", "false");
   count.hidden = false;
-  const itemWord = translate(items.length === 1 ? "ingredient" : "ingredients");
-  count.textContent = `${formatNumber(items.length)} ${itemWord}`;
+  const query = inventorySearchQuery.trim().toLocaleLowerCase(getLocale());
+  const visibleItems = query
+    ? items.filter((item) => String(item.name || "").toLocaleLowerCase(getLocale()).includes(query))
+    : items;
+  count.textContent = query
+    ? translate("$1 of $2 ingredients found").replace("$1", formatNumber(visibleItems.length)).replace("$2", formatNumber(items.length))
+    : `${formatNumber(items.length)} ${translate(items.length === 1 ? "ingredient" : "ingredients")}`;
   if (!items.length) {
     rows.innerHTML = `<tr><td class="inventory-empty" colspan="5">${translate("noItems")}</td></tr>`;
     return;
   }
 
-  rows.innerHTML = items.map((item) => {
+  if (!visibleItems.length) {
+    rows.innerHTML = `<tr><td class="inventory-empty" colspan="5">${translate("No ingredients match your search")}</td></tr>`;
+    return;
+  }
+
+  rows.innerHTML = visibleItems.map((item) => {
     const current = Number(item.current_quantity || 0);
     const minimum = Number(item.minimum_quantity || 0);
     const isBelowMinimum = current < minimum;
@@ -167,6 +179,11 @@ const renderInventory = () => {
     `;
   }).join("");
 };
+
+inventorySearch.addEventListener("input", (event) => {
+  inventorySearchQuery = event.currentTarget.value || "";
+  renderInventory();
+});
 
 const load = async () => {
   if (loading) return false;
@@ -190,10 +207,12 @@ const load = async () => {
     if (inventoryResult.status === "fulfilled") {
       items = Array.isArray(inventoryResult.value.items) ? inventoryResult.value.items : [];
       hasLoadedInventory = true;
+      inventorySearch.disabled = false;
       renderInventory();
     } else {
       hasLoadError = true;
       if (!hasLoadedInventory) {
+        inventorySearch.disabled = true;
         count.textContent = "";
         count.hidden = true;
         rows.setAttribute("aria-busy", "false");

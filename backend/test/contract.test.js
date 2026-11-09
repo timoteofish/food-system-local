@@ -77,15 +77,21 @@ test("frontend contains a kitchen display workflow", async () => {
   assert.match(app, /preparing/);
 });
 
-test("frontend contains customer and supplier registration", async () => {
-  const page = await readFrontend("pages/app/contacts/index.html");
-  const app = await readFrontend("pages/app/contacts/app.js");
+test("frontend removes the contacts page and navigation entry", async () => {
+  const ui = await readFrontend("shared/ui/ui.js");
   const suppliersPage = await readFrontend("pages/app/suppliers/index.html");
-  assert.match(page, /Customers and partners/);
-  assert.match(app, /\/customers/);
+  const app = await readFrontend("shared/features/contacts/index.js");
+  assert.doesNotMatch(ui, /\["contacts",/);
+  assert.doesNotMatch(suppliersPage, /contacts\/index\.html/);
+  assert.doesNotMatch(app, /customerForm|customerList|customerSearch|endpoint: "customers"/);
   assert.match(app, /suppliers: \[/);
   assert.match(suppliersPage, /supplierForm/);
-  assert.match(page, /customerForm/);
+});
+
+test("supplier and discount records are rendered from the shared contacts feature", async () => {
+  const app = await readFrontend("shared/features/contacts/index.js");
+  assert.match(app, /escapeHtml\(row\.name\)/);
+  assert.match(app, /escapeHtml\(getDetails\(row\)\)/);
 });
 
 test("product detail panel validates image URL schemes before rendering", async () => {
@@ -117,7 +123,7 @@ test("product and profile image inputs cap file size, formats and decoded dimens
 test("order, product, and customer renderers escape stored text before HTML insertion", async () => {
   const orders = await readFrontend("pages/app/orders/app.js");
   const products = await readFrontend("pages/app/products/app.js");
-  const contacts = await readFrontend("pages/app/contacts/app.js");
+  const contacts = await readFrontend("shared/features/contacts/index.js");
   assert.match(orders, /escapeHtml\(getCustomerName\(order\)\)/);
   assert.match(orders, /escapeHtml\(getOrderItemsLabel\(order\)\)/);
   assert.match(orders, /escapeHtml\(group\.location\)/);
@@ -638,15 +644,14 @@ test("backend registers the required route groups", async () => {
   for (const route of ["authRoutes", "catalogRoutes", "tableRoutes", "diningTabRoutes", "orderRoutes", "cashRoutes", "integrationRoutes", "inventoryRoutes", "operationsRoutes", "kitchenRoutes"]) assert.match(server, new RegExp(`register\\(${route}\\)`));
 });
 
-test("dining tabs provide advanced table service controls", async () => {
+test("table QR menus create restaurant tables while dining tabs retain service controls", async () => {
   const routes = await read("src/routes/dining-tabs.js");
-  const page = await readFrontend("pages/app/tables/index.html");
-  const app = await readFrontend("pages/app/tables/app.js");
+  const menuApp = await readFrontend("pages/app/menu/app.js");
   assert.match(routes, /dining-tabs/);
   assert.match(routes, /transfer/);
   assert.match(routes, /close/);
-  assert.match(page, /Track tabs and service at each table/);
-  assert.match(app, /openDiningTab/);
+  assert.match(menuApp, /ensureRestaurantTableRemote\(tableName\)/);
+  assert.match(menuApp, /renderQrCode/);
 });
 
 test("fiscal workflow saves drafts and keeps unimplemented issuance disabled", async () => {

@@ -23,7 +23,6 @@ const imageInput = document.getElementById("productImage");
 const previewImg = document.getElementById("previewImg");
 const imagePickerTitle = document.getElementById("imagePickerTitle");
 const openImageUserPanelButton = document.getElementById("openImageUserPanel");
-const imagePreview = document.getElementById("imagePreview");
 const priceInput = document.getElementById("productPrice");
 const brlInputFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const searchInput = document.getElementById("productSearch");
@@ -68,21 +67,6 @@ document.addEventListener("keydown", (event) => {
 
 let searchQuery = "";
 let productImage = "";
-let imageActions = null;
-
-const ensureImageActions = () => {
-  if (imageActions) return imageActions;
-  const actions = document.createElement("div");
-  actions.className = "image-actions image-actions--overlay";
-  actions.innerHTML = `
-    <button type="button" class="image-actions__item" data-image-action="edit">${translate("Edit image")}</button>
-    <button type="button" class="image-actions__item" data-image-action="replace">${translate("Replace photo")}</button>
-    <button type="button" class="image-actions__item image-actions__item--danger" data-image-action="remove">${translate("Remove photo")}</button>
-  `;
-  imagePreview?.append(actions);
-  imageActions = actions;
-  return actions;
-};
 
 const syncCategorySelect = () => {
   categorySelect.innerHTML = categoryNames.length
@@ -158,10 +142,6 @@ const imageUserPanel = initImageUserPanel({
       "aria-label",
       translate(result ? "Edit product image" : "Add an image to the product")
     );
-    if (!result && imageActions) {
-      imageActions.remove();
-      imageActions = null;
-    }
   },
 });
 
@@ -177,10 +157,6 @@ const clearProductImage = () => {
     imagePickerTitle.hidden = false;
   }
   openImageUserPanelButton?.setAttribute("aria-label", translate("Add an image to the product"));
-  if (imageActions) {
-    imageActions.remove();
-    imageActions = null;
-  }
 };
 
 if (priceInput) {
@@ -364,41 +340,7 @@ form.addEventListener("submit", async (event) => {
 });
 
 openImageUserPanelButton?.addEventListener("click", () => {
-  if (productImage) {
-    const actions = ensureImageActions();
-    actions.hidden = !actions.hidden;
-    return;
-  }
   imageUserPanel.open(productImage || "");
-});
-
-document.addEventListener("click", (event) => {
-  const insideImageArea = imagePreview?.contains(event.target);
-  if (!insideImageArea && imageActions) {
-    imageActions.remove();
-    imageActions = null;
-  }
-});
-
-imagePreview?.addEventListener("click", (event) => {
-  const action = event.target.closest("[data-image-action]")?.dataset.imageAction;
-  if (action && imageActions) {
-    event.stopPropagation();
-    imageActions.remove();
-    imageActions = null;
-  }
-  if (action === "edit") {
-    imageUserPanel.open(productImage || "");
-  } else if (action === "replace") {
-    clearProductImage();
-    imageUserPanel.open("");
-  } else if (action === "remove") {
-    clearProductImage();
-    return;
-  } else if (productImage) {
-    const actions = ensureImageActions();
-    actions.hidden = false;
-  }
 });
 
 productCategoryButton?.addEventListener("click", (event) => {

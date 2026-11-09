@@ -72,6 +72,29 @@
   max-width: none;
 }
 
+.supplier-directory { display: grid; gap: 16px; }
+.supplier-directory > h2 { margin: 0; font-size: 1.08rem; letter-spacing: -.02em; }
+.supplier-search { display: grid; gap: 7px; margin: 0; }
+.supplier-search > span:first-child { font-size: .84rem; font-weight: 650; }
+.supplier-search__input-wrap { position: relative; display: block; width: 100%; }
+.supplier-search__icon { position: absolute; top: 50%; left: 14px; width: 19px; height: 19px; transform: translateY(-50%); fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; pointer-events: none; }
+.supplier-search input { width: 100%; min-height: 44px; padding-left: 44px; }
+.supplier-directory .contact-list { margin-top: 0; }
+.supplier-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; }
+.supplier-card { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.supplier-card h3 { margin: 0 0 14px; overflow-wrap: anywhere; font-size: .98rem; }
+.supplier-card__details { display: grid; gap: 10px; margin: 0; }
+.supplier-card__field { display: grid; grid-template-columns: minmax(100px, .7fr) minmax(0, 1.3fr); gap: 12px; padding-top: 9px; border-top: 1px solid var(--line); }
+.supplier-card__field dt { color: var(--muted); font-size: .8rem; }
+.supplier-card__field dd { margin: 0; overflow-wrap: anywhere; font-size: .84rem; text-align: right; }
+.supplier-list .operation-empty { grid-column: 1 / -1; }
+
 @media (max-width: 800px) {
   .menu-content > .page-title { flex-direction: row; align-items: center; }
+}
+
+@media (max-width: 480px) {
+  .supplier-card { padding: 13px; }
+  .supplier-card__field { grid-template-columns: 1fr; gap: 4px; }
+  .supplier-card__field dd { text-align: left; }
 }

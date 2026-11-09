@@ -21,15 +21,12 @@ const APP_NAVIGATION = [
   ["inventory", "Inventory", "m12 3 9 5v8l-9 5-9-5V8zm0 10 9-5m-9 5-9-5m9 5v8"],
   ["orders", "Orders", "M7 3h8l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm7 2v3h3M8 12h8M8 16h8"],
   ["kitchen", "Kitchen", "M4 13h16a8 8 0 0 1-16 0zm2-3a6 6 0 0 1 12 0M12 4v2"],
-  ["tables", "Tables", "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"],
   ["cashier", "Cash register", "M5 8h14l-1 12H6L5 8zm3 0 1-4h6l1 4M9 12v4m6-4v4"],
   ["delivery", "Deliveries", "M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
   ["products", "Products", "M4 4h7v7H4zM13 4h7v4h-7zM4 13h7v7H4zM13 10h7v10h-7z"],
   ["menu", "Menu", "M5 6h14M5 12h14M5 18h9"],
-  ["contacts", "Customers", "M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1m7-9a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-7a4 4 0 0 1 0 7m2 4a4 4 0 0 1 3 4v1"],
   ["suppliers", "Suppliers", "M3 7h18v13H3zM7 7V4h10v3M7 12h4m2 0h4M7 16h4m2 0h4"],
   ["discounts", "Discounts", "M20 13 13 20 3 10V3h7l10 10zM7 7h.01"],
-  ["loyalty", "Loyalty", "M12 3v18m7-14H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H5"],
   ["team", "Team", "M16 11a4 4 0 1 0-3.5-6M8 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-7 8v-2a7 7 0 0 1 14 0v2zm15-7a5 5 0 0 1 5 5v2h-3"],
   ["reports", "Reports", "M4 20V10m5 10V4m5 16v-7m5 7V7"],
   ["fiscal", "Tax documents", "M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6"],
@@ -37,9 +34,9 @@ const APP_NAVIGATION = [
   ["backups", "Backups", "M4 7h16v13H4zM3 4h18M9 11h6m-6 4h6"],
 ];
 const APP_NAVIGATION_GROUPS = [
-  APP_NAVIGATION.slice(0, 6),
-  APP_NAVIGATION.slice(6, 14),
-  APP_NAVIGATION.slice(14),
+  APP_NAVIGATION.slice(0, 5),
+  APP_NAVIGATION.slice(5, 11),
+  APP_NAVIGATION.slice(11),
 ];
 const SIDEBAR_SCROLL_STORAGE_KEY = "food-system-sidebar-scroll-top";
 const SIDEBAR_CONTAINER_SCROLL_STORAGE_KEY = "food-system-sidebar-container-scroll-top";
@@ -624,6 +621,8 @@ export const initProfileMenu = () => {
   let profileTrigger = button;
   const switchProfileView = (viewName = "home") => {
     panel.classList.toggle("user-edit-panel--compact-view", viewName !== "home");
+    panel.classList.toggle("user-edit-panel--home-view", viewName === "home");
+    panel.classList.toggle("user-edit-panel--settings-view", viewName === "settings");
     panel.querySelectorAll("[data-profile-view]").forEach((view) => {
       const active = view.dataset.profileView === viewName;
       view.classList.toggle("is-current", active);

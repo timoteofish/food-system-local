@@ -6,6 +6,8 @@ import { initAppShell } from "../../../shared/ui/ui.js";
 
 const businessId = getSession()?.businessId;
 const createButton = document.getElementById("createBackup");
+const createModal = document.getElementById("backupCreateModal");
+const confirmCreateButton = document.getElementById("confirmCreateBackup");
 const backupStatus = document.getElementById("backupStatus");
 const backupList = document.getElementById("backupList");
 const backupUnits = ["B", "KB", "MB", "GB", "TB"];
@@ -80,9 +82,31 @@ backupList.addEventListener("click", (event) => {
   if (event.target.closest("[data-backup-retry]")) void loadBackups();
 });
 
-createButton.addEventListener("click", async () => {
-  if (createButton.disabled) return;
+const closeCreateModal = () => {
+  createModal.hidden = true;
+  document.body.classList.remove("modal-open");
+  createButton.focus();
+};
+
+createButton.addEventListener("click", () => {
+  createModal.hidden = false;
+  document.body.classList.add("modal-open");
+  confirmCreateButton.focus();
+});
+
+createModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-backup-modal]")) closeCreateModal();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !createModal.hidden) closeCreateModal();
+});
+
+confirmCreateButton.addEventListener("click", async () => {
+  if (confirmCreateButton.disabled) return;
+  confirmCreateButton.disabled = true;
   createButton.disabled = true;
+  closeCreateModal();
   setStatus("Creating backup");
 
   try {
@@ -93,6 +117,7 @@ createButton.addEventListener("click", async () => {
     setStatus("Could not create the backup Try again", "error");
   } finally {
     createButton.disabled = false;
+    confirmCreateButton.disabled = false;
   }
 });
 

@@ -74,10 +74,6 @@
 .contact-list .operation-empty:not([role="alert"]) { border: 1px dashed var(--line); border-radius: 11px; background: var(--surface-soft); }
 .value-grid { margin-top: 16px; }
 .value-grid .panel { display: grid; align-content: start; gap: 13px; }
-.loyalty-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.loyalty-actions .btn { flex: 1 1 140px; }
-#loyaltyStatus { margin: 0; color: var(--accent-text, var(--accent-dark)); font-size: .88rem; font-weight: 650; }
-#loyaltyStatus[hidden] { display: none; }
 
 .contacts-load-error {
   margin: 0 0 10px;
@@ -113,6 +109,4 @@
   .value-grid > .panel { padding: 15px; }
   .contact-row { align-items: flex-start; flex-direction: column; gap: 4px; }
   .contact-row span { text-align: left; }
-  .loyalty-actions { flex-direction: column; }
-  .loyalty-actions .btn { flex-basis: auto; width: 100%; }
 }

@@ -46,10 +46,8 @@ const navigationKeys = [
   "inventory",
   "kitchen",
   "reports",
-  "contacts",
   "delivery",
   "backups",
-  "tables",
   "fiscal",
   "integrations",
 ];

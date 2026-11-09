@@ -949,7 +949,6 @@ body.menu-sidebar-collapsed .profile-label,
   }
 
   .terms-panel,
-  .user-edit-panel,
   .business-onboarding-panel,
   .qr-code-panel,
   .category-user-panel,
@@ -961,7 +960,45 @@ body.menu-sidebar-collapsed .profile-label,
     max-height:calc(100dvh - 16px) !important;
   }
 
-  .user-edit-panel.is-open,
+  .user-edit-panel:not(.user-edit-panel--home-view) {
+    top:50% !important;
+    right:auto !important;
+    bottom:auto !important;
+    left:50% !important;
+    width:min(520px,calc(100vw - 24px)) !important;
+    height:auto !important;
+    max-width:calc(100vw - 24px) !important;
+    max-height:calc(100dvh - 24px) !important;
+    overflow:auto !important;
+    border-radius:var(--radius-panel) !important;
+  }
+
+  .user-edit-panel.user-edit-panel--settings-view {
+    width:min(860px,calc(100vw - 24px)) !important;
+    max-width:calc(100vw - 24px) !important;
+  }
+
+  .user-edit-panel:not(.user-edit-panel--home-view).is-open {
+    transform:translate(-50%,-50%) !important;
+  }
+
+  .user-edit-panel.user-edit-panel--home-view {
+    top:50% !important;
+    right:auto !important;
+    bottom:auto !important;
+    left:50% !important;
+    width:min(520px,calc(100vw - 24px)) !important;
+    height:auto !important;
+    max-width:calc(100vw - 24px) !important;
+    max-height:calc(100dvh - 24px) !important;
+    overflow:auto !important;
+    border-radius:var(--radius-panel) !important;
+  }
+
+  .user-edit-panel.user-edit-panel--home-view.is-open {
+    transform:translate(-50%,-50%) !important;
+  }
+
   .business-onboarding-panel.is-open{
     transform:none !important;
   }

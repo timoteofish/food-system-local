@@ -61,10 +61,36 @@
 .discount-value-control__prefix[hidden],
 .discount-value-control__suffix[hidden] { display: none; }
 
+.discount-directory { display: grid; gap: 16px; }
+.discount-directory > h2 { margin: 0; font-size: 1.08rem; letter-spacing: -.02em; }
+.discount-search { display: grid; gap: 7px; margin: 0; }
+.discount-search > span:first-child { font-size: .84rem; font-weight: 650; }
+.discount-search__input-wrap { position: relative; display: block; width: 100%; }
+.discount-search__icon { position: absolute; top: 50%; left: 14px; width: 19px; height: 19px; transform: translateY(-50%); fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; pointer-events: none; }
+.discount-search input { width: 100%; min-height: 44px; padding-left: 44px; }
+.discount-directory .contact-list { margin-top: 0; }
+.discount-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; }
+.discount-card { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.discount-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.discount-card h3 { margin: 0; overflow-wrap: anywhere; font-size: .98rem; }
+.discount-card__status { flex: 0 0 auto; padding: 4px 9px; border-radius: 999px; background: var(--surface-soft); color: var(--muted); font-size: .74rem; font-weight: 650; }
+.discount-card__status[data-active="true"] { background: color-mix(in srgb, #28a36a 14%, var(--surface)); color: #218452; }
+.discount-card__details { display: grid; gap: 10px; margin: 0; }
+.discount-card__field { display: grid; grid-template-columns: minmax(95px, .7fr) minmax(0, 1.3fr); gap: 12px; padding-top: 9px; border-top: 1px solid var(--line); }
+.discount-card__field dt { color: var(--muted); font-size: .8rem; }
+.discount-card__field dd { margin: 0; overflow-wrap: anywhere; font-size: .84rem; text-align: right; }
+.discount-list .operation-empty { grid-column: 1 / -1; }
+
 #discountForm select[name="type"] {
   padding-right: 44px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%236b7280' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 16px center;
   appearance: none;
+}
+
+@media (max-width: 480px) {
+  .discount-card { padding: 13px; }
+  .discount-card__field { grid-template-columns: 1fr; gap: 4px; }
+  .discount-card__field dd { text-align: left; }
 }
