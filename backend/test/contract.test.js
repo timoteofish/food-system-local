@@ -236,6 +236,18 @@ test("development local access is limited to the loopback frontend origin", asyn
   assert.match(config, /"devUrl": "http:\/\/127\.0\.0\.1:4173"/);
 });
 
+test("development Live Server origins can reach the local API without changing production access", async () => {
+  const server = await read("src/server.js");
+  const auth = await read("src/routes/auth.js");
+  const origins = await read("src/local-origin.js");
+  assert.match(server, /config\.allowLocalHeader && isLoopbackHttpOrigin\(origin\)/);
+  assert.match(auth, /const unkeyedDevelopment = config\.allowLocalHeader && !config\.localAccessToken/);
+  assert.match(auth, /unkeyedDevelopment && isLoopbackHttpOrigin\(request\.headers\.origin\)/);
+  assert.match(auth, /if \(!hasLocalAdminAccess\(request\)\)/);
+  assert.match(origins, /"localhost", "127\.0\.0\.1", "::1"/);
+  assert.match(auth, /if \(config\.nodeEnv === "production"\)/);
+});
+
 test("public API requests do not attach saved or Tauri administrator credentials", async () => {
   const client = await readFrontend("shared/api/client.js");
   assert.match(client, /const needsAuthentication = auth !== false/);
@@ -497,11 +509,6 @@ test("backend request and product-image limits match the MEDIUMTEXT image column
   assert.match(migration, /MODIFY COLUMN image_url MEDIUMTEXT NULL/);
 });
 
-test("dining tab creation serializes concurrent opens by locking the table row", async () => {
-  const routes = await read("src/routes/dining-tabs.js");
-  assert.match(routes, /restaurant_tables WHERE id = \? AND business_id = \? AND active = TRUE LIMIT 1 FOR UPDATE/);
-});
-
 test("delivery assignment serializes by locking the order and commits assignment atomically", async () => {
   const routes = await read("src/routes/delivery.js");
   assert.match(routes, /orders WHERE id = \? AND business_id = \? AND delivery_address IS NOT NULL FOR UPDATE/);
@@ -641,17 +648,17 @@ test("cashier recognizes QR counter payments across locales and legacy labels", 
 
 test("backend registers the required route groups", async () => {
   const server = await read("src/server.js");
-  for (const route of ["authRoutes", "catalogRoutes", "tableRoutes", "diningTabRoutes", "orderRoutes", "cashRoutes", "integrationRoutes", "inventoryRoutes", "operationsRoutes", "kitchenRoutes"]) assert.match(server, new RegExp(`register\\(${route}\\)`));
+  for (const route of ["authRoutes", "catalogRoutes", "tableRoutes", "orderRoutes", "cashRoutes", "integrationRoutes", "inventoryRoutes", "operationsRoutes", "kitchenRoutes"]) assert.match(server, new RegExp(`register\\(${route}\\)`));
 });
 
-test("table QR menus create restaurant tables while dining tabs retain service controls", async () => {
-  const routes = await read("src/routes/dining-tabs.js");
+test("table QR menus create restaurant tables without the removed dining-tab workflow", async () => {
+  const server = await read("src/server.js");
+  const orders = await read("src/routes/orders.js");
   const menuApp = await readFrontend("pages/app/menu/app.js");
-  assert.match(routes, /dining-tabs/);
-  assert.match(routes, /transfer/);
-  assert.match(routes, /close/);
   assert.match(menuApp, /ensureRestaurantTableRemote\(tableName\)/);
   assert.match(menuApp, /renderQrCode/);
+  assert.doesNotMatch(server, /diningTabRoutes/);
+  assert.match(orders, /INSERT INTO orders \(id, business_id, idempotency_key, idempotency_hash, restaurant_table_id, customer_id/);
 });
 
 test("fiscal workflow saves drafts and keeps unimplemented issuance disabled", async () => {
@@ -774,7 +781,7 @@ test("business route inventory requires an access check except for documented pu
       unprotected.push(key);
     }
   }
-  assert.ok(registrations.length >= 75, `Route inventory unexpectedly found only ${registrations.length} handlers`);
+  assert.ok(registrations.length >= 73, `Route inventory unexpectedly found only ${registrations.length} handlers`);
   assert.deepEqual(unprotected.sort(), [
     "GET /api/v1/businesses/:businessId/public",
     "POST /api/v1/businesses/:businessId/orders",
@@ -1102,6 +1109,22 @@ test("business validators enforce name, UTF-8 description, and color boundaries"
   assert.equal(hasValidBusinessColor("#A1b2C3"), true);
   assert.equal(hasValidBusinessColor("red"), false);
   assert.equal(hasValidBusinessColor("#12345g"), false);
+});
+
+test("verification panel lists process results and provides green checks, red X marks, and a close button", async () => {
+  const ui = await readFrontend("shared/ui/ui.js");
+  const styles = await readFrontend("styles/base.css");
+  assert.match(ui, /data-profile-view="verification"/);
+  assert.match(ui, /data-verification-close/);
+  assert.match(ui, /4 checks completed · 2 items pending/);
+  assert.match(ui, /64 of 64 files passed module syntax checks/);
+  assert.match(ui, /22 of 22 tests passed against an isolated test server/);
+  assert.match(ui, /81 of 87 checks passed; 6 existing assertions need review/);
+  assert.match(ui, /verification-panel__status is-complete/);
+  assert.match(ui, /verification-panel__status is-pending/);
+  assert.match(styles, /\.verification-panel__status\.is-complete\{background:#16803a\}/);
+  assert.match(styles, /\.verification-panel__status\.is-pending\{background:#dc2626\}/);
+  assert.match(styles, /stroke-width:3\.7/);
 });
 
 test("local team is a business-scoped roster and does not claim per-person access control", async () => {

@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSa
 import { promisify } from "node:util";
 import { pool } from "../db.js";
 import { config } from "../config.js";
+import { isLoopbackHttpOrigin } from "../local-origin.js";
 
 const scrypt = promisify(scryptCallback);
 const MAX_PASSWORD_BYTES = 1024;
@@ -26,6 +27,16 @@ const verifyPassword = async (password, stored) => {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 };
 const publicUser = (row) => ({ id: row.id, email: row.email, name: row.name });
+const hasLocalAdminAccess = (request) => {
+  const suppliedToken = String(request.headers["x-food-system-local"] || "");
+  const expectedToken = Buffer.from(config.localAccessToken);
+  const suppliedBytes = Buffer.from(suppliedToken);
+  const unkeyedDevelopment = config.allowLocalHeader && !config.localAccessToken;
+  const developmentHeader = unkeyedDevelopment && suppliedToken.toLowerCase() === "true";
+  const developmentOrigin = unkeyedDevelopment && isLoopbackHttpOrigin(request.headers.origin);
+  const configuredToken = expectedToken.length > 0 && suppliedBytes.length === expectedToken.length && timingSafeEqual(suppliedBytes, expectedToken);
+  return developmentHeader || developmentOrigin || configuredToken;
+};
 
 export const authenticate = async (request) => {
   const header = String(request.headers.authorization || "");
@@ -43,11 +54,7 @@ export const authenticate = async (request) => {
 };
 
 export const requireBusinessAccess = async (request, reply) => {
-  const suppliedLocalToken = String(request.headers["x-food-system-local"] || "");
-  const suppliedBytes = Buffer.from(suppliedLocalToken);
-  const expectedBytes = Buffer.from(config.localAccessToken);
-  const developmentLocalMode = config.allowLocalHeader && !config.localAccessToken && String(request.headers["x-food-system-local"] || "").toLowerCase() === "true";
-  if (developmentLocalMode || (expectedBytes.length > 0 && suppliedBytes.length === expectedBytes.length && timingSafeEqual(suppliedBytes, expectedBytes))) {
+  if (hasLocalAdminAccess(request)) {
     const businessId = request.params.businessId || request.params.id;
     if (businessId && businessId !== LOCAL_BUSINESS_ID) {
       reply.forbidden("The local administrator can only access the local Food System business");
@@ -86,12 +93,7 @@ export const requireRole = async (request, reply, roles = ["owner", "manager"]) 
 
 export default async function authRoutes(app) {
   app.put("/api/v1/local/business", async (request, reply) => {
-    const suppliedLocalToken = String(request.headers["x-food-system-local"] || "");
-    const suppliedBytes = Buffer.from(suppliedLocalToken);
-    const expectedBytes = Buffer.from(config.localAccessToken);
-    const developmentLocalMode = config.allowLocalHeader && !config.localAccessToken && suppliedLocalToken.toLowerCase() === "true";
-    const authorized = developmentLocalMode || (expectedBytes.length > 0 && suppliedBytes.length === expectedBytes.length && timingSafeEqual(suppliedBytes, expectedBytes));
-    if (!authorized) return reply.unauthorized("Local administrator authorization required");
+    if (!hasLocalAdminAccess(request)) return reply.unauthorized("Local administrator authorization required");
     const body = request.body;
     if (!isPlainObject(body)) return reply.badRequest("Business data must be an object");
     const input = body.business === undefined ? body : body.business;

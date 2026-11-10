@@ -335,28 +335,6 @@ test("API prevents products from referencing another business category or kitche
   assert.equal(clearedImage.product.image_url, null);
 });
 
-test("API opens, transfers and closes dining tabs", async () => {
-  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const registered = await request("/auth/register", { method: "POST", body: JSON.stringify({ email: `tabs-${suffix}@example.test`, name: "Tabs Owner", password: "SecurePassword123" }) });
-  const auth = { Authorization: `Bearer ${registered.token}` };
-  const businessId = registered.business.id;
-  const first = await request(`/businesses/${businessId}/tables`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Table A ${suffix}` }) });
-  const second = await request(`/businesses/${businessId}/tables`, { method: "POST", headers: auth, body: JSON.stringify({ name: `Table B ${suffix}` }) });
-  const openPath = `/businesses/${businessId}/tables/${first.table.id}/dining-tabs`;
-  const openAttempts = await Promise.allSettled([
-    request(openPath, { method: "POST", headers: auth, body: JSON.stringify({}) }),
-    request(openPath, { method: "POST", headers: auth, body: JSON.stringify({}) }),
-  ]);
-  assert.equal(openAttempts.filter((attempt) => attempt.status === "fulfilled").length, 1);
-  assert.equal(openAttempts.filter((attempt) => attempt.status === "rejected" && /409/.test(attempt.reason.message)).length, 1);
-  const opened = openAttempts.find((attempt) => attempt.status === "fulfilled").value;
-  assert.equal(opened.tab.restaurant_table_id, first.table.id);
-  const transferred = await request(`/businesses/${businessId}/dining-tabs/${opened.tab.id}/transfer`, { method: "POST", headers: auth, body: JSON.stringify({ table_id: second.table.id }) });
-  assert.equal(transferred.tab.table_id, second.table.id);
-  const closed = await request(`/businesses/${businessId}/dining-tabs/${opened.tab.id}/close`, { method: "POST", headers: auth, body: JSON.stringify({}) });
-  assert.equal(closed.tab.status, "closed");
-});
-
 test("API ingests an external order idempotently", async () => {
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const registered = await request("/auth/register", {

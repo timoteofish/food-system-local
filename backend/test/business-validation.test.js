@@ -8,17 +8,47 @@ import kitchenRoutes from "../src/routes/kitchen.js";
 import cashRoutes from "../src/routes/cash.js";
 import operationsRoutes from "../src/routes/operations.js";
 import orderRoutes from "../src/routes/orders.js";
-import authRoutes from "../src/routes/auth.js";
+import authRoutes, { requireBusinessAccess } from "../src/routes/auth.js";
+import { config } from "../src/config.js";
 import deliveryRoutes from "../src/routes/delivery.js";
 import customerValueRoutes from "../src/routes/customer-value.js";
 import inventoryRoutes from "../src/routes/inventory.js";
 import integrationRoutes from "../src/routes/integrations.js";
-import diningTabRoutes from "../src/routes/dining-tabs.js";
 import tableRoutes from "../src/routes/tables.js";
 import platformRoutes from "../src/routes/platform.js";
 import catalogRoutes from "../src/routes/catalog.js";
 import fiscalRoutes from "../src/routes/fiscal.js";
 import reportRoutes from "../src/routes/reports.js";
+
+test("local administrator access accepts loopback browser origins only in unkeyed development mode", { skip: !config.allowLocalHeader || Boolean(config.localAccessToken) }, async () => {
+  const originalQuery = pool.query;
+  let deniedStatus = 0;
+  pool.query = async () => [[], []];
+  try {
+    const allowedRequest = {
+      headers: { origin: "http://127.0.0.1:5500" },
+      params: { businessId: "00000000-0000-4000-8000-000000000001" },
+    };
+    const allowed = await requireBusinessAccess(allowedRequest, {
+      unauthorized() { deniedStatus = 401; },
+      forbidden() { deniedStatus = 403; },
+    });
+    assert.equal(allowed?.local, true);
+    assert.equal(allowedRequest.user, allowed);
+
+    const denied = await requireBusinessAccess({
+      headers: { origin: "https://example.com" },
+      params: { businessId: "00000000-0000-4000-8000-000000000001" },
+    }, {
+      unauthorized() { deniedStatus = 401; },
+      forbidden() { deniedStatus = 403; },
+    });
+    assert.equal(denied, null);
+    assert.equal(deniedStatus, 401);
+  } finally {
+    pool.query = originalQuery;
+  }
+});
 
 test("report filters reject impossible, empty and repeated dates before queries", async () => {
   const originalQuery = pool.query;
@@ -92,7 +122,7 @@ test("team, category and fiscal mutations reject non-text enum fields before wri
   }
 });
 
-test("table, dining-tab, cash and order routes reject coerced mutation fields before database writes", async () => {
+test("table, cash and order routes reject coerced mutation fields before database writes", async () => {
   const originalQuery = pool.query;
   const originalGetConnection = pool.getConnection;
   let databaseWrites = 0;
@@ -107,7 +137,6 @@ test("table, dining-tab, cash and order routes reject coerced mutation fields be
   const app = Fastify();
   try {
     await app.register(sensible);
-    await app.register(diningTabRoutes);
     await app.register(cashRoutes);
     await app.register(tableRoutes);
     await app.register(operationsRoutes);
@@ -116,7 +145,6 @@ test("table, dining-tab, cash and order routes reject coerced mutation fields be
     const headers = { authorization: "Bearer test-session" };
     const invalidRequests = [
       { method: "POST", url: "/api/v1/businesses/test-business/tables", payload: { name: {} } },
-      { method: "POST", url: "/api/v1/businesses/test-business/tables/table-1/dining-tabs", payload: { notes: 7 } },
       { method: "POST", url: "/api/v1/businesses/test-business/cash_movements", payload: { type: "entry", amount: 4, description: [] } },
       { method: "POST", url: "/api/v1/businesses/test-business/cash-register/session-1/close", payload: { closing_amount: 2, notes: [] } },
       { method: "PATCH", url: "/api/v1/businesses/test-business/orders/order-1/update_status", payload: { status: ["completed"] } },

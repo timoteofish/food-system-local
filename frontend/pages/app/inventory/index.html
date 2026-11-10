@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ffffff" />
-    <title>Inventory | Food System</title>
+    <title>Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
@@ -138,6 +138,16 @@
         <button class="inventory-error-panel__close" id="inventoryErrorClose" type="button" data-close-inventory-error aria-label="Close">×</button>
         <p id="inventoryLoadError" class="inventory-load-error" role="alert" aria-live="assertive"></p>
         <button class="btn btn--secondary inventory-retry" id="inventoryRetry" type="button">Try again</button>
+      </section>
+    </div>
+    <div class="inventory-success-modal" id="inventorySuccessModal" hidden>
+      <button class="inventory-success-modal__backdrop" type="button" data-close-inventory-success aria-label="Close"></button>
+      <section class="inventory-success-panel" role="dialog" aria-modal="true" aria-labelledby="inventorySuccessMessage">
+        <button class="inventory-success-panel__close" id="inventorySuccessClose" type="button" data-close-inventory-success aria-label="Close">×</button>
+        <span class="inventory-success-panel__mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" focusable="false"><path d="m13 25 7 7 15-16" /></svg>
+        </span>
+        <p id="inventorySuccessMessage" class="inventory-success-panel__message" role="status" aria-live="polite"></p>
       </section>
     </div>
     <script src="../../../env.js"></script>

@@ -42,14 +42,7 @@ document.addEventListener("keydown", (event) => {
 
 const renderRecentOrders = (orders) => {
   recentOrders.replaceChildren();
-  if (!orders.length) {
-    const empty = document.createElement("p");
-    empty.className = "dashboard-empty";
-    empty.setAttribute("role", "status");
-    empty.textContent = translate("No orders to show");
-    recentOrders.append(empty);
-    return;
-  }
+  if (!orders.length) return;
 
   orders.forEach((order) => {
     const row = document.createElement("article");

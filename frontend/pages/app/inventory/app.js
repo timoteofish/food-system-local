@@ -14,6 +14,9 @@ const errorModal = document.getElementById("inventoryErrorModal");
 const loadErrorMessage = document.getElementById("inventoryLoadError");
 const retryButton = document.getElementById("inventoryRetry");
 const errorClose = document.getElementById("inventoryErrorClose");
+const successModal = document.getElementById("inventorySuccessModal");
+const successMessage = document.getElementById("inventorySuccessMessage");
+const successClose = document.getElementById("inventorySuccessClose");
 const movementType = document.getElementById("movementType");
 const movementDirectionField = document.getElementById("movementDirectionField");
 const recipeIngredientsList = document.getElementById("recipeIngredients");
@@ -27,6 +30,7 @@ let hasLoadedSuppliers = false;
 let loading = false;
 let appShellReady = false;
 let inventorySearchQuery = "";
+let successReturnFocus = null;
 
 const setLoading = (isLoading) => {
   loadingIndicator.hidden = !isLoading;
@@ -49,11 +53,33 @@ const showLoadError = () => {
   errorClose.focus();
 };
 
+const hideSuccess = () => {
+  successModal.hidden = true;
+  document.body.classList.remove("modal-open");
+  const target = successReturnFocus instanceof HTMLElement && !successReturnFocus.disabled
+    ? successReturnFocus
+    : document.getElementById("itemName");
+  target.focus();
+  successReturnFocus = null;
+};
+
+const showSuccess = (message) => {
+  successReturnFocus = document.activeElement;
+  successMessage.textContent = message;
+  successModal.hidden = false;
+  document.body.classList.add("modal-open");
+  successClose.focus();
+};
+
 errorModal.addEventListener("click", (event) => {
   if (event.target.closest("[data-close-inventory-error]")) hideLoadError();
 });
+successModal.addEventListener("click", (event) => {
+  if (event.target.closest("[data-close-inventory-success]")) hideSuccess();
+});
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !errorModal.hidden) hideLoadError();
+  else if (event.key === "Escape" && !successModal.hidden) hideSuccess();
 });
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>\'"]/g, (char) => ({
@@ -74,6 +100,23 @@ const setMessage = (element, text, state = "error") => {
   element.dataset.state = state;
   element.hidden = !text;
 };
+
+const numericFields = document.querySelectorAll(".inventory-form input[type='number']");
+numericFields.forEach((input) => {
+  input.addEventListener("focus", () => {
+    if (input.value === "0") input.value = "";
+  });
+  input.addEventListener("beforeinput", (event) => {
+    if (!event.inputType.startsWith("insert") || event.isComposing) return;
+    const inserted = event.data ?? event.dataTransfer?.getData("text/plain");
+    if (inserted === null || inserted === undefined) return;
+    if (!/^\d*(?:[.,]\d*)?$/.test(inserted)) {
+      event.preventDefault();
+      return;
+    }
+    if (/[.,]/.test(inserted) && /[.,]/.test(input.value)) event.preventDefault();
+  });
+});
 
 const clearMessage = (element) => {
   if (!element) return;
@@ -281,7 +324,7 @@ document.getElementById("inventoryForm").addEventListener("submit", async (event
     });
     form.reset();
     await load();
-    setMessage(output, translate("inventoryItemSaved"), "success");
+    showSuccess(translate("inventoryItemSaved"));
   } catch {
     setMessage(output, translate("inventoryItemSaveError"));
   } finally {

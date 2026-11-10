@@ -1,6 +1,6 @@
 {
-  "name": "Food System Entregas",
-  "short_name": "Entregas",
+  "name": "Food System",
+  "short_name": "Food System",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f7f7f6",
