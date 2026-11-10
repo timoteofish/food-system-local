@@ -2,11 +2,11 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
 import { config } from "./config.js";
+import { isLoopbackHttpOrigin } from "./local-origin.js";
 import { checkDatabase, pool } from "./db.js";
 import businessesRoutes from "./routes/businesses.js";
 import catalogRoutes from "./routes/catalog.js";
 import tableRoutes from "./routes/tables.js";
-import diningTabRoutes from "./routes/dining-tabs.js";
 import orderRoutes from "./routes/orders.js";
 import cashRoutes from "./routes/cash.js";
 import authRoutes from "./routes/auth.js";
@@ -35,7 +35,7 @@ const testRateLimitBypass = config.nodeEnv === "test" && process.env.FOOD_SYSTEM
 await app.register(sensible);
 await app.register(cors, {
   origin: (origin, callback) => {
-    if (!origin || config.corsOrigins.includes(origin)) return callback(null, true);
+    if (!origin || config.corsOrigins.includes(origin) || (config.allowLocalHeader && isLoopbackHttpOrigin(origin))) return callback(null, true);
     return callback(new Error("Origin not allowed"), false);
   },
   credentials: false,
@@ -100,7 +100,6 @@ app.addHook("onResponse", async (request, reply) => {
 await app.register(businessesRoutes);
 await app.register(catalogRoutes);
 await app.register(tableRoutes);
-await app.register(diningTabRoutes);
 await app.register(orderRoutes);
 await app.register(cashRoutes);
 await app.register(authRoutes);

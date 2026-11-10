@@ -30,7 +30,7 @@ backend/
 └── .env.example          # Example local configuration
 ```
 
-Route plugins currently cover authentication, business profiles and team, catalog, tables and public menus, orders, cash register, dining tabs, inventory and purchases, customer value, reports, integrations, fiscal documents, delivery/couriers, kitchen stations, and backups. `server.js` registers these plugins and applies cross-cutting behavior once for the API process.
+Route plugins currently cover authentication, business profiles and team, catalog, tables and public menus, orders, cash register, inventory and purchases, customer value, reports, integrations, fiscal documents, delivery/couriers, kitchen stations, and backups. Table QR codes create orders directly; the removed dining-tab workflow is not registered. `server.js` registers these plugins and applies cross-cutting behavior once for the API process.
 
 ## Runtime lifecycle
 
@@ -40,7 +40,7 @@ The server registers CORS and sensible HTTP helpers, enforces the configured req
 
 ### Request flow
 
-Requests enter the restore-maintenance gate before route handling. Authentication and route-level authorization are implemented in `routes/auth.js`; business-scoped routes check the caller's business membership and role. The installed local application uses a local administrator token. Registration/login endpoints are available only outside production. Mutating authenticated requests are audited by a server response hook unless the route already wrote a more specific audit event.
+Requests enter the restore-maintenance gate before route handling. Authentication and route-level authorization are implemented in `routes/auth.js`; business-scoped routes check the caller's business membership and role. The installed local application uses a local administrator token. In development, loopback browser origins are also accepted so the frontend can run through tools such as VS Code Live Server; this path is disabled in production. Registration/login endpoints are available only outside production. Mutating authenticated requests are audited by a server response hook unless the route already wrote a more specific audit event.
 
 The API is versioned under `/api/v1`. Order creation and status changes validate the request, apply business rules, and persist related records in SQLite transactions where needed. Order printing is represented as queued print jobs; the separate worker polls eligible jobs and retries failures up to three attempts. The worker is an explicit process (`npm run print:worker`), not automatically started by `server.js`.
 

@@ -485,15 +485,57 @@ export const initProfileMenu = () => {
             <div class="user-edit-panel__actions-stack">
               <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="settings"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"/></svg></span><span><strong>Account settings</strong><small>Update your profile and business details</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
               <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="updates"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4.7 9A7.5 7.5 0 0 1 18 6l2 2M4 17v-5h5m10.3 3A7.5 7.5 0 0 1 6 18l-2-2"/></svg></span><span><strong>Updates</strong><small>Check the installed version</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
-              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="support"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4v.01M9.6 9a2.4 2.4 0 1 1 4.35 1.42c-.95 1.05-1.95 1.26-1.95 2.83"/></svg></span><span><strong>Contact support</strong><small>Send a message to our team</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
+              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="verification"><span class="user-edit-panel__action-icon user-edit-panel__action-icon--verification" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span><span><strong>System verification</strong><small>See completed checks and pending items</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
+              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="support"><span class="user-edit-panel__action-icon user-edit-panel__action-icon--support" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4v.01M9.6 9a2.4 2.4 0 1 1 4.35 1.42c-.95 1.05-1.95 1.26-1.95 2.83"/></svg></span><span><strong>Contact support</strong><small>Send a message to our team</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
               <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-action="close-app">Close application</button>
             </div>
+          </section>
+          <section class="user-edit-panel__view verification-panel" data-profile-view="verification" hidden>
+            <div class="user-edit-panel__page-head verification-panel__head">
+              <div><strong>System verification</strong><span>Latest checks for frontend and backend</span></div>
+              <button type="button" class="verification-panel__close" data-verification-close aria-label="Close verification panel">×</button>
+            </div>
+            <div class="verification-panel__summary" role="status">4 checks completed · 2 items pending</div>
+            <section class="verification-panel__group" aria-labelledby="verificationFrontendTitle">
+              <h3 id="verificationFrontendTitle">Frontend</h3>
+              <article class="verification-panel__item">
+                <span class="verification-panel__status is-complete" role="img" aria-label="Verified"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span>
+                <div><strong>JavaScript syntax</strong><p>64 of 64 files passed module syntax checks</p></div>
+              </article>
+              <article class="verification-panel__item">
+                <span class="verification-panel__status is-pending" role="img" aria-label="Not completed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></span>
+                <div><strong>Browser visual review</strong><p>Visual behavior was not manually checked in this verification round</p></div>
+              </article>
+            </section>
+            <section class="verification-panel__group" aria-labelledby="verificationBackendTitle">
+              <h3 id="verificationBackendTitle">Backend</h3>
+              <article class="verification-panel__item">
+                <span class="verification-panel__status is-complete" role="img" aria-label="Verified"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span>
+                <div><strong>Business rules</strong><p>13 of 13 tests passed</p></div>
+              </article>
+              <article class="verification-panel__item">
+                <span class="verification-panel__status is-complete" role="img" aria-label="Verified"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span>
+                <div><strong>API integration</strong><p>22 of 22 tests passed against an isolated test server</p></div>
+              </article>
+              <article class="verification-panel__item">
+                <span class="verification-panel__status is-complete" role="img" aria-label="Verified"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span>
+                <div><strong>Supporting backend tests</strong><p>20 of 20 tests passed across 10 test files</p></div>
+              </article>
+            </section>
+            <section class="verification-panel__group" aria-labelledby="verificationSharedTitle">
+              <h3 id="verificationSharedTitle">Frontend and backend</h3>
+              <article class="verification-panel__item">
+                <span class="verification-panel__status is-pending" role="img" aria-label="Not completed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></span>
+                <div><strong>Project contracts</strong><p>81 of 87 checks passed; 6 existing assertions need review</p></div>
+              </article>
+            </section>
+            <div class="verification-panel__actions"><button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-profile-back>Back</button></div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="settings" hidden>
             <div class="user-edit-panel__page-head">
               <strong>Profile details</strong>
             </div>
-            <div class="user-edit-panel__page-shell">
+            <div class="user-edit-panel__page-shell user-edit-panel__page-shell--support">
               <section class="user-edit-panel__settings-shell">
                 <aside class="user-edit-panel__settings-side">
                   <div class="user-edit-panel__settings-avatar">
@@ -591,11 +633,8 @@ export const initProfileMenu = () => {
               <strong>Remote support</strong>
             </div>
             <div class="user-edit-panel__page-shell">
-              <div class="user-edit-panel__support-card">
-                <p>Support is provided remotely by the team responsible for the system</p>
-                <p>Contact the team that installed Food System to arrange support If needed, have AnyDesk available on the business computer</p>
-                <p>Before the session, describe what happened, which screen it happened on, and what you expected to happen</p>
-              </div>
+              <p>Support is provided remotely, send an email using the button below and briefly describe what happened so our team can help!</p>
+              <a class="user-edit-panel__action user-edit-panel__action--danger" href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=foodsystemsupport%40gmail.com&amp;su=Suporte%20Food%20System" target="_blank" rel="noopener noreferrer">Falar com o suporte</a>
               <div class="user-edit-panel__actions-stack">
                 <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-profile-back>Back</button>
               </div>
@@ -643,7 +682,8 @@ export const initProfileMenu = () => {
     document.body.classList.add("modal-open");
     button.setAttribute("aria-expanded", "true");
     requestAnimationFrame(() => {
-      panel.querySelector("[data-user-edit-close]")?.focus();
+      const currentView = panel.querySelector("[data-profile-view].is-current");
+      (currentView?.querySelector("[data-verification-close]") || panel.querySelector("[data-user-edit-close]"))?.focus();
     });
   };
 
@@ -876,9 +916,9 @@ export const initProfileMenu = () => {
         avatar: pendingAvatar,
       });
       settingsAvatarRemove.hidden = false;
-      settingsFeedback.textContent = translate("Business image ready to save");
+      settingsFeedback.textContent = "";
       settingsFeedback.className = "user-edit-panel__feedback";
-      settingsFeedback.hidden = false;
+      settingsFeedback.hidden = true;
     } catch {
       settingsFeedback.textContent = translate("Could not process the image");
       settingsFeedback.className = "user-edit-panel__feedback user-edit-panel__feedback--error";
@@ -1027,6 +1067,11 @@ export const initProfileMenu = () => {
 
   panel.addEventListener("click", async (event) => {
     const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest("[data-verification-close]")) {
+      event.preventDefault();
+      closePanel();
+      return;
+    }
     const closeButton = target?.closest("[data-action='close-app']");
     if (closeButton) {
       event.preventDefault();
