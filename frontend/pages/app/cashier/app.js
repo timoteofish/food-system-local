@@ -1,7 +1,7 @@
 import { getLanguage, getLocale, translate } from "../../../shared/i18n/i18n.js";
 import { localizeSystemMessage } from "../../../shared/i18n/system-messages.js";
 import { PAYMENT_METHODS } from "../../../shared/domain/payment-methods.js";
-import { escapeHtml, formatPrice, formatTime } from "../../../shared/utils/utils.js";
+import { escapeHtml, formatPrice, formatTime, parseApiTimestamp } from "../../../shared/utils/utils.js";
 import { initAppShell } from "../../../shared/ui/ui.js";
 import { initCalendarPanel } from "./calendar-id/index.js";
 import { loadCashierData, updateOrderStatusRemote } from "../../../shared/auth/auth.js";
@@ -43,7 +43,7 @@ const registerNotesField = document.getElementById("cashRegisterNotesField");
 const movementForm = document.getElementById("movementForm");
 const movementMessage = document.getElementById("movementMessage");
 const movementSubmit = document.getElementById("movementSubmit");
-const movementAvailability = document.getElementById("movementAvailability");
+const movementAvailability = document.getElementById("cashMovementTitle");
 const loadMessage = document.getElementById("cashLoadMessage");
 const loadRetry = document.getElementById("cashLoadRetry");
 const loadAlert = document.getElementById("cashLoadAlert");
@@ -57,6 +57,18 @@ let movementBusy = false;
 let hasLoadedCash = false;
 let refreshInProgress = false;
 let appShellReady = false;
+const cashMovementStorageKey = `food-system-cash-movement-${businessId}`;
+let pendingCashMovement = (() => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(cashMovementStorageKey) || "null");
+    return typeof saved?.key === "string" && typeof saved?.signature === "string" ? saved : null;
+  } catch { return null; }
+})();
+const cashMovementSignature = async (movement, sessionId) => {
+  const bytes = new TextEncoder().encode(JSON.stringify({ sessionId, ...movement }));
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
 
 const normalizeMoneyInput = (input) => {
   let raw = input.value.trim().replace(/R\$|\$/gi, "").replace(/\s/g, "");
@@ -136,7 +148,7 @@ const renderRegister = () => {
   registerAction.textContent = translate(open ? "cashCloseRegister" : "cashOpenRegister");
   registerAction.disabled = registerBusy || !hasLoadedCash;
   registerAmountLabel.textContent = translate(open ? "cashCountedClosingValue" : "cashOpeningAmount");
-  registerAmountLabel.hidden = !open;
+  registerAmountLabel.hidden = false;
   registerNotesField.hidden = !open;
   movementSubmit.disabled = !open || movementBusy || !hasLoadedCash;
   movementAvailability.hidden = open;
@@ -148,7 +160,7 @@ const renderRegister = () => {
 };
 
 const formatDate = (date) => {
-  const parsed = new Date(date);
+  const parsed = parseApiTimestamp(date);
   if (Number.isNaN(parsed.getTime())) return translate("cashTimeUnavailable");
   return parsed.toLocaleDateString(getLocale(), {
     day: "2-digit",
@@ -158,7 +170,7 @@ const formatDate = (date) => {
 };
 
 const normalizeDateValue = (date = new Date()) => {
-  const parsed = new Date(date);
+  const parsed = parseApiTimestamp(date);
   const year = parsed.getFullYear();
   const month = String(parsed.getMonth() + 1).padStart(2, "0");
   const day = String(parsed.getDate()).padStart(2, "0");
@@ -171,7 +183,7 @@ const getOrderCode = (order) =>
     .toUpperCase();
 
 const getPendingCounterPayments = () =>
-  orders.filter((order) => order.paymentMethod === PAYMENT_METHODS.CASH_AT_COUNTER && order.paymentStatus !== "paid");
+  orders.filter((order) => order.paymentMethod === PAYMENT_METHODS.CASH_AT_COUNTER && ["pending", "confirmed", "preparing", "ready", "out_for_delivery"].includes(order.orderStatus));
 
 const renderSummary = () => {
   entriesTotal.textContent = formatPrice(stats.entriesTotal);
@@ -285,10 +297,11 @@ dateInput?.setAttribute("max", normalizeDateValue(new Date()));
 
 registerForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (registerBusy) return;
+  if (registerBusy || !hasLoadedCash) return;
   registerBusy = true;
   registerAction.disabled = true;
   setMessage(registerMessage, "");
+  let requestStarted = false;
   try {
     const amount = normalizeMoneyInput(registerAmount);
     if (amount === null || amount < 0) {
@@ -299,18 +312,27 @@ registerForm?.addEventListener("submit", async (event) => {
     if (currentRegister) {
       const confirmation = translate("cashConfirmClose").replace("$1", formatPrice(amount));
       if (!window.confirm(confirmation)) return;
-      await closeCashRegister(businessId, currentRegister.id, amount, registerNotes.value.trim());
+      requestStarted = true;
+      const result = await closeCashRegister(businessId, currentRegister.id, amount, registerNotes.value.trim());
       currentRegister = null;
       renderRegister();
-      setMessage(registerMessage, translate("cashRegisterClosed"), "success");
+      const reconciliation = result?.reconciliation;
+      const hasTotals = Number.isFinite(Number(reconciliation?.expected_amount)) && Number.isFinite(Number(reconciliation?.difference_amount)) && reconciliation?.expected_amount != null && reconciliation?.difference_amount != null;
+      setMessage(registerMessage, hasTotals
+        ? translate("cashRegisterClosedWithTotals").replace("$1", formatPrice(Number(reconciliation.expected_amount))).replace("$2", formatPrice(Number(reconciliation.difference_amount)))
+        : translate("cashRegisterClosed"), "success");
     } else {
+      requestStarted = true;
       currentRegister = await openCashRegister(businessId, amount);
       renderRegister();
       setMessage(registerMessage, translate("cashRegisterOpened"), "success");
     }
     await refresh();
   } catch {
-    setMessage(registerMessage, translate("cashUpdateError"), "error");
+    if (requestStarted) {
+      await refresh();
+      setMessage(registerMessage, translate("cashRegisterOutcomeUncertain"), "error");
+    } else setMessage(registerMessage, translate("cashUpdateError"), "error");
   } finally {
     registerBusy = false;
     registerAction.disabled = !hasLoadedCash;
@@ -319,10 +341,11 @@ registerForm?.addEventListener("submit", async (event) => {
 
 movementForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (movementBusy || !currentRegister) return;
+  if (movementBusy || !currentRegister || !hasLoadedCash) return;
   movementBusy = true;
   movementSubmit.disabled = true;
   setMessage(movementMessage, "");
+  let requestStarted = false;
   try {
     const movementAmount = normalizeMoneyInput(document.getElementById("movementAmount"));
     if (movementAmount === null || movementAmount <= 0) {
@@ -330,16 +353,27 @@ movementForm?.addEventListener("submit", async (event) => {
       setMessage(movementMessage, translate("cashMovementError"), "error");
       return;
     }
-    await createCashMovement(businessId, {
+    const movement = {
       type: document.getElementById("movementType").value,
       amount: movementAmount,
       description: document.getElementById("movementDescription").value.trim(),
-    });
+    };
+    const signature = await cashMovementSignature(movement, currentRegister.id);
+    if (pendingCashMovement && pendingCashMovement.signature !== signature && !window.confirm(translate("cashMovementChangedConfirmation"))) return;
+    if (!pendingCashMovement || pendingCashMovement.signature !== signature) pendingCashMovement = { signature, key: globalThis.crypto.randomUUID() };
+    try { sessionStorage.setItem(cashMovementStorageKey, JSON.stringify(pendingCashMovement)); } catch { /* Keep the pending request in memory. */ }
+    requestStarted = true;
+    await createCashMovement(businessId, movement, pendingCashMovement.key);
+    pendingCashMovement = null;
+    try { sessionStorage.removeItem(cashMovementStorageKey); } catch { /* Ignore unavailable storage. */ }
     event.target.reset();
     await refresh();
     setMessage(movementMessage, translate("cashMovementRecorded"), "success");
   } catch {
-    setMessage(movementMessage, translate("cashMovementError"), "error");
+    if (requestStarted) {
+      await refresh();
+      setMessage(movementMessage, translate("cashMovementOutcomeUncertain"), "error");
+    } else setMessage(movementMessage, translate("cashMovementError"), "error");
   } finally {
     movementBusy = false;
     movementSubmit.disabled = !currentRegister || !hasLoadedCash;
@@ -348,7 +382,7 @@ movementForm?.addEventListener("submit", async (event) => {
 
 log?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-pay-order]");
-  if (!button) return;
+  if (!button || !hasLoadedCash) return;
 
   const order = orders.find((item) => item.id === button.dataset.payOrder);
   if (!order) return;
@@ -392,12 +426,16 @@ const refresh = async () => {
     render();
     hideLoadAlert();
   } catch {
+    hasLoadedCash = false;
     pageLoading.hidden = true;
+    registerAction.disabled = true;
+    movementSubmit.disabled = true;
+    registerStatus.textContent = translate("cashDataUnavailable");
+    registerStatus.classList.remove("is-open", "is-closed");
+    entriesTotal.textContent = exitsTotal.textContent = balanceTotal.textContent = "—";
     showLoadAlert();
-    if (!hasLoadedCash) {
-      cashSummary?.setAttribute("aria-busy", "false");
-      log.innerHTML = `<div class="cash-empty">${translate("cashDataUnavailable")}</div>`;
-    }
+    cashSummary?.setAttribute("aria-busy", "false");
+    if (log) log.innerHTML = `<div class="cash-empty">${translate("cashDataUnavailable")}</div>`;
   } finally {
     refreshInProgress = false;
     loadRetry.disabled = false;

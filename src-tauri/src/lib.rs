@@ -22,6 +22,19 @@ fn load_or_create_secret_key(secret_path: &Path) -> Result<String, Box<dyn std::
         Err(error) => return Err(Box::new(error)),
     }
 
+    let backup_dir = secret_path.parent().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Missing data directory"))?.join("backups");
+    match fs::read_dir(backup_dir) {
+        Ok(entries) => {
+            for entry in entries {
+                if entry?.file_name().to_string_lossy().ends_with(".sqlite.enc") {
+                    return Err(io::Error::new(io::ErrorKind::NotFound, "Encrypted backups exist but secret.key is missing. Restore the original key before starting.").into());
+                }
+            }
+        },
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {},
+        Err(error) => return Err(error.into()),
+    }
+
     let mut key_bytes = [0u8; 32];
     getrandom::fill(&mut key_bytes).map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
     let key = key_bytes.iter().map(|byte| format!("{byte:02x}")).collect::<String>();

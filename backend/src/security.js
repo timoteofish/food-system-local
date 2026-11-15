@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
-import { open } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { open, rm } from "node:fs/promises";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
@@ -47,11 +47,12 @@ export const encryptFile = async (input, output) => {
     await pipeline(createReadStream(input), encrypting, outputHandle.createWriteStream());
   } catch (error) {
     await outputHandle.close().catch(() => {});
+    await rm(output, { force: true }).catch(() => {});
     throw error;
   }
 };
 
-const decryptLegacyFile = async (input, output) => {
+const decryptLegacyFile = async (input, outputHandle) => {
   let header = "";
   let decipher = null;
   let carry = "";
@@ -87,7 +88,7 @@ const decryptLegacyFile = async (input, output) => {
       } catch (error) { callback(error); }
     },
   });
-  await pipeline(createReadStream(input, { encoding: "utf8" }), decrypting, createWriteStream(output, { flags: "wx", mode: 0o600 }));
+  await pipeline(createReadStream(input, { encoding: "utf8" }), decrypting, outputHandle.createWriteStream());
 };
 
 export const decryptFile = async (input, output) => {
@@ -98,7 +99,13 @@ export const decryptFile = async (input, output) => {
     finally { await handle.close(); }
   });
   if (bytesRead !== fileMagic.length || !probe.equals(fileMagic)) {
-    await decryptLegacyFile(input, output); // Stream legacy v1 backups for upgrade compatibility.
+    const outputHandle = await open(output, "wx", 0o600);
+    try { await decryptLegacyFile(input, outputHandle); }
+    catch (error) {
+      await outputHandle.close().catch(() => {});
+      await rm(output, { force: true }).catch(() => {});
+      throw error;
+    }
     return;
   }
 
@@ -128,7 +135,13 @@ export const decryptFile = async (input, output) => {
       } catch (error) { callback(error); }
     },
   });
-  await pipeline(createReadStream(input, { start: header.length }), decrypting, createWriteStream(output, { flags: "wx", mode: 0o600 }));
+  const outputHandle = await open(output, "wx", 0o600);
+  try { await pipeline(createReadStream(input, { start: header.length }), decrypting, outputHandle.createWriteStream()); }
+  catch (error) {
+    await outputHandle.close().catch(() => {});
+    await rm(output, { force: true }).catch(() => {});
+    throw error;
+  }
 };
 
 export const redact = (value) => {

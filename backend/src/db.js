@@ -1,14 +1,31 @@
 import { DatabaseSync, backup as sqliteBackup } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, readFile, rename, rm } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { chmod, link, lstat, mkdir, open, readFile, rename, rm, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { databasePath } from "./restore-coordination.js";
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaPath = path.join(backendRoot, "sqlite", "schema.sql");
-const configuredDataDir = process.env.FOOD_SYSTEM_DATA_DIR || path.join(backendRoot, "state");
-export const databasePath = path.resolve(process.env.FOOD_SYSTEM_DB_PATH || path.join(configuredDataDir, "food-system.sqlite"));
+export { databasePath };
 const schema = await readFile(schemaPath, "utf8");
+const migrationsPath = path.join(backendRoot, "sqlite", "migrations");
+const sqliteMigrations = await Promise.all((await readdir(migrationsPath)).filter((name) => /^\d+_[a-z0-9_-]+\.sql$/i.test(name)).sort().map(async (name) => ({ name, sql: await readFile(path.join(migrationsPath, name), "utf8") })));
+const knownSchemaVersions = new Set(["sqlite_initial_schema", "025_mariadb_schema_baseline", ...sqliteMigrations.map(({ name }) => name.replace(/\.sql$/i, ""))]);
+
+export const assertCompatibleSchema = (database) => {
+  const tables = new Set(database.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map(({ name }) => name));
+  if (!["businesses", "users", "orders", "app_schema_migrations"].every((name) => tables.has(name))) {
+    throw new Error("The SQLite file is incomplete or does not contain a Food System database.");
+  }
+  const versions = database.prepare("SELECT version FROM app_schema_migrations").all().map(({ version }) => version);
+  const baseline = versions.find((version) => version === "sqlite_initial_schema" || version === "025_mariadb_schema_baseline");
+  if (!baseline) throw new Error("The SQLite file does not contain a recognized Food System schema baseline.");
+  const unknown = versions.filter((version) => !knownSchemaVersions.has(version));
+  if (unknown.length) throw new Error(`The database uses unsupported schema versions: ${unknown.join(", ")}. Use a compatible application version.`);
+  return baseline;
+};
 
 class Mutex {
   tail = Promise.resolve();
@@ -39,18 +56,26 @@ const validateDatabaseFile = async (file) => {
 await mkdir(path.dirname(databasePath), { recursive: true, mode: 0o700 });
 if (posix && !process.env.FOOD_SYSTEM_DB_PATH) await chmod(path.dirname(databasePath), 0o700);
 const databaseExisted = await validateDatabaseFile(databasePath);
-const temporaryPath = `${databasePath}.create-${process.pid}.tmp`;
+const temporaryPath = `${databasePath}.create-${process.pid}-${randomUUID()}.tmp`;
 if (!databaseExisted) {
-  await rm(temporaryPath, { force: true });
-  const fresh = new DatabaseSync(temporaryPath, { enableForeignKeyConstraints: false, enableDoubleQuotedStringLiterals: false });
   try {
-    fresh.exec(schema);
-    fresh.exec(`CREATE TABLE IF NOT EXISTS app_schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
-    fresh.exec(`INSERT OR IGNORE INTO app_schema_migrations (version) VALUES ('sqlite_initial_schema')`);
-  } finally { fresh.close(); }
-  if (posix) await chmod(temporaryPath, 0o600);
-  await rename(temporaryPath, databasePath);
-  if (posix) await chmod(databasePath, 0o600);
+    const fresh = new DatabaseSync(temporaryPath, { enableForeignKeyConstraints: false, enableDoubleQuotedStringLiterals: false });
+    try {
+      fresh.exec(schema);
+      fresh.exec(`CREATE TABLE IF NOT EXISTS app_schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+      fresh.exec(`INSERT OR IGNORE INTO app_schema_migrations (version) VALUES ('sqlite_initial_schema')`);
+    } finally { fresh.close(); }
+    if (posix) await chmod(temporaryPath, 0o600);
+    try {
+      // A second process may have created the database since the initial check.
+      // A hard link installs the completed file atomically without replacing it.
+      await link(temporaryPath, databasePath);
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+    }
+  } finally {
+    await rm(temporaryPath, { force: true });
+  }
 }
 
 await validateDatabaseFile(databasePath);
@@ -58,22 +83,42 @@ let db;
 let databaseOpen = false;
 const openDatabase = () => {
   db = new DatabaseSync(databasePath, { enableForeignKeyConstraints: true, enableDoubleQuotedStringLiterals: false, timeout: 5000 });
-  db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA trusted_schema = OFF;");
-  const validFoodSystemDb = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'businesses'").get();
-  const baseline = db.prepare("SELECT version FROM app_schema_migrations WHERE version IN ('sqlite_initial_schema', '025_mariadb_schema_baseline') LIMIT 1").get();
-  if (!validFoodSystemDb || !baseline) {
+  db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA trusted_schema = OFF;");
+  let baseline;
+  try { baseline = assertCompatibleSchema(db); }
+  catch (error) {
     db.close();
-    throw new Error("The configured SQLite file is incomplete or does not contain a Food System database; it was not modified.");
+    throw error;
   }
-  if (baseline.version !== "sqlite_initial_schema") {
+  db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;");
+  if (baseline !== "sqlite_initial_schema") {
     db.exec("BEGIN IMMEDIATE");
     try {
-      db.prepare("UPDATE app_schema_migrations SET version = 'sqlite_initial_schema' WHERE version = ?").run(baseline.version);
+      db.prepare("UPDATE app_schema_migrations SET version = 'sqlite_initial_schema' WHERE version = ?").run(baseline);
       db.exec("COMMIT");
     } catch (error) {
       try { db.exec("ROLLBACK"); } catch {}
       db.close();
       throw error;
+    }
+  }
+  for (const migration of sqliteMigrations) {
+    const [applied] = db.prepare("SELECT version FROM app_schema_migrations WHERE version = ? LIMIT 1").all(migration.name.replace(/\.sql$/i, ""));
+    if (applied) continue;
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      // Another process can finish this migration while BEGIN IMMEDIATE waits.
+      const alreadyApplied = db.prepare("SELECT 1 FROM app_schema_migrations WHERE version = ? LIMIT 1").get(migration.name.replace(/\.sql$/i, ""));
+      if (!alreadyApplied) {
+        db.exec(migration.sql);
+        db.prepare("INSERT INTO app_schema_migrations (version) VALUES (?)").run(migration.name.replace(/\.sql$/i, ""));
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      try { db.exec("ROLLBACK"); } catch {}
+      db.close();
+      databaseOpen = false;
+      throw new Error(`SQLite migration ${migration.name} failed: ${error.message}`, { cause: error });
     }
   }
   databaseOpen = true;
@@ -97,8 +142,9 @@ const queryOn = (sql, values = []) => {
   try {
     const text = translateSql(sql);
     const statement = db.prepare(text);
+    const bindings = values.map((value) => value === undefined ? null : typeof value === "boolean" ? Number(value) : value instanceof Date ? value.toISOString().replace("T", " ").replace(/Z$/, "") : value);
     if (/^\s*(?:SELECT|PRAGMA|WITH)\b/i.test(text) && !/^\s*WITH\b/i.test(text)) {
-      const rows = statement.all(...values.map((value) => value === undefined ? null : value)).map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => {
+      const rows = statement.all(...bindings).map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => {
         if (!/(?:_at|_for)$/i.test(name) || typeof value !== "string") return [name, value];
         const match = value.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(\.\d+)?$/);
         if (!match) return [name, value];
@@ -107,7 +153,6 @@ const queryOn = (sql, values = []) => {
       })));
       return [rows, []];
     }
-    const bindings = values.map((value) => value === undefined ? null : value instanceof Date ? value.toISOString().replace("T", " ").replace(/Z$/, "") : value);
     const result = statement.run(...bindings);
     return [{ affectedRows: Number(result.changes), insertId: Number(result.lastInsertRowid) || 0 }, []];
   } catch (error) { throw mapError(error); }
@@ -147,6 +192,8 @@ export const closeDatabase = () => { if (databaseOpen) { db.close(); databaseOpe
 export const replaceDatabase = async (sourcePath) => {
   const release = await mutex.acquire();
   const previous = `${databasePath}.previous-${process.pid}-${randomUUID()}`;
+  const crossDeviceStage = path.join(path.dirname(databasePath), `.restore-${process.pid}-${randomUUID()}.sqlite`);
+  let crossDeviceStageCreated = false;
   try {
     db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
     db.close();
@@ -155,7 +202,19 @@ export const replaceDatabase = async (sourcePath) => {
     await rm(`${databasePath}-shm`, { force: true });
     await rename(databasePath, previous);
     try {
-      await rename(sourcePath, databasePath);
+      try {
+        await rename(sourcePath, databasePath);
+      } catch (error) {
+        if (error.code !== "EXDEV") throw error;
+        // Prepare the replacement on the destination filesystem before publishing it.
+        const destination = await open(crossDeviceStage, "wx", 0o600);
+        crossDeviceStageCreated = true;
+        try {
+          for await (const chunk of createReadStream(sourcePath)) await destination.writeFile(chunk);
+          await destination.sync();
+        } finally { await destination.close(); }
+        await rename(crossDeviceStage, databasePath);
+      }
       if (posix) await chmod(databasePath, 0o600);
       openDatabase();
       const check = db.prepare("PRAGMA integrity_check").get();
@@ -172,5 +231,19 @@ export const replaceDatabase = async (sourcePath) => {
       openDatabase();
       throw error;
     }
-  } finally { release(); }
+  } catch (error) {
+    if (!databaseOpen) {
+      try {
+        const current = await lstat(databasePath);
+        if (!current.isFile() || current.isSymbolicLink()) throw new Error("SQLite database path is not a regular file");
+        openDatabase();
+      } catch (reopenError) {
+        error.reopenError = reopenError;
+      }
+    }
+    throw error;
+  } finally {
+    try { if (crossDeviceStageCreated) await rm(crossDeviceStage, { force: true }); }
+    finally { release(); }
+  }
 };

@@ -16,6 +16,12 @@ let products = [];
 let productsLoadFailed = false;
 let productsLoaded = false;
 
+const normalizeProduct = (product) => ({
+  ...product,
+  category: product.category_name ?? product.category ?? "",
+  image: product.image_url ?? product.image ?? "",
+});
+
 const list = document.getElementById("productList");
 const mobileList = document.getElementById("mobileProductList");
 const form = document.getElementById("productForm");
@@ -182,7 +188,8 @@ const renderImage = (item) => {
 const updateProductStatus = async (id) => {
   const index = products.findIndex((item) => item.id === id);
   if (index === -1) return null;
-  products[index] = await toggleProductStatus(products[index]);
+  const updated = await toggleProductStatus(products[index]);
+  products[index] = normalizeProduct({ ...products[index], ...updated });
   return products[index];
 };
 
@@ -325,7 +332,7 @@ form.addEventListener("submit", async (event) => {
       image: productImage,
       active: true,
     });
-    products.unshift(saved);
+    products.unshift(normalizeProduct(saved));
     showProductFeedback(translate("Product added"), "success");
   } catch {
     showProductFeedback(translate("Could not add the product Check your connection and try again"));
@@ -401,7 +408,7 @@ const initializeProducts = async () => {
       await initAppShell({ activeNav: "products" });
       appShellReady = true;
     }
-    products = await loadProducts();
+    products = (await loadProducts()).map(normalizeProduct);
     productsLoaded = true;
     productsLoadFailed = false;
   } catch {

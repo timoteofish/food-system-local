@@ -1,5 +1,9 @@
+import "./load-env.js";
 import { randomUUID } from "node:crypto";
-import { pool } from "./db.js";
+import { registerMaintenanceWorker } from "./restore-coordination.js";
+
+await registerMaintenanceWorker();
+const { pool } = await import("./db.js");
 
 const businessId = "00000000-0000-0000-0000-000000000001";
 await pool.query("INSERT OR IGNORE INTO businesses (id, name, description, settings) VALUES (?, ?, ?, ?)", [businessId, "Food System Demo", "Local demo environment", JSON.stringify({ currency: "BRL" })]);

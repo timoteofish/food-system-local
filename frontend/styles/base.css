@@ -48,7 +48,6 @@ html[data-theme="dark"] .app-header,
 html[data-theme="dark"] .shell,
 html[data-theme="dark"] .page,
 html[data-theme="dark"] .btn--secondary,
-html[data-theme="dark"] .google-icon-btn,
 html[data-theme="dark"] input,
 html[data-theme="dark"] select,
 html[data-theme="dark"] textarea{
@@ -79,12 +78,8 @@ img,svg,video,canvas{max-width:100%;height:auto}
 .orders-table,
 .orders-card,
 .orders-overview-card,
-.user-edit-card,
 .purchase-shell,
-.payment-panel,
-.login-panel,
-.signup-panel,
-.recover-panel{min-width:0}
+.payment-panel{min-width:0}
 
 html[data-sidebar-ready="false"] .menu-sidebar,
 html[data-sidebar-ready="false"] .menu-sidebar__toggle,
@@ -151,42 +146,11 @@ body{
 .btn--secondary:active{background:var(--line)}
 .btn[disabled],.btn.btn--disabled,button[disabled]{opacity:.6;cursor:not-allowed;pointer-events:none}
 
-/* ===== GOOGLE ICON BUTTON ===== */
-.google-icon-btn{
-  width:48px;
-  height:48px;
-  min-width:48px;
-  min-height:48px;
-  border-radius:999px;
-  border:1px solid var(--line);
-  background:#fff;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:0;
-  cursor:pointer;
-  transition:border-color .15s ease, background-color .15s ease;
-}
-.google-icon-btn:hover{
-  border-color:var(--accent-text, var(--accent));
-  background:var(--accent-soft);
-}
-.google-icon-btn svg{display:block}
-
 /* ===== FORMS ===== */
 .field{display:grid;gap:8px}
 label{font-size:.88rem;font-weight:700;color:var(--text)}
 input,select,textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:var(--radius-control);padding:12px 13px;outline:none;font-size:1rem;transition:border-color .16s ease,box-shadow .16s ease}
 input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--accent));box-shadow:var(--accent-glow)}
-
-/* ===== AUTH FORMS ===== */
-.auth-form{display:grid;gap:12px;justify-items:start;text-align:left;width:100%}
-.auth-form .btn{width:100%}
-.auth-form .field{width:100%;text-align:left}
-.auth-switch{display:flex;justify-content:center;align-items:center;gap:8px;color:var(--muted);text-align:center;flex-wrap:wrap}
-.auth-switch a{color:var(--accent-text, var(--accent));text-decoration:none;font-weight:600}
-.auth-copy{text-align:center}
-.auth-copy p{color:var(--muted);line-height:1.7}
 
 /* ===== HEADER & NAV ===== */
 .app-header{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:10;gap:16px}
@@ -1108,22 +1072,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
 
 /* ===== MINIMAL UI PASS ===== */
 
-.login-page .shell,
-.register-page .shell,
-.recover-page .shell,
-.validation-page .shell,
 .payment-page .shell,
 .plans-page .shell{
   background:var(--bg) !important;
 }
 
-.login-panel,
-.signup-panel,
-.recover-panel,
-.validation-panel,
 .payment-panel,
 .purchase-shell.card,
-.terms-panel,
 .user-edit-panel,
 .business-onboarding-panel,
 .qr-code-panel,
@@ -1150,13 +1105,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
   background:var(--surface) !important;
 }
 
-.auth-copy,
 .purchase-copy,
 .payment-head{
   text-align:left !important;
 }
 
-.auth-copy h1,
 .purchase-copy h2,
 .payment-head h1{
   font-size:1.65rem !important;
@@ -1164,14 +1117,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
   letter-spacing:0 !important;
 }
 
-.auth-copy p,
 .purchase-copy p,
 .payment-head p{
   max-width:44ch;
 }
 
-.social-row{gap:10px !important}
-.social-row .divider{color:var(--muted) !important;font-size:.86rem}
 
 .menu-content{background:var(--bg)}
 .page-title{margin-bottom:16px !important}
@@ -1193,7 +1143,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
 }
 
 .btn:hover,
-.google-icon-btn:hover,
 .orders-filter:hover,
 .orders-card__action:hover,
 .image-picker-button:hover,
@@ -1243,8 +1192,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
   }
 
   .page-title h1,
-  .stat strong,
-  .auth-copy h1{
+  .stat strong{
     overflow-wrap:anywhere;
   }
 
@@ -1270,12 +1218,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
   .orders-card,
   .orders-overview-card,
   .cash-history,
-  .user-edit-card,
   .purchase-shell,
-  .payment-panel,
-  .login-panel,
-  .signup-panel,
-  .recover-panel{
+  .payment-panel{
     border-radius:12px;
   }
 }

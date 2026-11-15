@@ -138,7 +138,7 @@
 
 .kitchen-board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
   align-items: start;
   gap: 14px;
   overflow-x: auto;
@@ -339,7 +339,7 @@
 
 @media (max-width: 850px) {
   .kitchen-board {
-    grid-template-columns: repeat(4, minmax(260px, 1fr));
+    grid-template-columns: repeat(3, minmax(260px, 1fr));
   }
 }
 
@@ -361,7 +361,7 @@
   }
 
   .kitchen-board {
-    grid-template-columns: repeat(4, minmax(270px, 1fr));
+    grid-template-columns: repeat(3, minmax(270px, 1fr));
   }
   .menu-content > .page-title { flex-direction: row; align-items: center; }
 }
@@ -507,7 +507,7 @@
   .kitchen-toolbar { padding: 13px; }
   .kitchen-toolbar .btn { min-height: 44px; }
   .kitchen-board {
-    grid-template-columns: repeat(4, minmax(260px, 1fr));
+    grid-template-columns: repeat(3, minmax(260px, 1fr));
     gap: 10px;
     scroll-padding-inline: 2px;
   }

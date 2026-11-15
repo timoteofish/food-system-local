@@ -140,6 +140,7 @@
 }
 
 .courier-entry {
+  flex-wrap: wrap;
   padding: 12px 13px;
   border-color: var(--line);
   border-radius: 10px;
@@ -154,6 +155,8 @@
 
 .courier-entry strong { color: var(--text); font-size: .9rem; }
 .courier-entry span { font-size: .82rem; }
+.courier-entry__access { flex-shrink: 0; min-height: 44px; max-width: 100%; }
+#courierMessage { overflow-wrap: anywhere; }
 
 .operation-empty {
   border-color: var(--line);

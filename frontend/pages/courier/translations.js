@@ -1,6 +1,11 @@
 import { getLanguage, translate } from "../../shared/i18n/i18n.js";
 
 const messages = {
+  "Report delivery issue": { en: "Report delivery issue", pt: "Informar problema na entrega" },
+  "Describe the delivery issue Optional maximum 500 characters": { en: "Describe the delivery issue (optional; maximum 500 characters)", pt: "Descreva o problema da entrega (opcional; máximo de 500 caracteres)" },
+  "Delivery issue reason must be at most 500 characters": { en: "The issue description must be at most 500 characters", pt: "O motivo do problema deve ter no máximo 500 caracteres" },
+  "Could not confirm the update Check the refreshed deliveries before trying again": { en: "Could not confirm the update. Check the refreshed deliveries before trying again.", pt: "Não foi possível confirmar a atualização. Confira as entregas atualizadas antes de tentar novamente." },
+  "Could not confirm the update Reconnect and check your deliveries before trying again": { en: "Could not confirm the update. Reconnect and check your deliveries before trying again.", pt: "Não foi possível confirmar a atualização. Reconecte e confira suas entregas antes de tentar novamente." },
   "My deliveries": { en: "My deliveries", pt: "Minhas entregas" },
   "Enter the token provided by the restaurant to access your deliveries": {
     en: "Enter the token provided by the restaurant to access your deliveries",
@@ -44,9 +49,9 @@ const messages = {
 
 export const translateCourier = (key) => {
   const entry = messages[key];
-  if (entry) return entry[getLanguage()] || entry.en;
+  if (entry) return translate(entry[getLanguage()] || entry.en);
   const translated = translate(key);
-  return translated === key ? "Não foi possível concluir a operação. Tente novamente." : translated;
+  return translated === key ? translate("Não foi possível concluir a operação. Tente novamente.") : translated;
 };
 
 export const applyCourierTranslations = (root = document) => {

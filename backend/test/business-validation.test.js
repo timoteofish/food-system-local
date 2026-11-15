@@ -10,7 +10,7 @@ import operationsRoutes from "../src/routes/operations.js";
 import orderRoutes from "../src/routes/orders.js";
 import authRoutes, { requireBusinessAccess } from "../src/routes/auth.js";
 import { config } from "../src/config.js";
-import deliveryRoutes from "../src/routes/delivery.js";
+import deliveryRoutes, { parseCourierTokenDays } from "../src/routes/delivery.js";
 import customerValueRoutes from "../src/routes/customer-value.js";
 import inventoryRoutes from "../src/routes/inventory.js";
 import integrationRoutes from "../src/routes/integrations.js";
@@ -292,6 +292,49 @@ test("courier endpoints reject coerced status and rounded coordinates", async ()
       assert.equal(response.statusCode, 400, `${request.url} should reject malformed data`);
     }
     assert.equal(connectionAttempts, 0);
+  } finally {
+    await app.close();
+    pool.query = originalQuery;
+    pool.getConnection = originalGetConnection;
+  }
+});
+
+test("courier token lifetime only accepts bounded whole days", () => {
+  assert.equal(parseCourierTokenDays(undefined), 30);
+  assert.equal(parseCourierTokenDays(""), 30);
+  assert.equal(parseCourierTokenDays("1"), 1);
+  assert.equal(parseCourierTokenDays("3650"), 3650);
+  for (const value of ["0", "-1", "1.5", "NaN", "Infinity", "3651", " 30 ", "999999999999999999999999"]) assert.equal(parseCourierTokenDays(value), null, value);
+});
+
+test("courier writes reject a token rotated after the initial authentication", async () => {
+  const originalQuery = pool.query;
+  const originalGetConnection = pool.getConnection;
+  let rollbacks = 0;
+  let releases = 0;
+  pool.query = async () => [[{ id: "courier-1", business_id: "business-1", name: "Courier" }], []];
+  pool.getConnection = async () => ({
+    beginTransaction: async () => {},
+    query: async (sql) => {
+      assert.match(sql, /FROM delivery_couriers WHERE token_hash/);
+      return [[], []];
+    },
+    rollback: async () => { rollbacks += 1; },
+    release: () => { releases += 1; },
+  });
+  const app = Fastify();
+  try {
+    await app.register(sensible);
+    await app.register(deliveryRoutes);
+    for (const request of [
+      { method: "PATCH", url: "/api/v1/courier/deliveries/delivery-1", payload: { status: "picked_up" } },
+      { method: "POST", url: "/api/v1/courier/location", payload: { latitude: 0, longitude: 0 } },
+    ]) {
+      const response = await app.inject({ ...request, headers: { "x-courier-token": "old-token" } });
+      assert.equal(response.statusCode, 401);
+    }
+    assert.equal(rollbacks, 2);
+    assert.equal(releases, 2);
   } finally {
     await app.close();
     pool.query = originalQuery;

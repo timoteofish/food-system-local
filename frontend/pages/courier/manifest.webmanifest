@@ -1,7 +1,7 @@
 {
   "name": "Food System",
   "short_name": "Food System",
-  "start_url": "./",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f7f7f6",
   "theme_color": "#b4232f",

@@ -82,13 +82,8 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !errorModal.hidden) hideLoadError();
 });
 
-const openPrintTicket = (ticket) => {
-  const popup = window.open("", "_blank", "width=420,height=640");
-  if (!popup) {
-    setStatus(translate("Could not open the print dialog Allow pop-ups for this app and try again"), "error");
-    return;
-  }
-  popup.opener = null;
+const openPrintTicket = (ticket, popup) => {
+  if (popup.closed) return;
 
   const orderItems = (ticket.items || []).map((item) => (
     `<p><span>${escapeHtml(item.quantity)} × ${escapeHtml(item.name)}</span><span>${formatTicketPrice(item.total)}</span></p>`
@@ -163,10 +158,10 @@ const load = async () => {
   hideLoadError();
   setLoading(true);
   refreshButton.disabled = true;
-  const stationQuery = stationSelect.value ? `?station_id=${encodeURIComponent(stationSelect.value)}` : "";
+  const stationQuery = stationSelect.value ? `&station_id=${encodeURIComponent(stationSelect.value)}` : "";
 
   try {
-    const data = await apiRequest(`/businesses/${session.businessId}/orders${stationQuery}`);
+    const data = await apiRequest(`/businesses/${session.businessId}/orders?view=kitchen${stationQuery}`);
     const orders = Array.isArray(data.orders) ? data.orders : [];
     renderBoard(orders);
     const activeCount = orders.filter((order) => activeKitchenStatuses.has(order.status)).length;
@@ -186,16 +181,19 @@ const load = async () => {
 board.addEventListener("click", async (event) => {
   const printButton = event.target.closest("[data-print-order]");
   if (printButton) {
+    const popup = window.open("", "_blank", "width=420,height=640");
+    if (!popup) {
+      setStatus(translate("Could not open the print dialog Allow pop-ups for this app and try again"), "error");
+      return;
+    }
+    popup.opener = null;
     printButton.disabled = true;
     try {
       const orderId = printButton.dataset.printOrder;
-      await apiRequest(`/businesses/${session.businessId}/orders/${orderId}/print-jobs`, {
-        method: "POST",
-        body: { station_id: stationSelect.value || null },
-      });
       const data = await apiRequest(`/businesses/${session.businessId}/orders/${orderId}/print`);
-      openPrintTicket(data.ticket);
+      openPrintTicket(data.ticket, popup);
     } catch (error) {
+      popup.close();
       setStatus(translate("Could not prepare printing Try again"), "error");
     } finally {
       printButton.disabled = false;
@@ -239,7 +237,7 @@ const initializeKitchen = async () => {
         const stationData = await apiRequest(`/businesses/${session.businessId}/kitchen-stations`);
         const allStationsOption = stationSelect.options[0];
         stationSelect.replaceChildren(allStationsOption);
-        for (const station of (stationData.stations || []).filter((item) => item.active !== false)) {
+        for (const station of (stationData.stations || []).filter((item) => item.active === true || item.active === 1)) {
           const option = document.createElement("option");
           option.value = station.id;
           option.textContent = station.name;

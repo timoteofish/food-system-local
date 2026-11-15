@@ -101,7 +101,7 @@ const parseSettings = (value) => {
 const renderConnections = (connections) => {
   list.setAttribute("aria-busy", "false");
   if (!connections.length) {
-    list.innerHTML = renderEmpty("No integrations registered");
+    list.innerHTML = renderEmpty("integrationsEmpty");
     return;
   }
 

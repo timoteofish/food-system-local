@@ -1,6 +1,7 @@
 import { getBusiness, getMenuSettings, getSession, saveBusiness, saveMenuSettings, setSession } from "../data/storage.js";
-import { bootstrapApi, completeBusinessOnboarding, isUsingApi, logout, requireAuth, saveMenuSettingsRemote } from "../auth/auth.js";
+import { bootstrapApi, completeBusinessOnboarding, isUsingApi, requireAuth, saveBusinessProfileRemote } from "../auth/auth.js";
 import { checkForSystemUpdates } from "../auth/auth.js";
+import { pingApi } from "../api/client.js";
 import { escapeHtml, safeImageUrl } from "../utils/utils.js";
 import { applyLegacyTranslations, getLegacyTranslationCandidates, translate } from "../i18n/i18n.js";
 import { applyAppearancePreferences } from "./appearance.js";
@@ -221,7 +222,7 @@ const ensureBusinessOnboarding = () => {
           </label>
           <label class="field">
             <span>Phone</span>
-            <input name="phone" type="tel" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\\([0-9]{2}\\) [0-9]{4,5}-[0-9]{4}" title="Informe DDD e telefone com 10 ou 11 dígitos." placeholder="(00) 00000-0000" />
+            <input name="phone" type="tel" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\\([0-9]{2}\\) [0-9]{4,5}-[0-9]{4}" title="Informe DDD e telefone com 10 ou 11 dígitos" placeholder="(00) 00000-0000" />
           </label>
           <label class="field field-wide">
             <span>City</span>
@@ -492,43 +493,36 @@ export const initProfileMenu = () => {
           </section>
           <section class="user-edit-panel__view verification-panel" data-profile-view="verification" hidden>
             <div class="user-edit-panel__page-head verification-panel__head">
-              <div><strong>System verification</strong><span>Latest checks for frontend and backend</span></div>
+              <div><strong>${translate("System verification")}</strong><span>${translate("verificationSummary")}</span></div>
               <button type="button" class="verification-panel__close" data-verification-close aria-label="Close verification panel">×</button>
             </div>
-            <div class="verification-panel__summary" role="status">4 checks completed · 2 items pending</div>
+            <div class="verification-panel__summary" role="status" data-verification-summary>${translate("verificationChecking")}</div>
             <section class="verification-panel__group" aria-labelledby="verificationFrontendTitle">
-              <h3 id="verificationFrontendTitle">Frontend</h3>
+              <h3 id="verificationFrontendTitle">${translate("Frontend")}</h3>
               <article class="verification-panel__item">
-                <span class="verification-panel__status is-complete" role="img" aria-label="Verified"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span>
-                <div><strong>JavaScript syntax</strong><p>64 of 64 files passed module syntax checks</p></div>
-              </article>
-              <article class="verification-panel__item">
-                <span class="verification-panel__status is-pending" role="img" aria-label="Not completed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></span>
-                <div><strong>Browser visual review</strong><p>Visual behavior was not manually checked in this verification round</p></div>
+                <span class="verification-panel__status is-pending" role="img" aria-label="${translate("verificationNotVerified")}" data-verification-icon="frontend"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></span>
+                <div><strong>${translate("verificationFrontendRuntime")}</strong><p data-verification-detail="frontend">${translate("verificationChecking")}</p></div>
               </article>
             </section>
             <section class="verification-panel__group" aria-labelledby="verificationBackendTitle">
-              <h3 id="verificationBackendTitle">Backend</h3>
+              <h3 id="verificationBackendTitle">${translate("Backend")}</h3>
               <article class="verification-panel__item">
-                <span class="verification-panel__status is-complete" role="img" aria-label="Verified"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span>
-                <div><strong>Business rules</strong><p>13 of 13 tests passed</p></div>
-              </article>
-              <article class="verification-panel__item">
-                <span class="verification-panel__status is-complete" role="img" aria-label="Verified"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span>
-                <div><strong>API integration</strong><p>22 of 22 tests passed against an isolated test server</p></div>
-              </article>
-              <article class="verification-panel__item">
-                <span class="verification-panel__status is-complete" role="img" aria-label="Verified"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span>
-                <div><strong>Supporting backend tests</strong><p>20 of 20 tests passed across 10 test files</p></div>
+                <span class="verification-panel__status is-pending" role="img" aria-label="${translate("verificationNotVerified")}" data-verification-icon="api"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></span>
+                <div><strong>${translate("verificationApiTitle")}</strong><p data-verification-detail="api">${translate("verificationApiChecking")}</p></div>
               </article>
             </section>
             <section class="verification-panel__group" aria-labelledby="verificationSharedTitle">
-              <h3 id="verificationSharedTitle">Frontend and backend</h3>
+              <h3 id="verificationSharedTitle">${translate("verificationDeveloperChecks")}</h3>
               <article class="verification-panel__item">
-                <span class="verification-panel__status is-pending" role="img" aria-label="Not completed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></span>
-                <div><strong>Project contracts</strong><p>81 of 87 checks passed; 6 existing assertions need review</p></div>
+                <span class="verification-panel__status is-pending" role="img" aria-label="${translate("verificationNotRun")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></span>
+                <div><strong>${translate("verificationBackendTestsTitle")}</strong><p>${translate("verificationBackendTestsPending")}</p></div>
+              </article>
+              <article class="verification-panel__item">
+                <span class="verification-panel__status is-pending" role="img" aria-label="${translate("verificationNotRun")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></span>
+                <div><strong>${translate("verificationContractTestsTitle")}</strong><p>${translate("verificationContractTestsPending")}</p></div>
               </article>
             </section>
+            <div class="verification-panel__actions"><button type="button" class="user-edit-panel__action" data-verification-refresh>${translate("verificationCheckAgain")}</button></div>
             <div class="verification-panel__actions"><button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-profile-back>Back</button></div>
           </section>
           <section class="user-edit-panel__view" data-profile-view="settings" hidden>
@@ -566,7 +560,7 @@ export const initProfileMenu = () => {
                       </label>
                       <label class="field">
                         <span>Phone</span>
-                        <input name="phone" type="tel" value="${escapeHtml(clientPhone)}" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\\([0-9]{2}\\) [0-9]{4,5}-[0-9]{4}" title="Informe DDD e telefone com 10 ou 11 dígitos." placeholder="(00) 00000-0000" />
+                        <input name="phone" type="tel" value="${escapeHtml(clientPhone)}" autocomplete="tel" inputmode="numeric" maxlength="15" pattern="\\([0-9]{2}\\) [0-9]{4,5}-[0-9]{4}" title="Informe DDD e telefone com 10 ou 11 dígitos" placeholder="(00) 00000-0000" />
                       </label>
                     </div>
                   </section>
@@ -657,6 +651,7 @@ export const initProfileMenu = () => {
   label.setAttribute("tabindex", "0");
 
   let closePanelTimer = 0;
+  let verificationRequestSequence = 0;
   let profileTrigger = button;
   const switchProfileView = (viewName = "home") => {
     panel.classList.toggle("user-edit-panel--compact-view", viewName !== "home");
@@ -669,6 +664,41 @@ export const initProfileMenu = () => {
     });
     const views = panel.querySelector(".user-edit-panel__views");
     if (views) views.scrollTop = 0;
+  };
+
+  const refreshVerification = async () => {
+    const requestSequence = ++verificationRequestSequence;
+    const summary = panel.querySelector("[data-verification-summary]");
+    const frontendDetail = panel.querySelector('[data-verification-detail="frontend"]');
+    const frontendIcon = panel.querySelector('[data-verification-icon="frontend"]');
+    const detail = panel.querySelector('[data-verification-detail="api"]');
+    const icon = panel.querySelector('[data-verification-icon="api"]');
+    const refreshButton = panel.querySelector("[data-verification-refresh]");
+    if (!summary || !frontendDetail || !frontendIcon || !detail || !icon) return;
+
+    summary.textContent = translate("verificationChecking");
+    frontendDetail.textContent = translate("verificationChecking");
+    detail.textContent = translate("verificationApiChecking");
+    if (refreshButton) refreshButton.disabled = true;
+    const frontendAvailable = Boolean(panel.isConnected);
+    const available = await pingApi();
+    if (requestSequence !== verificationRequestSequence) return;
+    frontendIcon.classList.toggle("is-complete", frontendAvailable);
+    frontendIcon.classList.toggle("is-pending", !frontendAvailable);
+    frontendIcon.setAttribute("aria-label", translate(frontendAvailable ? "verificationVerified" : "verificationNotVerified"));
+    frontendIcon.innerHTML = frontendAvailable
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>';
+    frontendDetail.textContent = translate(frontendAvailable ? "verificationFrontendReady" : "verificationNotVerified");
+    icon.classList.toggle("is-complete", available);
+    icon.classList.toggle("is-pending", !available);
+    icon.setAttribute("aria-label", translate(available ? "verificationVerified" : "verificationNotVerified"));
+    icon.innerHTML = available
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>';
+    detail.textContent = translate(available ? "verificationApiReady" : "verificationApiFailed");
+    summary.textContent = translate(frontendAvailable && available ? "verificationSummaryReady" : "verificationSummaryFailed");
+    if (refreshButton) refreshButton.disabled = false;
   };
 
   const openPanel = () => {
@@ -966,12 +996,17 @@ export const initProfileMenu = () => {
     settingsFeedback.hidden = false;
 
     try {
+      await bootstrapApi();
+      if (!isUsingApi()) throw new Error("API unavailable Could not save the business");
+      await saveBusinessProfileRemote({ businessName, phone, avatar: pendingAvatar });
+
       saveBusiness({
         name: businessName || name,
         email,
         phone,
         avatar: pendingAvatar,
       });
+      saveMenuSettings({ ...getMenuSettings(), businessName });
 
       business = { ...business, name: businessName || name, email, phone, avatar: pendingAvatar };
 
@@ -984,16 +1019,6 @@ export const initProfileMenu = () => {
         });
         session = getSession();
       }
-
-      await bootstrapApi();
-      const menuSettings = getMenuSettings();
-      const updatedMenuSettings = {
-        ...menuSettings,
-        businessName: businessName || name,
-        menuName: menuSettings.menuName || business.name || businessName || name,
-      };
-      saveMenuSettings(updatedMenuSettings);
-      if (isUsingApi()) await saveMenuSettingsRemote(updatedMenuSettings);
 
       syncPanelIdentity({ name, email, phone, businessName, avatar: pendingAvatar });
       settingsFeedback.textContent = translate("Settings saved");
@@ -1063,10 +1088,16 @@ export const initProfileMenu = () => {
     event.preventDefault();
     switchProfileView(openButton.dataset.profileOpen);
     openPanel();
+    if (openButton.dataset.profileOpen === "verification") void refreshVerification();
   });
 
   panel.addEventListener("click", async (event) => {
     const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest("[data-verification-refresh]")) {
+      event.preventDefault();
+      void refreshVerification();
+      return;
+    }
     if (target?.closest("[data-verification-close]")) {
       event.preventDefault();
       closePanel();
@@ -1083,6 +1114,7 @@ export const initProfileMenu = () => {
     if (openButton) {
       event.preventDefault();
       switchProfileView(openButton.dataset.profileOpen);
+      if (openButton.dataset.profileOpen === "verification") void refreshVerification();
       return;
     }
 
@@ -1179,7 +1211,6 @@ export const initAppShell = async ({ activeNav } = {}) => {
   ensureProfileTrigger();
   setSidebarCollapsedState(getStoredSidebarCollapsedState());
   restoreSidebarNavigationScroll();
-  initProfileMenu();
 
   if (window.__foodSystemSidebarResizeBound !== true) {
     window.__foodSystemSidebarResizeBound = true;
@@ -1197,6 +1228,7 @@ export const initAppShell = async ({ activeNav } = {}) => {
   }
 
   await bootstrapApi();
+  initProfileMenu();
   applyLegacyTranslations(document);
   document.querySelectorAll("[data-action='close-app']").forEach((button) => {
     if (button.dataset.closeAppBound === "true") return;

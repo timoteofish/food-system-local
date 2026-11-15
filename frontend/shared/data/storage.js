@@ -5,8 +5,6 @@ const KEYS = {
   CART: "food-system-menu-cart",
   SESSION: "food-system-session",
   BUSINESS: "food-system-business",
-  REMEMBERED_USER: "fs_remembered_user",
-  PENDING_REGISTRATION: "food-system-pending-registration",
 };
 
 const defaultMenuSettings = {
@@ -39,8 +37,7 @@ const defaultBusiness = {
 
 const readJson = (key, fallback) => {
   try {
-    const store = key === KEYS.PENDING_REGISTRATION ? sessionStorage : localStorage;
-    const raw = store.getItem(key);
+    const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw);
     return parsed ?? fallback;
@@ -50,8 +47,7 @@ const readJson = (key, fallback) => {
 };
 
 const writeJson = (key, value) => {
-  const store = key === KEYS.PENDING_REGISTRATION ? sessionStorage : localStorage;
-  store.setItem(key, JSON.stringify(value));
+  localStorage.setItem(key, JSON.stringify(value));
 };
 
 export const getMenuSettings = () => {
@@ -93,35 +89,8 @@ export const setSession = (session) => {
   writeJson(KEYS.SESSION, session);
 };
 
-export const clearSession = () => {
-  localStorage.removeItem(KEYS.SESSION);
-};
-
 export const getBusiness = () => ({ ...defaultBusiness, ...readJson(KEYS.BUSINESS, defaultBusiness) });
 
 export const saveBusiness = (business) => {
   writeJson(KEYS.BUSINESS, { ...getBusiness(), ...business });
 };
-
-export const getPendingRegistration = () => readJson(KEYS.PENDING_REGISTRATION, null);
-
-export const savePendingRegistration = (data) => {
-  writeJson(KEYS.PENDING_REGISTRATION, data);
-};
-
-export const clearPendingRegistration = () => {
-  sessionStorage.removeItem(KEYS.PENDING_REGISTRATION);
-  localStorage.removeItem(KEYS.PENDING_REGISTRATION);
-};
-
-export const getRememberedUser = () => localStorage.getItem(KEYS.REMEMBERED_USER) || "";
-
-export const setRememberedUser = (email) => {
-  if (email) {
-    localStorage.setItem(KEYS.REMEMBERED_USER, email);
-  } else {
-    localStorage.removeItem(KEYS.REMEMBERED_USER);
-  }
-};
-
-export { KEYS };

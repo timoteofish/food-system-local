@@ -155,6 +155,11 @@
 .category-list--menu .category-check{
   margin:0;
 }
+.menu-categories__help{
+  color:var(--muted);
+  font-size:.82rem;
+  line-height:1.45;
+}
 .preview-area{
   min-width:0;
   display:grid;

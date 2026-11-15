@@ -71,6 +71,7 @@
               <label for="itemUnit"><span>Unit</span><select id="itemUnit"><option value="unit">Unit</option><option value="g">Grams</option><option value="kg">Kilograms</option><option value="ml">Milliliters</option><option value="l">Liters</option></select></label>
               <label for="itemQuantity"><span>Opening quantity</span><input id="itemQuantity" type="number" min="0" step="0.001" value="0" inputmode="decimal" /></label>
               <label for="itemMinimum"><span>Minimum stock</span><input id="itemMinimum" type="number" min="0" step="0.001" value="0" inputmode="decimal" /></label>
+              <label for="itemLocation"><span data-i18n="inventoryStorageLocation">Storage location</span><select id="itemLocation" required disabled><option value="">Loading locations</option></select></label>
               <button class="btn btn--primary" type="submit">Add ingredient</button>
             </form>
             <p id="inventoryMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
@@ -83,6 +84,7 @@
               <label for="movementType"><span>Movement type</span><select id="movementType"><option value="adjustment">Adjustment</option><option value="loss">Waste</option></select></label>
               <label id="movementDirectionField" for="movementDirection" hidden><span>Adjustment direction</span><select id="movementDirection"><option value="1">Add to stock</option><option value="-1">Remove from stock</option></select></label>
               <label for="movementQuantity"><span>Quantity</span><input id="movementQuantity" type="number" min="0.001" step="0.001" required inputmode="decimal" /></label>
+              <label for="movementLocation"><span data-i18n="inventoryStorageLocation">Storage location</span><select id="movementLocation" required disabled><option value="">Loading locations</option></select></label>
               <label for="movementDescription"><span>Description <span class="inventory-optional">Optional</span></span><input id="movementDescription" maxlength="255" placeholder="Ex.: Contagem semanal" /></label>
               <button class="btn btn--primary" id="movementSubmit" type="submit" disabled>Record movement</button>
             </form>
@@ -93,9 +95,19 @@
             <div class="inventory-panel__heading"><h2>Record purchase</h2></div>
             <form class="inventory-form" id="purchaseForm">
               <label for="purchaseSupplier"><span>Supplier <span class="inventory-optional">Optional</span></span><select id="purchaseSupplier" disabled><option value="">Loading suppliers</option></select></label>
-              <label for="purchaseItem"><span>Ingredient</span><select id="purchaseItem" disabled><option value="">Loading ingredients</option></select></label>
-              <label for="purchaseQuantity"><span>Quantity</span><input id="purchaseQuantity" type="number" min="0.001" step="0.001" required inputmode="decimal" /></label>
-              <label for="purchaseUnitCost"><span>Cost per unit</span><input id="purchaseUnitCost" type="number" min="0" step="0.0001" required inputmode="decimal" /></label>
+              <label for="purchaseLocation"><span data-i18n="inventoryReceivingLocation">Receiving location</span><select id="purchaseLocation" required disabled><option value="">Loading locations</option></select></label>
+              <div class="purchase-lines" id="purchaseLines">
+                <div class="purchase-line" data-purchase-line>
+                  <label><span>Ingredient</span><select data-purchase-item required disabled><option value="">Loading ingredients</option></select></label>
+                  <label><span>Quantity</span><input data-purchase-quantity type="number" min="0.001" step="0.001" required inputmode="decimal" /></label>
+                  <label><span>Cost per unit</span><input data-purchase-unit-cost type="number" min="0" step="0.0001" required inputmode="decimal" /></label>
+                  <label><span><span data-i18n="inventorySupplierLot">Supplier lot</span> <span class="inventory-optional" data-i18n="optional">Optional</span></span><input data-purchase-lot maxlength="120" /></label>
+                  <label><span><span data-i18n="expiration">Expiry</span> <span class="inventory-optional" data-i18n="optional">Optional</span></span><input data-purchase-expiry type="date" /></label>
+                  <button class="btn btn--secondary purchase-line__remove" type="button" data-remove-purchase-line aria-label="Remove purchase item" disabled>×</button>
+                </div>
+              </div>
+              <button class="btn btn--secondary" id="addPurchaseLine" type="button" data-i18n="inventoryAddPurchaseLine" disabled>Add another item</button>
+              <button class="btn btn--secondary" id="createPurchaseOrder" type="button" data-i18n="inventoryCreatePurchaseOrder" disabled>Create purchase order</button>
               <button class="btn btn--primary" id="purchaseSubmit" type="submit" disabled>Save purchase</button>
             </form>
             <p id="purchaseMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
@@ -103,12 +115,14 @@
 
           <article class="panel inventory-panel">
             <div class="inventory-panel__heading"><h2>Product recipe</h2></div>
+            <p class="inventory-note" data-i18n="inventoryRecipeReplaceWarning">Saving a recipe replaces the saved composition. Load the product first and review every ingredient before saving.</p>
             <form class="inventory-form inventory-recipe-form" id="recipeForm">
               <label for="recipeProduct"><span>Product</span><select id="recipeProduct" disabled><option value="">Loading products</option></select></label>
               <div class="inventory-recipe-form__add-row">
                 <label for="recipeItem"><span>Ingredient</span><select id="recipeItem" disabled><option value="">Loading ingredients</option></select></label>
                 <label for="recipeQuantity"><span>Quantity per product</span><input id="recipeQuantity" type="number" min="0.001" step="0.001" inputmode="decimal" /></label>
-                <button class="btn btn--secondary" id="addRecipeIngredient" type="button" disabled>Add ingredient</button>
+                <label for="recipeQuantityUnit"><span data-i18n="inventoryRecipeQuantityUnit">Quantity unit</span><select id="recipeQuantityUnit" disabled><option value="unit">Unit</option></select></label>
+                <button class="btn btn--secondary" id="addRecipeIngredient" type="button" data-i18n="inventoryAddToRecipe" disabled>Add ingredient</button>
               </div>
               <ul class="inventory-recipe-list" id="recipeIngredients" aria-label="Recipe ingredients" aria-live="polite"></ul>
               <button class="btn btn--primary" id="recipeSubmit" type="submit" disabled>Save recipe</button>
@@ -117,16 +131,108 @@
           </article>
         </section>
 
+        <details class="panel inventory-list-panel inventory-locations-panel">
+          <summary data-i18n="inventoryLocations">Storage locations</summary>
+          <form id="locationForm" class="inventory-location-form">
+            <label for="locationName"><span data-i18n="name">Name</span><input id="locationName" maxlength="120" required /></label>
+            <label for="locationCode"><span data-i18n="inventoryLocationCode">Location code</span><input id="locationCode" maxlength="24" pattern="[A-Za-z0-9][A-Za-z0-9_-]{1,23}" required /></label>
+            <button class="btn btn--secondary" type="submit" data-i18n="inventoryAddLocation">Add location</button>
+          </form>
+          <ul class="inventory-location-list" id="inventoryLocations"></ul>
+        </details>
+
+        <section class="inventory-workspace inventory-operations" aria-label="Stock operations">
+          <article class="panel inventory-panel">
+            <div class="inventory-panel__heading"><h2 data-i18n="inventoryTransferTitle">Transfer stock</h2></div>
+            <form class="inventory-form" id="transferForm">
+              <label for="transferFrom"><span data-i18n="inventoryFromLocation">From location</span><select id="transferFrom" required disabled></select></label>
+              <label for="transferTo"><span data-i18n="inventoryToLocation">To location</span><select id="transferTo" required disabled></select></label>
+              <label for="transferItem"><span>Ingredient</span><select id="transferItem" required disabled></select></label>
+              <label for="transferQuantity"><span>Quantity</span><input id="transferQuantity" type="number" min="0.001" step="0.001" required /></label>
+              <label for="transferNotes"><span>Notes</span><input id="transferNotes" maxlength="255" /></label>
+              <button class="btn btn--primary" id="transferSubmit" type="submit" data-i18n="inventoryTransferCreate" disabled>Create transfer</button>
+            </form>
+            <p id="transferMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+            <p id="transferAvailability" class="inventory-note" role="status" aria-live="polite" hidden></p>
+            <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th data-i18n="inventoryTransferColumn">Transfer</th><th data-i18n="inventoryRoute">Route</th><th data-i18n="status">Status</th><th data-i18n="items">Items</th><th data-i18n="actions">Actions</th></tr></thead><tbody id="transferRows"><tr><td colspan="5" class="inventory-empty">Loading transfers</td></tr></tbody></table></div>
+          </article>
+          <article class="panel inventory-panel">
+            <div class="inventory-panel__heading"><h2 data-i18n="inventoryReorderTitle">Reorder levels</h2></div>
+            <form class="inventory-form" id="reorderForm">
+              <label for="reorderLocation"><span>Location</span><select id="reorderLocation" required disabled></select></label>
+              <label for="reorderItem"><span>Ingredient</span><select id="reorderItem" required disabled></select></label>
+              <label for="reorderMinimum"><span data-i18n="inventoryMinimumQuantity">Minimum quantity</span><input id="reorderMinimum" type="number" min="0" step="0.001" value="0" required /></label>
+              <label for="reorderQuantity"><span data-i18n="inventorySuggestedOrder">Suggested order quantity</span><input id="reorderQuantity" type="number" min="0" step="0.001" value="0" required /></label>
+              <label for="reorderLeadTime"><span data-i18n="inventoryLeadTime">Lead time (days)</span><input id="reorderLeadTime" type="number" min="0" max="365" step="1" value="0" required /></label>
+              <button class="btn btn--primary" id="reorderSubmit" type="submit" data-i18n="inventorySaveReorder" disabled>Save reorder level</button>
+            </form>
+            <p id="reorderMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+            <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th data-i18n="ingredient">Ingredient</th><th data-i18n="inventoryLocation">Location</th><th data-i18n="inventoryOnHand">On hand</th><th data-i18n="minimum">Minimum</th><th data-i18n="inventorySuggestedOrderShort">Suggested order</th></tr></thead><tbody id="reorderRows"><tr><td colspan="5" class="inventory-empty">Loading reorder alerts</td></tr></tbody></table></div>
+          </article>
+          <article class="panel inventory-panel">
+            <div class="inventory-panel__heading"><h2 data-i18n="inventoryPhysicalCount">Physical stock count</h2></div>
+            <form class="inventory-form" id="stockCountForm">
+              <label for="stockCountLocation"><span>Location</span><select id="stockCountLocation" required disabled></select></label>
+              <button class="btn btn--primary" id="stockCountSubmit" type="submit" data-i18n="inventoryStartCount" disabled>Start and enter count</button>
+              <button class="btn btn--secondary" id="stockCountApprove" type="button" data-i18n="inventoryApproveCount" disabled>Approve submitted count</button>
+            </form>
+            <p id="stockCountMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+            <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th data-i18n="inventoryFromLocation">Location</th><th data-i18n="status">Status</th><th data-i18n="Date">Started</th><th data-i18n="items">Items</th><th data-i18n="actions">Actions</th></tr></thead><tbody id="stockCountRows"><tr><td colspan="5" class="inventory-empty">Loading stock counts</td></tr></tbody></table></div>
+          </article>
+          <article class="panel inventory-panel inventory-lot-panel">
+            <div class="inventory-panel__heading"><h2 data-i18n="inventoryLotTraceability">Lot validity and recall</h2></div>
+            <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th data-i18n="ingredient">Ingredient</th><th data-i18n="lot">Lot</th><th data-i18n="inventoryFromLocation">Location</th><th data-i18n="expiration">Expiry</th><th data-i18n="currentQuantity">On hand</th><th data-i18n="status">Status</th><th data-i18n="actions">Actions</th></tr></thead><tbody id="inventoryLotRows"><tr><td colspan="7" class="inventory-empty">Loading lots</td></tr></tbody></table></div>
+          </article>
+          <article class="panel inventory-panel inventory-lot-panel">
+            <div class="inventory-panel__heading"><h2 data-i18n="inventoryProductionTitle">Production batches and yield</h2></div>
+            <form class="inventory-form" id="productionForm">
+              <label for="productionProduct"><span data-i18n="product">Product</span><select id="productionProduct" required disabled></select></label>
+              <label for="productionLocation"><span data-i18n="inventoryFromLocation">Location</span><select id="productionLocation" required disabled></select></label>
+              <label for="productionBatch"><span data-i18n="inventoryBatchCode">Batch code</span><input id="productionBatch" maxlength="100" required /></label>
+              <label for="productionPlanned"><span data-i18n="inventoryPlannedQuantity">Planned output</span><input id="productionPlanned" type="number" min="0.001" step="0.001" required /></label>
+              <label for="productionExpiry"><span data-i18n="expiration">Expiry</span><input id="productionExpiry" type="date" /></label>
+              <button class="btn btn--primary" id="productionSubmit" type="submit" data-i18n="inventoryCreateBatch" disabled>Create batch</button>
+            </form>
+            <p id="productionRecipeAvailability" class="inventory-note" role="status" aria-live="polite" hidden></p>
+            <p id="productionMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+            <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th data-i18n="inventoryBatchCode">Batch</th><th data-i18n="product">Product</th><th data-i18n="inventoryFromLocation">Location</th><th data-i18n="status">Status</th><th data-i18n="inventoryPlannedQuantity">Planned</th><th data-i18n="inventoryActualYield">Actual</th><th data-i18n="inventoryWaste">Waste</th><th data-i18n="expiration">Expiry</th><th data-i18n="currentQuantity">Available</th><th data-i18n="actions">Actions</th></tr></thead><tbody id="productionRows"><tr><td colspan="10" class="inventory-empty">Loading production batches</td></tr></tbody></table></div>
+          </article>
+        </section>
+
         <section class="panel inventory-list-panel">
-          <div class="inventory-list-panel__heading"><div><h2>Registered ingredients</h2></div><span id="inventoryCount" class="inventory-count">—</span></div>
+          <div class="inventory-list-panel__heading"><div><h2 data-i18n="inventoryRegisteredIngredients">Registered ingredients</h2></div><select id="inventoryLocationFilter" aria-label="Filter stock by location" disabled><option value="">All locations</option></select><span id="inventoryCount" class="inventory-count">—</span></div>
           <div class="inventory-search">
             <svg class="inventory-search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.3" /><path d="m16 16 4.2 4.2" /></svg>
             <input id="inventorySearch" type="search" placeholder="Search ingredients by name" aria-label="Search ingredients" disabled />
           </div>
           <div class="inventory-table-wrap">
             <table class="inventory-table" aria-label="Registered ingredients">
-              <thead><tr><th>Ingredient</th><th>Unit</th><th>Current quantity</th><th>Minimum stock</th><th>Status</th></tr></thead>
-              <tbody id="inventoryRows" aria-busy="true"><tr><td class="inventory-empty" colspan="5" role="status">Loading ingredients</td></tr></tbody>
+              <thead><tr><th data-i18n="ingredient">Ingredient</th><th data-i18n="unit">Unit</th><th data-i18n="currentQuantity">Current quantity</th><th data-i18n="inventoryMinimumQuantity">Minimum stock</th><th data-i18n="status">Status</th><th data-i18n="actions">Actions</th></tr></thead>
+              <tbody id="inventoryRows" aria-busy="true"><tr><td class="inventory-empty" colspan="6" role="status">Loading ingredients</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="panel inventory-list-panel">
+          <div class="inventory-list-panel__heading"><div><h2 data-i18n="inventoryPurchaseHistory">Purchase history</h2></div><span id="inventoryPurchaseCount" class="inventory-count">—</span></div>
+          <div class="inventory-table-wrap">
+            <table class="inventory-table" aria-label="Purchase history">
+              <thead><tr><th data-i18n="Date">Date</th><th data-i18n="supplier">Supplier</th><th data-i18n="items">Items</th><th data-i18n="total">Total</th><th data-i18n="status">Status</th></tr></thead>
+              <tbody id="inventoryPurchaseRows" aria-busy="true"><tr><td class="inventory-empty" colspan="5" role="status">Loading purchases</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel inventory-list-panel">
+          <div class="inventory-list-panel__heading"><div><h2 data-i18n="inventoryPurchaseOrders">Purchase orders and receipts</h2></div></div>
+          <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th data-i18n="supplier">Supplier</th><th data-i18n="inventoryFromLocation">Receiving location</th><th data-i18n="status">Status</th><th data-i18n="items">Ordered / received</th><th data-i18n="inventoryPurchaseReceipts">Receipts / actions</th></tr></thead><tbody id="purchaseOrderRows"><tr><td colspan="5" class="inventory-empty">Loading purchase orders</td></tr></tbody></table></div>
+        </section>
+
+        <section class="panel inventory-list-panel">
+          <div class="inventory-list-panel__heading"><div><h2 data-i18n="inventoryMovementHistory">Stock movement history</h2></div><span id="inventoryMovementCount" class="inventory-count">—</span></div>
+          <div class="inventory-table-wrap">
+            <table class="inventory-table" aria-label="Stock movement history">
+              <thead><tr><th data-i18n="ingredient">Ingredient</th><th data-i18n="movementType">Movement</th><th data-i18n="quantity">Quantity</th><th data-i18n="inventoryLocationLot">Location / lot</th><th data-i18n="Date">Date</th><th data-i18n="description">Description</th></tr></thead>
+              <tbody id="inventoryMovementRows" aria-busy="true"><tr><td class="inventory-empty" colspan="6" role="status">Loading movements</td></tr></tbody>
             </table>
           </div>
         </section>
@@ -142,9 +248,9 @@
     </div>
     <div class="inventory-success-modal" id="inventorySuccessModal" hidden>
       <button class="inventory-success-modal__backdrop" type="button" data-close-inventory-success aria-label="Close"></button>
-      <section class="inventory-success-panel" role="dialog" aria-modal="true" aria-labelledby="inventorySuccessMessage">
+      <section class="inventory-success-panel" id="inventoryResultPanel" role="dialog" aria-modal="true" aria-labelledby="inventorySuccessMessage" data-state="success">
         <button class="inventory-success-panel__close" id="inventorySuccessClose" type="button" data-close-inventory-success aria-label="Close">×</button>
-        <span class="inventory-success-panel__mark" aria-hidden="true">
+        <span class="inventory-success-panel__mark" id="inventoryResultMark" aria-hidden="true">
           <svg viewBox="0 0 48 48" focusable="false"><path d="m13 25 7 7 15-16" /></svg>
         </span>
         <p id="inventorySuccessMessage" class="inventory-success-panel__message" role="status" aria-live="polite"></p>

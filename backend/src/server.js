@@ -1,3 +1,4 @@
+import "./server-registration.js";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
@@ -21,7 +22,7 @@ import fiscalRoutes from "./routes/fiscal.js";
 import deliveryRoutes from "./routes/delivery.js";
 import kitchenRoutes from "./routes/kitchen.js";
 import { audit } from "./audit.js";
-import { enterRequest, leaveRequest } from "./maintenance.js";
+import { enterRequest, leaveRequest, enterWork, leaveWork, trackRouteWork, isRestoreInProgress } from "./maintenance.js";
 
 const app = Fastify({ logger: true, trustProxy: false, bodyLimit: 5 * 1024 * 1024 });
 let shutdownStarted = false;
@@ -40,6 +41,7 @@ await app.register(cors, {
   },
   credentials: false,
 });
+app.addHook("onRoute", trackRouteWork);
 app.addHook("onRequest", async (request, reply) => {
   if (!enterRequest()) return reply.serviceUnavailable("Database restore is in progress; retry shortly");
   request.maintenanceRequest = true;
@@ -86,8 +88,13 @@ app.addHook("onSend", async (_request, reply) => {
   if (config.nodeEnv === "production") reply.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 });
 app.addHook("onResponse", async (request, reply) => {
+  enterWork();
   try {
-    if (!request.user || request.auditRecorded || !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return;
+    if (!request.user || request.auditRecorded || request.auditAttempted || !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return;
+    if (isRestoreInProgress()) {
+      app.log.warn({ method: request.method, route: request.routeOptions?.url }, "Skipped late administrative audit during database restore");
+      return;
+    }
     try {
       await audit(request, request.user, `HTTP ${request.method} ${request.routeOptions?.url || request.url}`.slice(0, 120), null, null, { status_code: reply.statusCode });
     } catch (error) {
@@ -95,6 +102,7 @@ app.addHook("onResponse", async (request, reply) => {
     }
   } finally {
     releaseMaintenanceRequest(request);
+    leaveWork();
   }
 });
 await app.register(businessesRoutes);

@@ -24,7 +24,14 @@ export default async function platformRoutes(app) {
     const [businesses] = await pool.query("SELECT id, name, description, primary_color, settings FROM businesses WHERE id = ? LIMIT 1", [request.params.businessId]);
     if (!businesses.length) return reply.notFound("Business not found");
     const [categories] = await pool.query("SELECT id, name, description, position FROM categories WHERE business_id = ? AND active = TRUE ORDER BY position, name", [request.params.businessId]);
-    const [products] = await pool.query("SELECT id, category_id, name, description, price, image_url, position FROM products WHERE business_id = ? AND active = TRUE ORDER BY position, name", [request.params.businessId]);
+    const [products] = await pool.query(
+      `SELECT p.id, p.category_id, p.name, p.description, p.price, p.image_url, p.position
+       FROM products p
+       JOIN categories c ON c.id = p.category_id AND c.business_id = p.business_id AND c.active = TRUE
+       WHERE p.business_id = ? AND p.active = TRUE
+       ORDER BY p.position, p.name`,
+      [request.params.businessId]
+    );
     const menuCategories = categories.map((category) => ({
       ...category,
       products: products.filter((product) => product.category_id === category.id),

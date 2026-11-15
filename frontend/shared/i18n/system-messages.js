@@ -6,8 +6,8 @@ const localizedMessages = {
     pt: "Baixa automática do pedido",
   },
   "Sale completed": {
-    en: "Sale completed",
-    pt: "Venda concluída",
+    en: "Order completed (payment unconfirmed)",
+    pt: "Pedido concluído (pagamento não confirmado)",
   },
 };
 

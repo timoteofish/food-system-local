@@ -1,5 +1,27 @@
 import { getLanguage, getLocale } from "../i18n/i18n.js";
 
+// SQLite CURRENT_TIMESTAMP is UTC even though it has no timezone suffix.
+export const parseApiTimestamp = (value) => {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$/.test(value)) {
+    return new Date(`${value.replace(" ", "T")}Z`);
+  }
+  return new Date(value);
+};
+
+export const orderLineCents = (price, quantity) =>
+  Math.round(Math.round(Number(price) * 100) * Math.round(Number(quantity) * 100) / 100);
+
+export const hasQuantityPrecision = (value) =>
+  Number.isFinite(value) && Number(value.toFixed(3)) === value;
+
+export const parseInventoryQuantity = (value) => {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (text.length > 40 || !/^(?:\d+(?:[.,]\d{1,3}0*)?|[.,]\d{1,3}0*)$/.test(text)) return null;
+  const quantity = Number(text.replace(",", "."));
+  return hasQuantityPrecision(quantity) ? quantity : null;
+};
+
 export const generateId = (prefix = "id") =>
   `${prefix}-${Math.random().toString(36).slice(2, 9)}-${Date.now().toString(36)}`;
 
@@ -71,8 +93,8 @@ export const formatInventoryUnit = (value) => {
 };
 
 export const isSameDay = (left, right = new Date()) => {
-  const a = new Date(left);
-  const b = new Date(right);
+  const a = parseApiTimestamp(left);
+  const b = parseApiTimestamp(right);
   return (
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&

@@ -1,5 +1,4 @@
 import { API_BASE_URL } from "./config.js";
-import { setSession } from "../data/storage.js";
 import { localizeApiError } from "./error-messages.js";
 
 const isLocalAdminApi = (() => {
@@ -28,13 +27,14 @@ const parseResponse = async (response) => {
     const message = data.error || data.message || "Request failed";
     const error = new Error(localizeApiError(message));
     error.apiMessage = message;
+    error.status = response.status;
     throw error;
   }
 
   return data;
 };
 
-export const apiRequest = async (path, { method = "GET", body, auth = true } = {}) => {
+export const apiRequest = async (path, { method = "GET", body, auth = true, idempotencyKey } = {}) => {
   if (!API_BASE_URL) {
     throw new Error(localizeApiError("The API URL is not configured. Set window.FOOD_SYSTEM_API_URL or localStorage['food-system-api-url']"));
   }
@@ -56,6 +56,7 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
     "X-Food-System-Client": "web",
     ...(localAccessToken ? { "X-Food-System-Local": localAccessToken } : developmentLocalMode ? { "X-Food-System-Local": "true" } : {}),
     ...(body ? { "Content-Type": "application/json" } : {}),
+    ...(typeof idempotencyKey === "string" && idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
   };
   if (needsAuthentication) {
     const storedSession = JSON.parse(localStorage.getItem("food-system-session") || "null");
@@ -78,38 +79,6 @@ export const apiRequest = async (path, { method = "GET", body, auth = true } = {
   return parseResponse(response);
 };
 
-export const loginRequest = (email, password) =>
-  apiRequest("/auth/login", {
-    method: "POST",
-    auth: false,
-    body: { user: { email, password } },
-  });
-
-export const firebaseAuthRequest = (idToken) =>
-  apiRequest("/auth/firebase", {
-    method: "POST",
-    auth: false,
-    body: { firebase_auth: { id_token: idToken } },
-  });
-
-export const registerRequest = (payload) =>
-  apiRequest("/auth/register", {
-    method: "POST",
-    auth: false,
-    body: {
-      user: {
-        email: payload.email,
-        password: payload.password,
-        password_confirmation: payload.password,
-        business_name: payload.businessName || payload.name,
-        phone: payload.phone || "",
-      },
-    },
-  });
-
-export const logoutRequest = () => apiRequest("/auth/logout", { method: "POST" });
-
-export const fetchProfile = () => apiRequest("/auth/profile");
 export const fetchBusiness = (businessId) => apiRequest(`/businesses/${businessId}`).then((data) => data.business);
 
 export const provisionLocalBusiness = (name) =>
@@ -153,11 +122,6 @@ export const rotateRestaurantTableToken = (businessId, tableId) =>
     method: "POST",
   });
 
-export const fetchDiningTabs = (businessId) => apiRequest(`/businesses/${businessId}/dining-tabs`).then((data) => data.tabs || []);
-export const openDiningTab = (businessId, tableId, customerId = null, notes = "") => apiRequest(`/businesses/${businessId}/tables/${tableId}/dining-tabs`, { method: "POST", body: { customer_id: customerId || undefined, notes } }).then((data) => data.tab || data);
-export const transferDiningTab = (businessId, tabId, tableId) => apiRequest(`/businesses/${businessId}/dining-tabs/${tabId}/transfer`, { method: "POST", body: { table_id: tableId } }).then((data) => data.tab || data);
-export const closeDiningTab = (businessId, tabId) => apiRequest(`/businesses/${businessId}/dining-tabs/${tabId}/close`, { method: "POST" }).then((data) => data.tab || data);
-
 export const fetchTeamMembers = (businessId) =>
   apiRequest(`/businesses/${businessId}/team`).then((data) => data.members || []);
 
@@ -195,8 +159,8 @@ export const updateBusiness = (businessId, business) =>
     body: { business },
   });
 
-export const fetchOrders = (businessId) =>
-  apiRequest(`/businesses/${businessId}/orders`).then((data) => data.orders || []);
+export const fetchOrders = (businessId, { activeOnly = false, recentOnly = false } = {}) =>
+  apiRequest(`/businesses/${businessId}/orders${activeOnly ? "?view=active" : recentOnly ? "?view=recent" : ""}`).then((data) => data.orders || []);
 
 export const updateOrderStatusRequest = (businessId, orderId, status) =>
   apiRequest(`/businesses/${businessId}/orders/${orderId}/update_status`, {
@@ -221,27 +185,16 @@ export const fetchTodayStats = (businessId) =>
 export const fetchCashMovements = (businessId) =>
   apiRequest(`/businesses/${businessId}/cash_movements`);
 
-export const createCashMovement = (businessId, cashMovement) =>
+export const createCashMovement = (businessId, cashMovement, idempotencyKey) =>
   apiRequest(`/businesses/${businessId}/cash_movements`, {
     method: "POST",
     body: { cash_movement: cashMovement },
+    idempotencyKey,
   }).then((data) => data.movement || data);
 
 export const fetchCurrentCashRegister = (businessId) => apiRequest(`/businesses/${businessId}/cash-register/current`).then((data) => data.session);
 export const openCashRegister = (businessId, openingAmount) => apiRequest(`/businesses/${businessId}/cash-register/open`, { method: "POST", body: { opening_amount: openingAmount } }).then((data) => data.session);
 export const closeCashRegister = (businessId, sessionId, closingAmount, notes = "") => apiRequest(`/businesses/${businessId}/cash-register/${sessionId}/close`, { method: "POST", body: { closing_amount: closingAmount, notes } });
-
-export const persistAuthSession = ({ user, business, token = "" }) => {
-  setSession({
-    userId: user.id,
-    email: user.email,
-    name: user.business_name || user.name,
-    token,
-    businessId: business?.id,
-    needsOnboarding: false,
-    loggedAt: new Date().toISOString(),
-  });
-};
 
 export const pingApi = async () => {
   if (!API_BASE_URL) return false;
@@ -250,7 +203,9 @@ export const pingApi = async () => {
     const response = await fetch(`${API_BASE_URL}/health`, {
       signal: AbortSignal.timeout(2500),
     });
-    return response.ok;
+    if (!response.ok) return false;
+    const health = await response.json();
+    return health?.status === "ok" && health?.database === "ok";
   } catch {
     return false;
   }

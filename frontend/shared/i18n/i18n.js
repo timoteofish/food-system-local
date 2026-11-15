@@ -27,7 +27,17 @@ export const setLanguage = () => {
 };
 
 export const translate = (key) =>
-  translations.pt[key] || translateLegacyText(key);
+  normalizeInterfaceText(translations.pt[key] || translateLegacyText(key));
+
+export const normalizeInterfaceText = (value) => {
+  const protectedText = value.replace(/\.{3,}/g, (ellipsis) => `\u0000${ellipsis.length}\u0000`)
+    .replace(/\b(?:e|i)\.g\./gi, (abbreviation) => abbreviation.replace(/\./g, "\u0001"));
+  return protectedText
+    .replace(/\.(?=\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ“])/g, " —")
+    .replace(/\.(?=[)\]}'’”\"]*$)/g, "")
+    .replace(/\u0001/g, ".")
+    .replace(/\u0000(\d+)\u0000/g, (_, count) => ".".repeat(Number(count)));
+};
 
 export const applyTranslations = (root = document) => {
   root.querySelectorAll("[data-i18n]").forEach((element) => {
@@ -99,7 +109,8 @@ export const applyLegacyTranslations = (root = document) => {
   root.documentElement && (root.documentElement.lang = "pt-BR");
   if (root === document && document.title) {
     const nextTitle = translateLegacyText(document.title);
-    if (document.title !== nextTitle) document.title = nextTitle;
+    const cleanTitle = normalizeInterfaceText(nextTitle);
+    if (document.title !== cleanTitle) document.title = cleanTitle;
   }
   root.querySelectorAll(".menu-sidebar__nav a").forEach((link) => {
     const href = link.getAttribute("href") || "";
@@ -123,9 +134,9 @@ export const applyLegacyTranslations = (root = document) => {
   const walker = documentRoot.createTreeWalker(root.nodeType === Node.DOCUMENT_NODE ? root.body || root : root, NodeFilter.SHOW_TEXT);
   let node;
   while ((node = walker.nextNode())) {
-    if (node.parentElement?.closest("script,style")) continue;
+    if (node.parentElement?.closest("script,style,[data-i18n]")) continue;
     if (isMerchantContent(node.parentElement)) continue;
-    const next = translateLegacyText(node.nodeValue);
+    const next = normalizeInterfaceText(translateLegacyText(node.nodeValue));
     if (next !== node.nodeValue) node.nodeValue = next;
   }
 
@@ -133,7 +144,9 @@ export const applyLegacyTranslations = (root = document) => {
     ["placeholder", "aria-label", "title", "value"].forEach((attribute) => {
       if (element.hasAttribute(attribute)) {
         const current = element.getAttribute(attribute);
-        const next = shouldTranslateAttribute(element, attribute) ? translateLegacyText(current) : current;
+        const next = shouldTranslateAttribute(element, attribute)
+          ? normalizeInterfaceText(translateLegacyText(current))
+          : current;
         if (next !== current) element.setAttribute(attribute, next);
       }
     });

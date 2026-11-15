@@ -48,19 +48,37 @@ export default async function catalogRoutes(app) {
     }
     const normalized = updates.map(([field, value]) => [field, field === "name" ? value.trim() : value]);
     const setClause = normalized.map(([field]) => `${field} = ?`).join(", ");
-    await pool.query(
-      `UPDATE categories SET ${setClause} WHERE id = ? AND business_id = ?`,
-      [...normalized.map(([, value]) => value), request.params.id, request.params.businessId]
-    );
-    const [rows] = await pool.query("SELECT * FROM categories WHERE id = ? AND business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
-    if (!rows.length) return reply.notFound("Category not found");
-    return { category: rows[0] };
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [existing] = await connection.query("SELECT name FROM categories WHERE id = ? AND business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
+      if (!existing.length) { await connection.rollback(); return reply.notFound("Category not found"); }
+      await connection.query(`UPDATE categories SET ${setClause} WHERE id = ? AND business_id = ?`, [...normalized.map(([, value]) => value), request.params.id, request.params.businessId]);
+      const newName = normalized.find(([field]) => field === "name")?.[1];
+      if (newName !== undefined && newName !== existing[0].name) {
+        const [businesses] = await connection.query("SELECT settings FROM businesses WHERE id = ? LIMIT 1", [request.params.businessId]);
+        const settings = typeof businesses[0].settings === "string" ? JSON.parse(businesses[0].settings) : businesses[0].settings;
+        if (settings && typeof settings === "object" && !Array.isArray(settings) && Array.isArray(settings.selected_categories) && settings.selected_categories.includes(existing[0].name)) {
+          settings.selected_categories = settings.selected_categories.map((name) => name === existing[0].name ? newName : name);
+          const serialized = JSON.stringify(settings);
+          if (Buffer.byteLength(serialized, "utf8") > 32 * 1024) { await connection.rollback(); return reply.badRequest("Business settings cannot exceed 32 KiB"); }
+          await connection.query("UPDATE businesses SET settings = ? WHERE id = ?", [serialized, request.params.businessId]);
+        }
+      }
+      const [rows] = await connection.query("SELECT * FROM categories WHERE id = ? AND business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
+      await connection.commit();
+      return { category: rows[0] };
+    } catch (error) { await connection.rollback(); throw error; }
+    finally { connection.release(); }
   });
 
   app.delete("/api/v1/businesses/:businessId/categories/:id", async (request, reply) => {
     if (!(await requireRole(request, reply))) return;
-    const [result] = await pool.query("DELETE FROM categories WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
-    if (!result.affectedRows) return reply.notFound("Category not found");
+    const [result] = await pool.query("DELETE FROM categories WHERE id = ? AND business_id = ? AND NOT EXISTS (SELECT 1 FROM products WHERE products.category_id = categories.id)", [request.params.id, request.params.businessId]);
+    if (!result.affectedRows) {
+      const [existing] = await pool.query("SELECT id FROM categories WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
+      return existing.length ? reply.conflict("Category contains products; move them first or deactivate the category") : reply.notFound("Category not found");
+    }
     return reply.code(204).send();
   });
 
@@ -84,37 +102,48 @@ export default async function catalogRoutes(app) {
     if (product.category_id !== undefined && (typeof product.category_id !== "string" || !product.category_id)) return reply.badRequest("Product category is invalid");
     if (product.category !== undefined && product.category_id === undefined && (typeof product.category !== "string" || !product.category.trim())) return reply.badRequest("Product category is invalid");
     if (product.kitchen_station_id !== undefined && product.kitchen_station_id !== null && typeof product.kitchen_station_id !== "string") return reply.badRequest("Kitchen station is invalid");
+    if (product.active !== undefined && !isBoolean(product.active)) return reply.badRequest("Product active must be a boolean");
+    if (product.position !== undefined && !isPosition(product.position)) return reply.badRequest("Product position must be a 32-bit integer");
     if (product.description !== undefined && product.description !== null && !isText(product.description)) return reply.badRequest("Product description is invalid or too long");
     const image = product.image ?? product.image_url ?? null;
     if (image !== null && !isText(image, MAX_IMAGE_BYTES)) return reply.badRequest("Product image is invalid or too large");
-    let categoryId = product.category_id;
-    if (!categoryId) {
-      const [categories] = await pool.query("SELECT id FROM categories WHERE business_id = ? AND name = ? LIMIT 1", [request.params.businessId, product.category]);
-      categoryId = categories[0]?.id;
-    } else {
-      const [categories] = await pool.query("SELECT id FROM categories WHERE id = ? AND business_id = ? LIMIT 1", [categoryId, request.params.businessId]);
-      if (!categories.length) return reply.badRequest("Category not found");
-    }
-    if (!categoryId) return reply.badRequest("Category not found");
-    if (product.kitchen_station_id) {
-      const [stations] = await pool.query("SELECT id FROM kitchen_stations WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [product.kitchen_station_id, request.params.businessId]);
-      if (!stations.length) return reply.badRequest("Kitchen station not found");
-    }
-    const id = randomUUID();
-    await pool.query(
-      "INSERT INTO products (id, business_id, category_id, kitchen_station_id, name, description, price, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [id, request.params.businessId, categoryId, product.kitchen_station_id || null, name, product.description || null, price, image]
-    );
-    return reply.code(201).send({ product: { id, ...product, category_id: categoryId } });
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      let categoryId = product.category_id;
+      if (!categoryId) {
+        const [categories] = await connection.query("SELECT id FROM categories WHERE business_id = ? AND name = ? AND active = TRUE LIMIT 1", [request.params.businessId, product.category]);
+        categoryId = categories[0]?.id;
+      } else {
+        const [categories] = await connection.query("SELECT id FROM categories WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [categoryId, request.params.businessId]);
+        if (!categories.length) { await connection.rollback(); return reply.badRequest("Category not found"); }
+      }
+      if (!categoryId) { await connection.rollback(); return reply.badRequest("Category not found"); }
+      if (product.kitchen_station_id) {
+        const [stations] = await connection.query("SELECT id FROM kitchen_stations WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [product.kitchen_station_id, request.params.businessId]);
+        if (!stations.length) { await connection.rollback(); return reply.badRequest("Kitchen station not found"); }
+      }
+      const id = randomUUID();
+      await connection.query(
+        "INSERT INTO products (id, business_id, category_id, kitchen_station_id, name, description, price, image_url, active, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [id, request.params.businessId, categoryId, product.kitchen_station_id || null, name, product.description || null, price, image, product.active === undefined ? 1 : Number(product.active), product.position ?? 0]
+      );
+      const [rows] = await connection.query("SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON c.id = p.category_id AND c.business_id = p.business_id WHERE p.id = ? AND p.business_id = ? LIMIT 1", [id, request.params.businessId]);
+      await connection.commit();
+      return reply.code(201).send({ product: rows[0] });
+    } catch (error) { await connection.rollback(); throw error; }
+    finally { connection.release(); }
   });
 
   app.patch("/api/v1/businesses/:businessId/products/:id", async (request, reply) => {
     if (!(await requireRole(request, reply))) return;
     const product = request.body?.product || request.body || {};
     const image = product.image_url !== undefined ? product.image_url : product.image;
+    if (product.category !== undefined && (typeof product.category !== "string" || !product.category.trim())) return reply.badRequest("Product category is invalid");
+    if (product.category !== undefined && product.category_id !== undefined) return reply.badRequest("Provide a category name or id, not both");
     const fields = { name: product.name, description: product.description, price: product.price, category_id: product.category_id, kitchen_station_id: product.kitchen_station_id, image_url: image, position: product.position, active: product.active };
     const updates = Object.entries(fields).filter(([, value]) => value !== undefined);
-    if (!updates.length) return reply.badRequest("No product fields provided");
+    if (!updates.length && product.category === undefined) return reply.badRequest("No product fields provided");
     for (const [field, value] of updates) {
       if (field === "name" && (typeof value !== "string" || !value.trim() || value.trim().length > 160)) return reply.badRequest("Product name must be between 1 and 160 characters");
       if (field === "description" && value !== null && !isText(value)) return reply.badRequest("Product description is invalid or too long");
@@ -125,31 +154,51 @@ export default async function catalogRoutes(app) {
       if (field === "position" && !isPosition(value)) return reply.badRequest("Product position must be a 32-bit integer");
       if (field === "active" && !isBoolean(value)) return reply.badRequest("Product active must be a boolean");
     }
-    const categoryId = updates.find(([field]) => field === "category_id")?.[1];
-    if (categoryId) {
-      const [categories] = await pool.query("SELECT id FROM categories WHERE id = ? AND business_id = ? LIMIT 1", [categoryId, request.params.businessId]);
-      if (!categories.length) return reply.badRequest("Category not found");
-    }
-    const stationId = updates.find(([field]) => field === "kitchen_station_id")?.[1];
-    if (stationId) {
-      const [stations] = await pool.query("SELECT id FROM kitchen_stations WHERE id = ? AND business_id = ? LIMIT 1", [stationId, request.params.businessId]);
-      if (!stations.length) return reply.badRequest("Kitchen station not found");
-    }
-    const normalized = updates.map(([field, value]) => [field, field === "name" ? value.trim() : field === "price" ? Number(value) : value]);
-    const setClause = normalized.map(([field]) => `${field} = ?`).join(", ");
-    await pool.query(
-      `UPDATE products SET ${setClause} WHERE id = ? AND business_id = ?`,
-      [...normalized.map(([, value]) => value), request.params.id, request.params.businessId]
-    );
-    const [rows] = await pool.query("SELECT * FROM products WHERE id = ? AND business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
-    if (!rows.length) return reply.notFound("Product not found");
-    return { product: rows[0] };
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      if (product.category !== undefined) {
+        const [categories] = await connection.query("SELECT id FROM categories WHERE business_id = ? AND name = ? AND active = TRUE LIMIT 1", [request.params.businessId, product.category.trim()]);
+        if (!categories.length) { await connection.rollback(); return reply.badRequest("Category not found"); }
+        updates.push(["category_id", categories[0].id]);
+      }
+      const categoryId = updates.find(([field]) => field === "category_id")?.[1];
+      if (categoryId) {
+        const [categories] = await connection.query("SELECT id FROM categories WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [categoryId, request.params.businessId]);
+        if (!categories.length) { await connection.rollback(); return reply.badRequest("Category not found"); }
+      }
+      const stationId = updates.find(([field]) => field === "kitchen_station_id")?.[1];
+      if (stationId) {
+        const [stations] = await connection.query("SELECT id FROM kitchen_stations WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [stationId, request.params.businessId]);
+        if (!stations.length) { await connection.rollback(); return reply.badRequest("Kitchen station not found"); }
+      }
+      const normalized = updates.map(([field, value]) => [field, field === "name" ? value.trim() : field === "price" ? Number(value) : value]);
+      const setClause = normalized.map(([field]) => `${field} = ?`).join(", ");
+      await connection.query(
+        `UPDATE products SET ${setClause} WHERE id = ? AND business_id = ?`,
+        [...normalized.map(([, value]) => value), request.params.id, request.params.businessId]
+      );
+      const [rows] = await connection.query("SELECT * FROM products WHERE id = ? AND business_id = ? LIMIT 1", [request.params.id, request.params.businessId]);
+      if (!rows.length) { await connection.rollback(); return reply.notFound("Product not found"); }
+      await connection.commit();
+      return { product: rows[0] };
+    } catch (error) { await connection.rollback(); throw error; }
+    finally { connection.release(); }
   });
 
   app.delete("/api/v1/businesses/:businessId/products/:id", async (request, reply) => {
     if (!(await requireRole(request, reply))) return;
-    const [result] = await pool.query("DELETE FROM products WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
-    if (!result.affectedRows) return reply.notFound("Product not found");
+    const [result] = await pool.query(`DELETE FROM products WHERE id = ? AND business_id = ?
+      AND NOT EXISTS (SELECT 1 FROM order_items WHERE order_items.product_id = products.id)
+      AND NOT EXISTS (SELECT 1 FROM product_ingredients WHERE product_ingredients.product_id = products.id)
+      AND NOT EXISTS (SELECT 1 FROM product_recipe_versions WHERE product_recipe_versions.product_id = products.id)
+      AND NOT EXISTS (SELECT 1 FROM production_orders WHERE production_orders.product_id = products.id)
+      AND NOT EXISTS (SELECT 1 FROM inventory_product_lots WHERE inventory_product_lots.product_id = products.id)
+      AND NOT EXISTS (SELECT 1 FROM inventory_reservation_product_items WHERE inventory_reservation_product_items.product_id = products.id)`, [request.params.id, request.params.businessId]);
+    if (!result.affectedRows) {
+      const [existing] = await pool.query("SELECT id FROM products WHERE id = ? AND business_id = ?", [request.params.id, request.params.businessId]);
+      return existing.length ? reply.conflict("Product has operational history or a recipe; deactivate it instead") : reply.notFound("Product not found");
+    }
     return reply.code(204).send();
   });
 }

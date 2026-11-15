@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -43,7 +43,11 @@ test("streaming backup encryption round-trips large files and authenticates ciph
 
     encryptedBytes[20] ^= 1;
     await writeFile(altered, encryptedBytes);
-    await assert.rejects(decryptFile(altered, path.join(directory, "tampered.sql")));
+    const tamperedOutput = path.join(directory, "tampered.sql");
+    await assert.rejects(decryptFile(altered, tamperedOutput));
+    await assert.rejects(access(tamperedOutput), { code: "ENOENT" });
+    await assert.rejects(decryptFile(altered, restored), { code: "EEXIST" });
+    assert.equal(await readFile(restored, "utf8"), payload);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -57,6 +61,15 @@ test("backup restore continues to read legacy v1 encrypted files", async () => {
   try {
     await writeFile(encrypted, encryptSecret(payload));
     await decryptFile(encrypted, restored);
+    assert.equal(await readFile(restored, "utf8"), payload);
+    const corrupted = path.join(directory, "corrupted.enc");
+    const legacy = await readFile(encrypted, "utf8");
+    const dataStart = legacy.indexOf(":", legacy.indexOf(":", legacy.indexOf(":") + 1) + 1) + 1;
+    await writeFile(corrupted, `${legacy.slice(0, dataStart)}${legacy[dataStart] === "A" ? "B" : "A"}${legacy.slice(dataStart + 1)}`);
+    const partial = path.join(directory, "partial.sql");
+    await assert.rejects(decryptFile(corrupted, partial));
+    await assert.rejects(access(partial), { code: "ENOENT" });
+    await assert.rejects(decryptFile(corrupted, restored), { code: "EEXIST" });
     assert.equal(await readFile(restored, "utf8"), payload);
   } finally {
     await rm(directory, { recursive: true, force: true });

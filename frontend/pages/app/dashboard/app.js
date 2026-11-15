@@ -1,5 +1,5 @@
 import { getSession } from "../../../shared/data/storage.js";
-import { formatPrice, formatTime } from "../../../shared/utils/utils.js";
+import { formatPrice, formatTime, parseApiTimestamp } from "../../../shared/utils/utils.js";
 import { getLocale, translate } from "../../../shared/i18n/i18n.js";
 import { initAppShell } from "../../../shared/ui/ui.js";
 import { loadDashboardData } from "../../../shared/features/dashboard/index.js";
@@ -53,7 +53,7 @@ const renderRecentOrders = (orders) => {
     const detail = document.createElement("span");
     const itemCount = Array.isArray(order.items) ? order.items.length : 0;
     const itemWord = translate(itemCount === 1 ? "item" : "items");
-    const createdAt = order.createdAt ? new Date(order.createdAt) : null;
+    const createdAt = order.createdAt ? parseApiTimestamp(order.createdAt) : null;
     const time = createdAt && Number.isFinite(createdAt.getTime()) ? formatTime(createdAt) : "";
     detail.textContent = `${numberFormat.format(itemCount)} ${itemWord}${time ? ` · ${time}` : ""}`;
     identity.append(title, detail);

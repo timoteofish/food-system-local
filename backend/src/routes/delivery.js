@@ -3,6 +3,7 @@ import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
 import { audit } from "../audit.js";
 import { hasDecimalScale } from "../numbers.js";
+import { reserveOrderInventory } from "./orders.js";
 
 const statuses = new Set(["requested", "assigned", "picked_up", "delivered", "cancelled", "failed"]);
 const courierTransitions = new Map([
@@ -18,6 +19,12 @@ const deliveryTransitions = new Map([
   ["failed", new Set()],
 ]);
 const hashToken = (token) => createHash("sha256").update(token).digest("hex");
+export const parseCourierTokenDays = (value) => {
+  if (value === undefined || value === "") return 30;
+  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) return null;
+  const days = Number(value);
+  return Number.isSafeInteger(days) && days >= 1 && days <= 3650 ? days : null;
+};
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 const validId = (value) => typeof value === "string" && value.length > 0 && value.length <= 36;
 const courierLocationWrites = new Map();
@@ -28,11 +35,15 @@ const clearCourierLocationIfInactive = async (connection, courierId, businessId)
     [courierId, businessId, courierId, businessId],
   );
 };
+const markOrderPickedUp = async (connection, businessId, orderId) => {
+  if (!orderId) return;
+  await connection.query("UPDATE orders SET status = 'out_for_delivery' WHERE id = ? AND business_id = ? AND status IN ('pending','confirmed','preparing','ready')", [orderId, businessId]);
+};
 
-const authenticateCourier = async (request) => {
+const authenticateCourier = async (request, connection = pool) => {
   const token = String(request.headers["x-courier-token"] || "");
   if (!token) return null;
-  const [rows] = await pool.query("SELECT id, business_id, name FROM delivery_couriers WHERE token_hash = ? AND active = TRUE AND token_expires_at > NOW() LIMIT 1", [hashToken(token)]);
+  const [rows] = await connection.query("SELECT id, business_id, name FROM delivery_couriers WHERE token_hash = ? AND active = TRUE AND token_expires_at > NOW() LIMIT 1", [hashToken(token)]);
   return rows[0] || null;
 };
 
@@ -59,12 +70,23 @@ export default async function deliveryRoutes(app) {
   app.post("/api/v1/businesses/:businessId/couriers/:courierId/token", async (request, reply) => {
     const user = await requireRole(request, reply);
     if (!user) return;
-    const [couriers] = await pool.query("SELECT id FROM delivery_couriers WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [request.params.courierId, request.params.businessId]);
-    if (!couriers.length) return reply.notFound("Courier not found");
+    const expiresDays = parseCourierTokenDays(process.env.COURIER_TOKEN_DAYS);
+    if (expiresDays === null) return reply.code(503).send({ error: "COURIER_TOKEN_DAYS must be an integer between 1 and 3650" });
     const token = randomBytes(32).toString("base64url");
-    const expiresDays = Math.max(1, Number(process.env.COURIER_TOKEN_DAYS || 30));
-    await pool.query("UPDATE delivery_couriers SET token_hash = ?, token_expires_at = DATE_ADD(NOW(), INTERVAL ? DAY) WHERE id = ? AND business_id = ?", [hashToken(token), expiresDays, request.params.courierId, request.params.businessId]);
-    await audit(request, user, "courier.token_rotated", "courier", request.params.courierId, { expires_days: expiresDays });
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [couriers] = await connection.query("SELECT id FROM delivery_couriers WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [request.params.courierId, request.params.businessId]);
+      if (!couriers.length) { await connection.rollback(); return reply.notFound("Courier not found"); }
+      await connection.query("UPDATE delivery_couriers SET token_hash = ?, token_expires_at = DATE_ADD(NOW(), INTERVAL ? DAY) WHERE id = ? AND business_id = ?", [hashToken(token), expiresDays, request.params.courierId, request.params.businessId]);
+      await audit(request, user, "courier.token_rotated", "courier", request.params.courierId, { expires_days: expiresDays }, connection);
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
     return { token, expires_in_days: expiresDays };
   });
 
@@ -76,7 +98,17 @@ export default async function deliveryRoutes(app) {
 
   app.get("/api/v1/businesses/:businessId/deliveries", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
-    const [deliveries] = await pool.query("SELECT da.*, o.total, o.delivery_address, o.scheduled_for, c.name AS courier_name FROM delivery_assignments da LEFT JOIN orders o ON o.id = da.order_id LEFT JOIN delivery_couriers c ON c.id = da.courier_id WHERE da.business_id = ? ORDER BY da.created_at DESC", [request.params.businessId]);
+    const view = request.query?.view;
+    if (view !== undefined && view !== "queue") return reply.badRequest("Invalid delivery view");
+    const from = view === "queue"
+      ? "FROM (SELECT id FROM delivery_assignments WHERE business_id = ? AND status IN ('requested','assigned','picked_up','failed') UNION ALL SELECT id FROM (SELECT id FROM delivery_assignments WHERE business_id = ? AND status IN ('delivered','cancelled') ORDER BY updated_at DESC, id DESC LIMIT 50)) selected CROSS JOIN delivery_assignments da"
+      : "FROM delivery_assignments da";
+    const where = view === "queue" ? "da.id = selected.id AND da.business_id = ?" : "da.business_id = ?";
+    const [deliveries] = await pool.query(`SELECT da.*, o.total, o.delivery_address, o.scheduled_for, c.name AS courier_name,
+      CASE WHEN da.status = 'failed' AND o.delivery_address IS NOT NULL AND o.status IN ('pending','confirmed','preparing','ready','out_for_delivery') AND NOT EXISTS (
+        SELECT 1 FROM delivery_assignments next WHERE next.business_id = da.business_id AND next.order_id = da.order_id AND next.status IN ('requested','assigned','picked_up','delivered')
+      ) THEN 1 ELSE 0 END AS can_retry
+      ${from} LEFT JOIN orders o ON o.id = da.order_id AND o.business_id = da.business_id LEFT JOIN delivery_couriers c ON c.id = da.courier_id AND c.business_id = da.business_id WHERE ${where} ORDER BY da.created_at DESC, da.id DESC`, view === "queue" ? [request.params.businessId, request.params.businessId, request.params.businessId] : [request.params.businessId]);
     return { deliveries };
   });
 
@@ -88,27 +120,35 @@ export default async function deliveryRoutes(app) {
     if (suppliedCourierId !== undefined && suppliedCourierId !== null && suppliedCourierId !== "" && !validId(suppliedCourierId)) return reply.badRequest("Invalid courier id");
     const courierId = suppliedCourierId || null;
     const connection = await pool.getConnection();
-    const id = randomUUID();
+    let id = randomUUID();
+    let updatedExisting = false;
     const status = courierId ? "assigned" : "requested";
     try {
       await connection.beginTransaction();
       const [orders] = await connection.query("SELECT id, status FROM orders WHERE id = ? AND business_id = ? AND delivery_address IS NOT NULL FOR UPDATE", [request.params.orderId, request.params.businessId]);
       if (!orders.length) { await connection.rollback(); return reply.notFound("Delivery order not found"); }
       if (!["pending", "confirmed", "preparing", "ready", "out_for_delivery"].includes(orders[0].status)) { await connection.rollback(); return reply.conflict("Order cannot be assigned for delivery in its current status"); }
-      const [existing] = await connection.query("SELECT id FROM delivery_assignments WHERE order_id = ? AND business_id = ? AND status NOT IN ('delivered','cancelled','failed') LIMIT 1", [request.params.orderId, request.params.businessId]);
-      if (existing.length) { await connection.rollback(); return reply.conflict("Order already has an active delivery"); }
+      const [delivered] = await connection.query("SELECT id FROM delivery_assignments WHERE order_id = ? AND business_id = ? AND status = 'delivered' LIMIT 1", [request.params.orderId, request.params.businessId]);
+      if (delivered.length) { await connection.rollback(); return reply.conflict("Order has already been delivered"); }
+      const [existing] = await connection.query("SELECT id, status FROM delivery_assignments WHERE order_id = ? AND business_id = ? AND status NOT IN ('delivered','cancelled','failed') LIMIT 1", [request.params.orderId, request.params.businessId]);
+      if (existing.length && (existing[0].status !== "requested" || !courierId)) { await connection.rollback(); return reply.conflict("Order already has an active delivery"); }
       if (courierId) {
         const [couriers] = await connection.query("SELECT id, name FROM delivery_couriers WHERE id = ? AND business_id = ? AND active = TRUE LIMIT 1", [courierId, request.params.businessId]);
         if (!couriers.length) { await connection.rollback(); return reply.badRequest("Courier not found"); }
       }
-      await connection.query("INSERT INTO delivery_assignments (id, business_id, order_id, courier_id, provider, status, courier_name, payload) VALUES (?, ?, ?, ?, 'local', ?, (SELECT name FROM delivery_couriers WHERE id = ?), ?)", [id, request.params.businessId, request.params.orderId, courierId, status, courierId, JSON.stringify({ source: "local" })]);
-      if (orders[0].status !== "out_for_delivery") {
-        await connection.query("UPDATE orders SET status = ? WHERE id = ? AND business_id = ?", [status === "assigned" ? "out_for_delivery" : "ready", request.params.orderId, request.params.businessId]);
+      try { await reserveOrderInventory(connection, request.params.businessId, request.params.orderId, user.local ? null : user.id || null); }
+      catch (error) { throw app.httpErrors.conflict(error.message); }
+      if (existing.length) {
+        id = existing[0].id;
+        updatedExisting = true;
+        await connection.query("UPDATE delivery_assignments SET courier_id = ?, courier_name = (SELECT name FROM delivery_couriers WHERE id = ?), status = 'assigned', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ? AND status = 'requested'", [courierId, courierId, id, request.params.businessId]);
+      } else {
+        await connection.query("INSERT INTO delivery_assignments (id, business_id, order_id, courier_id, provider, status, courier_name, payload) VALUES (?, ?, ?, ?, 'local', ?, (SELECT name FROM delivery_couriers WHERE id = ?), ?)", [id, request.params.businessId, request.params.orderId, courierId, status, courierId, JSON.stringify({ source: "local" })]);
       }
       await connection.commit();
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
     await audit(request, user, "delivery.created", "delivery", id, { order_id: request.params.orderId, courier_id: courierId });
-    return reply.code(201).send({ delivery: { id, order_id: request.params.orderId, courier_id: courierId, status } });
+    return reply.code(updatedExisting ? 200 : 201).send({ delivery: { id, order_id: request.params.orderId, courier_id: courierId, status } });
   });
 
   app.patch("/api/v1/businesses/:businessId/deliveries/:id", async (request, reply) => {
@@ -116,14 +156,17 @@ export default async function deliveryRoutes(app) {
     if (!user) return;
     const status = isPlainObject(request.body) && typeof request.body.status === "string" ? request.body.status : "";
     if (!statuses.has(status)) return reply.badRequest("Invalid delivery status");
+    const reason = request.body.failure_reason;
+    if (reason !== undefined && reason !== null && (status !== "failed" || typeof reason !== "string" || reason.length > 500)) return reply.badRequest("Delivery failure reason must be text up to 500 characters for a failed delivery");
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [rows] = await connection.query("SELECT status, courier_id FROM delivery_assignments WHERE id = ? AND business_id = ? LIMIT 1 FOR UPDATE", [request.params.id, request.params.businessId]);
+      const [rows] = await connection.query("SELECT status, courier_id, order_id FROM delivery_assignments WHERE id = ? AND business_id = ? LIMIT 1 FOR UPDATE", [request.params.id, request.params.businessId]);
       if (!rows.length) { await connection.rollback(); return reply.notFound("Delivery not found"); }
       if (!deliveryTransitions.get(rows[0].status)?.has(status)) { await connection.rollback(); return reply.conflict("Delivery status cannot move backwards or leave a terminal state"); }
-      const [result] = await connection.query("UPDATE delivery_assignments SET status = ? WHERE id = ? AND business_id = ? AND status = ?", [status, request.params.id, request.params.businessId, rows[0].status]);
+      const [result] = await connection.query("UPDATE delivery_assignments SET status = ?, failure_reason = ? WHERE id = ? AND business_id = ? AND status = ?", [status, status === "failed" ? reason?.trim() || null : null, request.params.id, request.params.businessId, rows[0].status]);
       if (!result.affectedRows) { await connection.rollback(); return reply.conflict("Delivery status changed; reload and try again"); }
+      if (status === "picked_up") await markOrderPickedUp(connection, request.params.businessId, rows[0].order_id);
       if (["delivered", "cancelled", "failed"].includes(status)) await clearCourierLocationIfInactive(connection, rows[0].courier_id, request.params.businessId);
       await connection.commit();
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
@@ -143,14 +186,19 @@ export default async function deliveryRoutes(app) {
     if (!courier) return reply.unauthorized("Courier token is invalid or expired");
     const status = isPlainObject(request.body) && typeof request.body.status === "string" ? request.body.status : "";
     if (!courierTransitions.get("assigned").has(status) && !courierTransitions.get("picked_up").has(status)) return reply.badRequest("Invalid courier delivery status");
+    const reason = request.body.failure_reason;
+    if (reason !== undefined && reason !== null && (status !== "failed" || typeof reason !== "string" || reason.length > 500)) return reply.badRequest("Delivery failure reason must be text up to 500 characters for a failed delivery");
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [rows] = await connection.query("SELECT status FROM delivery_assignments WHERE id = ? AND courier_id = ? AND business_id = ? LIMIT 1 FOR UPDATE", [request.params.id, courier.id, courier.business_id]);
+      const currentCourier = await authenticateCourier(request, connection);
+      if (!currentCourier || currentCourier.id !== courier.id) { await connection.rollback(); return reply.unauthorized("Courier token is invalid or expired"); }
+      const [rows] = await connection.query("SELECT status, order_id FROM delivery_assignments WHERE id = ? AND courier_id = ? AND business_id = ? LIMIT 1 FOR UPDATE", [request.params.id, courier.id, courier.business_id]);
       if (!rows.length) { await connection.rollback(); return reply.notFound("Delivery not found"); }
       if (!courierTransitions.get(rows[0].status)?.has(status)) { await connection.rollback(); return reply.conflict("Invalid courier delivery status transition"); }
-      const [result] = await connection.query("UPDATE delivery_assignments SET status = ? WHERE id = ? AND courier_id = ? AND business_id = ? AND status = ?", [status, request.params.id, courier.id, courier.business_id, rows[0].status]);
+      const [result] = await connection.query("UPDATE delivery_assignments SET status = ?, failure_reason = ? WHERE id = ? AND courier_id = ? AND business_id = ? AND status = ?", [status, status === "failed" ? reason?.trim() || null : null, request.params.id, courier.id, courier.business_id, rows[0].status]);
       if (!result.affectedRows) { await connection.rollback(); return reply.conflict("Delivery status changed; reload and try again"); }
+      if (status === "picked_up") await markOrderPickedUp(connection, courier.business_id, rows[0].order_id);
       if (["delivered", "failed"].includes(status)) await clearCourierLocationIfInactive(connection, courier.id, courier.business_id);
       await connection.commit();
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
@@ -171,6 +219,8 @@ export default async function deliveryRoutes(app) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
+      const currentCourier = await authenticateCourier(request, connection);
+      if (!currentCourier || currentCourier.id !== courier.id) { await connection.rollback(); return reply.unauthorized("Courier token is invalid or expired"); }
       const [activeDeliveries] = await connection.query("SELECT id FROM delivery_assignments WHERE courier_id = ? AND business_id = ? AND status IN ('assigned','picked_up') LIMIT 1 FOR UPDATE", [courier.id, courier.business_id]);
       if (!activeDeliveries.length) { await connection.rollback(); return reply.conflict("Location sharing is available only during an active delivery"); }
       const lastWrite = courierLocationWrites.get(courier.id);
