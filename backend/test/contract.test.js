@@ -10,8 +10,8 @@ const readFrontend = (file) => fs.readFile(new URL(`../../frontend/${file}`, imp
 const readRoot = (file) => fs.readFile(new URL(`../../${file}`, import.meta.url), "utf8");
 
 test("schema contains the operational tables", async () => {
-  const sql = await read("sql/migrations/001_initial.sql");
-  for (const table of ["users", "businesses", "categories", "products", "restaurant_tables", "orders", "order_items", "cash_movements"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
+  const sql = await read("sqlite/schema.sql");
+  for (const table of ["users", "businesses", "categories", "products", "restaurant_tables", "orders", "order_items", "cash_movements"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS "${table}"`));
 });
 
 test("SQLite is the only database engine and its schema is created locally", async () => {
@@ -34,8 +34,8 @@ test("SQLite is the only database engine and its schema is created locally", asy
 });
 
 test("schema contains the integration boundary tables", async () => {
-  const sql = await read("sql/migrations/002_integrations.sql");
-  for (const table of ["integration_connections", "external_orders", "integration_events", "delivery_assignments"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
+  const sql = await read("sqlite/schema.sql");
+  for (const table of ["integration_connections", "external_orders", "integration_events", "delivery_assignments"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS "${table}"`));
   assert.match(sql, /uq_external_order_provider_id/);
 });
 
@@ -59,14 +59,14 @@ test("public menu responses use an allowlisted flat shape", async () => {
 });
 
 test("schema contains inventory and recipe tables", async () => {
-  const sql = await read("sql/migrations/003_inventory.sql");
-  for (const table of ["inventory_items", "product_ingredients", "inventory_movements"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
+  const sql = await read("sqlite/schema.sql");
+  for (const table of ["inventory_items", "product_ingredients", "inventory_movements"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS "${table}"`));
   assert.match(sql, /uq_inventory_order_item/);
 });
 
 test("schema contains operational management tables", async () => {
-  const sql = await read("sql/migrations/004_operations.sql");
-  for (const table of ["cash_register_sessions", "customers", "suppliers", "discounts", "loyalty_accounts"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
+  const sql = await read("sqlite/schema.sql");
+  for (const table of ["cash_register_sessions", "customers", "suppliers", "discounts", "loyalty_accounts"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS "${table}"`));
 });
 
 test("frontend contains a kitchen display workflow", async () => {
@@ -101,7 +101,6 @@ test("product detail panel validates image URL schemes before rendering", async 
   assert.match(panel, /safeImageUrl\(product\.image\)/);
   assert.doesNotMatch(panel, /src="\$\{escapeHtml\(product\.image\)\}"/);
   assert.match(profile, /safeClientAvatar = safeImageUrl\(business\.avatar\)/);
-  assert.match(profile, /safeSessionAvatar = safeImageUrl\(session\?\.avatar\)/);
   assert.match(profile, /const safeAvatar = safeImageUrl\(business\.avatar\)/);
   assert.doesNotMatch(profile, /src="\$\{escapeHtml\(session\.avatar\)\}"/);
   assert.ok(utils.includes("data:image\\/"));
@@ -111,13 +110,11 @@ test("product detail panel validates image URL schemes before rendering", async 
 test("product and profile image inputs cap file size, formats and decoded dimensions", async () => {
   const productImage = await readFrontend("pages/app/products/image-user/index.js");
   const profile = await readFrontend("shared/ui/ui.js");
-  const legacyProfile = await readFrontend("pages/app/user-edit/app.js");
   assert.match(productImage, /MAX_IMAGE_FILE_BYTES = 8 \* 1024 \* 1024/);
   assert.match(productImage, /MAX_IMAGE_PIXELS = 40_000_000/);
   assert.match(productImage, /supportedImageTypes\.has\(file\.type\)/);
   assert.match(profile, /supportedTypes\.has\(file\.type\) \|\| file\.size > 8 \* 1024 \* 1024/);
   assert.match(profile, /image\.naturalWidth \* image\.naturalHeight > 40_000_000/);
-  assert.match(legacyProfile, /image\.naturalWidth \* image\.naturalHeight > 40_000_000/);
 });
 
 test("order, product, and customer renderers escape stored text before HTML insertion", async () => {
@@ -164,7 +161,7 @@ test("profitability report aggregates revenue separately from recipe costs", asy
   const reports = await read("src/routes/reports.js");
   assert.match(reports, /SELECT \(SELECT COALESCE\(SUM\(amount\), 0\) FROM cash_movements WHERE business_id = \? AND type = 'sale'/);
   assert.match(reports, /SELECT COALESCE\(SUM\(oi\.quantity \* pi\.quantity \* ii\.cost_per_unit\), 0\)/);
-  assert.match(reports, /oi\.total \/ o\.subtotal \* o\.discount_amount/);
+  assert.match(reports, /ROW_NUMBER\(\) OVER \(PARTITION BY order_id ORDER BY remainder DESC, item_id\)/);
   assert.match(reports, /cm\.type = 'sale'/);
   assert.doesNotMatch(reports, /SUM\(o\.total\).*JOIN order_items/);
 });
@@ -205,7 +202,7 @@ test("LAN proxy exposes only the courier endpoints required by the mobile workfl
 
 test("courier service worker never caches authenticated or API responses and removes legacy caches", async () => {
   const serviceWorker = await readFrontend("pages/courier/sw.js");
-  assert.match(serviceWorker, /food-system-courier-v2/);
+  assert.match(serviceWorker, /food-system-courier-v7/);
   assert.match(serviceWorker, /url\.pathname\.startsWith\("\/api\/"\)/);
   assert.match(serviceWorker, /request\.headers\.has\("X-Courier-Token"\)/);
   assert.match(serviceWorker, /request\.headers\.has\("Authorization"\)/);
@@ -222,6 +219,12 @@ test("Tauri navigation uses paths relative to frontendDist", async () => {
   assert.match(navigation, /replace\(\/\^frontend/);
 });
 
+test("desktop window minimum fits the responsive compact workstation layout", async () => {
+  const config = JSON.parse(await readRoot("src-tauri/tauri.conf.json"));
+  assert.ok(config.app.windows[0].minWidth <= 800);
+  assert.ok(config.app.windows[0].minHeight <= 600);
+});
+
 test("Tauri grants only the main window close permission required by the UI", async () => {
   const capability = JSON.parse(await readRoot("src-tauri/capabilities/default.json"));
   assert.deepEqual(capability.windows, ["main"]);
@@ -234,6 +237,18 @@ test("development local access is limited to the loopback frontend origin", asyn
   assert.match(client, /\["localhost", "127\.0\.0\.1"\]\.includes\(window\.location\.hostname\)/);
   assert.match(client, /window\.location\.port === "4173"/);
   assert.match(config, /"devUrl": "http:\/\/127\.0\.0\.1:4173"/);
+});
+
+test("development Live Server origins can reach the local API without changing production access", async () => {
+  const server = await read("src/server.js");
+  const auth = await read("src/routes/auth.js");
+  const origins = await read("src/local-origin.js");
+  assert.match(server, /config\.allowLocalHeader && isLoopbackHttpOrigin\(origin\)/);
+  assert.match(auth, /const unkeyedDevelopment = config\.allowLocalHeader && !config\.localAccessToken/);
+  assert.match(auth, /unkeyedDevelopment && isLoopbackHttpOrigin\(request\.headers\.origin\)/);
+  assert.match(auth, /if \(!hasLocalAdminAccess\(request\)\)/);
+  assert.match(origins, /"localhost", "127\.0\.0\.1", "::1"/);
+  assert.match(auth, /if \(config\.nodeEnv === "production"\)/);
 });
 
 test("public API requests do not attach saved or Tauri administrator credentials", async () => {
@@ -310,6 +325,8 @@ test("Tauri development launcher is supervised and receives its parent PID", asy
   assert.equal(config.build.beforeDevCommand.wait, false);
   assert.match(launcher, /FOOD_SYSTEM_PARENT_PID: String\(process\.pid\)/);
   assert.match(launcher, /process\.env\.APPDATA \|\| process\.env\.LOCALAPPDATA/);
+  assert.match(launcher, /process\.env\.XDG_DATA_HOME/);
+  assert.match(launcher, /process\.env\.FOOD_SYSTEM_DATA_DIR \|\| join\(appDataRoot/);
   assert.match(launcher, /join\(appDataRoot, "com\.foodsystem\.local"\)/);
   assert.match(launcher, /FOOD_SYSTEM_ENV_FILE: join\(dataDir, "config\.env"\)/);
   assert.match(launcher, /NODE_ENV: "development"/);
@@ -318,9 +335,11 @@ test("Tauri development launcher is supervised and receives its parent PID", asy
   assert.match(backendLauncher, /FOOD_SYSTEM_ENV_FILE: environmentFile/);
   assert.match(backendLauncher, /const localAccessToken = nodeEnvironment === "development"\s+\? ""/);
   assert.match(backendLauncher, /FOOD_SYSTEM_LOCAL_ACCESS_TOKEN: localAccessToken/);
+  assert.match(backendLauncher, /PORT: "3000"/);
+  assert.match(backendLauncher, /process\.stdin\.destroy\(\)/);
   assert.match(launcher, /FOOD_SYSTEM_DATA_DIR: dataDir/);
   assert.match(launcher, /FOOD_SYSTEM_SECRET_KEY: secretKey/);
-  assert.match(launcher, /flag: "wx"/);
+  assert.match(launcher, /loadOrCreateLocalSecret/);
   assert.match(launcher, /stdio: \["pipe", "inherit", "inherit"\]/);
   assert.doesNotMatch(launcher, /detached: true|child\.unref\(\)/);
 });
@@ -408,6 +427,78 @@ test("Tauri build preparation installs backend production dependencies before bu
   assert.match(packageJson.scripts["desktop:dev"], /npm ci --prefix backend && tauri dev/);
 });
 
+test("Linux Tauri packaging uses the portable Node runtime preparation", async () => {
+  const linuxConfig = JSON.parse(await readRoot("src-tauri/tauri.linux.conf.json"));
+  const packageJson = JSON.parse(await readRoot("package.json"));
+  const prepare = await readRoot("desktop/prepare-runtime.mjs");
+  assert.deepEqual(linuxConfig.bundle.targets, ["deb", "rpm", "appimage"]);
+  assert.equal(linuxConfig.build.beforeBuildCommand.cwd, "../");
+  assert.equal(linuxConfig.build.beforeBuildCommand.script, "node desktop/prepare-runtime.mjs");
+  assert.equal(packageJson.scripts["desktop:prepare-runtime"], "node desktop/prepare-runtime.mjs");
+  assert.match(prepare, /nodeVersion !== "24"/);
+  assert.match(prepare, /"ci", "--omit=dev"/);
+  assert.match(prepare, /process\.execPath/);
+});
+
+test("unavailable cloud account screens and client login flow are removed from the local app", async () => {
+  for (const page of ["login", "register", "validation"]) {
+    for (const file of ["index.html", "app.js", "styles.css"]) {
+      await assert.rejects(fs.access(new URL(`../../frontend/pages/auth/${page}/${file}`, import.meta.url)));
+    }
+  }
+  await assert.rejects(fs.access(new URL("../../frontend/shared/features/auth/index.js", import.meta.url)));
+  const authClient = await readRoot("frontend/shared/auth/auth.js");
+  const apiClient = await readRoot("frontend/shared/api/client.js");
+  assert.doesNotMatch(authClient, /loginRequest|registerRequest|logoutRequest|completeRegistration|saveRegistrationStep/);
+  assert.doesNotMatch(apiClient, /export const (loginRequest|registerRequest|logoutRequest|fetchProfile|persistAuthSession)/);
+  await assert.rejects(fs.access(new URL("../../frontend/shared/auth/firebase.js", import.meta.url)));
+});
+
+test("active frontend links resolve and removed account routes are not referenced", async () => {
+  const frontendRoot = new URL("../../frontend/", import.meta.url);
+  const pagesRoot = new URL("../../frontend/pages/", import.meta.url);
+  const removedRoutes = ["/pages/auth/login/", "/pages/auth/register/", "/pages/auth/validation/", "/pages/auth/forgot-password/", "/pages/app/user-edit/"];
+  const visited = new Set();
+  let checkedReferences = 0;
+
+  const walk = async (directory) => {
+    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+      const file = new URL(entry.name, directory.href.endsWith("/") ? directory : new URL(`${directory.href}/`));
+      if (entry.isDirectory()) {
+        await walk(new URL(`${entry.name}/`, directory.href.endsWith("/") ? directory : new URL(`${directory.href}/`)));
+        continue;
+      }
+      if (!entry.isFile() || !/\.(?:html|js|css|webmanifest)$/i.test(entry.name)) continue;
+      const source = await fs.readFile(file, "utf8");
+      for (const route of removedRoutes) assert.equal(source.includes(route), false, `${file.pathname} references removed route ${route}`);
+      if (!entry.name.endsWith(".html")) continue;
+      visited.add(file.pathname);
+      for (const [, rawReference] of source.matchAll(/\b(?:src|href)=["']([^"']+)["']/gi)) {
+        if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(rawReference)) continue;
+        const reference = rawReference.split(/[?#]/, 1)[0];
+        if (!reference) continue;
+        const target = new URL(reference, file);
+        checkedReferences += 1;
+        await fs.access(target).catch(() => assert.fail(`${file.pathname} references missing local file ${rawReference}`));
+      }
+    }
+  };
+
+  await walk(pagesRoot);
+  const entryPage = new URL("index.html", frontendRoot);
+  visited.add(entryPage.pathname);
+  for (const [, rawReference] of (await fs.readFile(entryPage, "utf8")).matchAll(/\b(?:src|href)=["']([^"']+)["']/gi)) {
+    if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(rawReference)) continue;
+    const reference = rawReference.split(/[?#]/, 1)[0];
+    if (!reference) continue;
+    checkedReferences += 1;
+    await fs.access(new URL(reference, entryPage)).catch(() => assert.fail(`${entryPage.pathname} references missing local file ${rawReference}`));
+  }
+
+  assert.ok(visited.size > 0);
+  assert.ok(checkedReferences > 0);
+});
+
 test("Tauri resources preserve the paths used by the packaged launcher", async () => {
   const config = JSON.parse(await readRoot("src-tauri/tauri.conf.json"));
   const bootstrap = await readRoot("src-tauri/src/lib.rs");
@@ -445,7 +536,7 @@ test("database queries and migrations use local SQLite", async () => {
 });
 
 test("orders persist and apply discount totals", async () => {
-  const sql = await read("sql/migrations/007_order_discounts.sql");
+  const sql = await read("sqlite/schema.sql");
   const routes = await read("src/routes/orders.js");
   assert.match(sql, /discount_amount/);
   assert.match(routes, /Invalid or expired discount code/);
@@ -488,18 +579,11 @@ test("catalog updates validate tenant-owned relations and database field bounds"
   assert.match(routes, /SELECT \* FROM products WHERE id = \? AND business_id = \?/);
 });
 
-test("backend request and product-image limits match the MEDIUMTEXT image column", async () => {
+test("backend request limit and SQLite image column support product images", async () => {
   const server = await read("src/server.js");
-  const createSchema = await read("sql/migrations/001_initial.sql");
-  const migration = await read("sql/migrations/019_product_images.sql");
+  const createSchema = await read("sqlite/schema.sql");
   assert.match(server, /bodyLimit: 5 \* 1024 \* 1024/);
-  assert.match(createSchema, /image_url MEDIUMTEXT NULL/);
-  assert.match(migration, /MODIFY COLUMN image_url MEDIUMTEXT NULL/);
-});
-
-test("dining tab creation serializes concurrent opens by locking the table row", async () => {
-  const routes = await read("src/routes/dining-tabs.js");
-  assert.match(routes, /restaurant_tables WHERE id = \? AND business_id = \? AND active = TRUE LIMIT 1 FOR UPDATE/);
+  assert.match(createSchema, /"image_url" TEXT DEFAULT NULL/);
 });
 
 test("delivery assignment serializes by locking the order and commits assignment atomically", async () => {
@@ -550,8 +634,8 @@ test("concurrent backups use unique names and publish only completed encrypted f
   assert.match(backup, /if \(!isSafeBackupName\(backupName\)\)/);
   assert.match(backup, /createDatabaseBackup\(temporaryDatabase\)/);
   assert.match(backup, /await encryptFile\(temporaryDatabase, temporaryOutput\)/);
-  assert.ok(backup.indexOf("await rename(temporaryOutput, output)") > backup.indexOf("await encryptFile"));
-  assert.match(backup, /rm\(temporaryOutput, \{ force: true \}\)/);
+  assert.ok(backup.indexOf("await link(temporaryOutput, output)") > backup.indexOf("await encryptFile"));
+  assert.match(backup, /temporaryOutputCreated \? \[temporaryOutput\] : \[\]/);
   assert.match(names, /\.sqlite\.enc/);
 });
 
@@ -583,8 +667,9 @@ test("restore enters API maintenance and uses an exclusive plaintext file", asyn
   assert.match(routes, /await replaceDatabase\(plain\)/);
   assert.match(routes, /await replaceDatabase\(safetyPlain\)/);
   assert.match(routes, /if \(!keepMaintenance\) endRestore\(\)/);
+  assert.match(routes, /if \(recoveryMarkerOwned && !keepMaintenance\) await rm\(recoveryMarker/);
   assert.match(restore, /PRAGMA integrity_check/);
-  assert.match(restore, /await replaceDatabase\(staged\)/);
+  assert.match(restore, /await database\.replaceDatabase\(staged\)/);
   assert.match(backup, /await createDatabaseBackup\(temporaryDatabase\)/);
   assert.match(maintenance, /activeRequests/);
   assert.match(launcher, /restore-recovery-required/);
@@ -593,8 +678,13 @@ test("restore enters API maintenance and uses an exclusive plaintext file", asyn
 test("inventory frontend exposes movement and recipe workflows", async () => {
   const page = await readFrontend("pages/app/inventory/index.html");
   const app = await readFrontend("pages/app/inventory/app.js");
+  const pt = await readFrontend("shared/i18n/locales/pt.js");
   assert.match(page, /Adjustment or waste/);
   assert.match(page, /Recipe/);
+  assert.match(page, /data-i18n="inventoryStorageLocation"/);
+  assert.match(page, /data-i18n="inventoryReceivingLocation"/);
+  assert.match(pt, /inventoryStorageLocation: "Local de armazenamento"/);
+  assert.match(pt, /inventoryReceivingLocation: "Local de recebimento"/);
   assert.match(app, /inventory\/items/);
   assert.match(app, /\/recipe/);
 });
@@ -605,9 +695,10 @@ test("order printing is available in backend and kitchen frontend", async () => 
   assert.match(routes, /orders\/:id\/print/);
   assert.match(app, /data-print-order/);
   assert.match(app, /popup\.print\(\)/);
+  assert.doesNotMatch(app, /print-jobs/);
   const worker = await read("src/print-worker.js");
   assert.match(worker, /print_jobs/);
-  assert.match(worker, /attempts >= 3/);
+  assert.match(worker, /if \(!claim\.affectedRows\) continue/);
 });
 
 test("cashier frontend exposes register session controls", async () => {
@@ -641,17 +732,17 @@ test("cashier recognizes QR counter payments across locales and legacy labels", 
 
 test("backend registers the required route groups", async () => {
   const server = await read("src/server.js");
-  for (const route of ["authRoutes", "catalogRoutes", "tableRoutes", "diningTabRoutes", "orderRoutes", "cashRoutes", "integrationRoutes", "inventoryRoutes", "operationsRoutes", "kitchenRoutes"]) assert.match(server, new RegExp(`register\\(${route}\\)`));
+  for (const route of ["authRoutes", "catalogRoutes", "tableRoutes", "orderRoutes", "cashRoutes", "integrationRoutes", "inventoryRoutes", "operationsRoutes", "kitchenRoutes"]) assert.match(server, new RegExp(`register\\(${route}\\)`));
 });
 
-test("table QR menus create restaurant tables while dining tabs retain service controls", async () => {
-  const routes = await read("src/routes/dining-tabs.js");
+test("table QR menus create restaurant tables without the removed dining-tab workflow", async () => {
+  const server = await read("src/server.js");
+  const orders = await read("src/routes/orders.js");
   const menuApp = await readFrontend("pages/app/menu/app.js");
-  assert.match(routes, /dining-tabs/);
-  assert.match(routes, /transfer/);
-  assert.match(routes, /close/);
   assert.match(menuApp, /ensureRestaurantTableRemote\(tableName\)/);
   assert.match(menuApp, /renderQrCode/);
+  assert.doesNotMatch(server, /diningTabRoutes/);
+  assert.match(orders, /INSERT INTO orders \(id, business_id, idempotency_key, idempotency_hash, restaurant_table_id, customer_id/);
 });
 
 test("fiscal workflow saves drafts and keeps unimplemented issuance disabled", async () => {
@@ -666,10 +757,10 @@ test("fiscal workflow saves drafts and keeps unimplemented issuance disabled", a
   assert.match(routes, /configuration: \{ issuanceAvailable: false \}/);
   assert.doesNotMatch(routes, /node:https|resolvePublicHttpsAddress|fiscal\/credentials/);
   assert.match(page, /Tax documents/);
-  assert.match(page, /Drafts for reference only/);
-  assert.match(page, /Issuance status/);
-  assert.match(page, /valid tax documents cannot be issued/);
-  assert.match(page, /New draft with no tax validity/);
+  assert.match(page, /data-i18n="fiscalIntro"/);
+  assert.match(page, /data-i18n="fiscalStatusTitle"/);
+  assert.match(i18n, /fiscalIntro: "Drafts for reference only; valid tax documents cannot be issued"/);
+  assert.match(page, /data-i18n="fiscalNewDraftTitle"/);
   assert.match(app, /document\.status === "draft" \? "draft" : "legacy"/);
   assert.match(app, /fiscalLegacyStatus/);
   assert.doesNotMatch(app, /authorized:|issued:|rejected:/);
@@ -677,15 +768,30 @@ test("fiscal workflow saves drafts and keeps unimplemented issuance disabled", a
   assert.doesNotMatch(i18n, /issueDocument|providerAuthorizedDocument/);
 });
 
-test("legacy screens expose a persistent language control", async () => {
-  for (const pageName of ["dashboard", "cashier", "orders", "products", "menu", "team"]) {
+test("application screens use Portuguese translations without legacy language selectors", async () => {
+  const appDirectory = new URL("../../frontend/pages/app/", import.meta.url);
+  const pages = await fs.readdir(appDirectory, { withFileTypes: true });
+  const pageNames = [];
+  for (const page of pages) {
+    if (!page.isDirectory()) continue;
+    try {
+      await fs.access(new URL(`${page.name}/index.html`, appDirectory));
+      pageNames.push(page.name);
+    } catch {
+      // Ignore app subdirectories that are supporting assets rather than pages.
+    }
+  }
+  assert.ok(pageNames.length > 0);
+  for (const pageName of pageNames) {
     const page = await readFrontend(`pages/app/${pageName}/index.html`);
     assert.match(page, /legacy-control\.js/);
+    assert.doesNotMatch(page, /global-language-control|data-global-language|id="languageSelect"/);
   }
-  const userEdit = await readFrontend("pages/app/user-edit/index.html");
-  assert.match(userEdit, /data-global-language/);
-  const profilePanel = await readFrontend("shared/ui/ui.js");
-  assert.match(profilePanel, /data-global-language/);
+  await assert.rejects(fs.access(new URL("../../frontend/pages/app/user-edit/index.html", import.meta.url)));
+  const languageControl = await readFrontend("shared/i18n/legacy-control.js");
+  assert.match(languageControl, /document\.documentElement\.lang = "pt-BR"/);
+  assert.match(languageControl, /applyLegacyTranslations\(document\)/);
+  assert.doesNotMatch(languageControl, /global-language-control|data-global-language|languageSelect/);
 });
 
 test("integration routes expose connection and event boundaries", async () => {
@@ -718,18 +824,21 @@ test("integration routes expose connection and event boundaries", async () => {
   assert.match(routes, /Object\.keys\(credentials\)\.some\(\(key\) => key !== "webhook_secret"\)/);
   assert.doesNotMatch(routes, /credentials\.api_token/);
   assert.doesNotMatch(routes, /success: connected|return \{ connected,/);
-  const migration = await read("sql/migrations/024_integration_reachability_status.sql");
-  assert.match(migration, /UPDATE integration_connections SET status = 'reachable' WHERE status = 'connected'/);
-  assert.match(migration, /ENUM\('disconnected','pending','reachable','error','disabled'\)/);
-  const timestampMigration = await read("sql/migrations/025_integration_last_checked_at.sql");
-  assert.match(timestampMigration, /CHANGE COLUMN last_synced_at last_checked_at DATETIME NULL/);
+  const schema = await read("sqlite/schema.sql");
+  assert.match(schema, /"status" IN \('disconnected', 'pending', 'reachable', 'error', 'disabled'\)/);
+  assert.match(schema, /"last_checked_at" TEXT DEFAULT NULL/);
   assert.match(routes, /last_checked_at/);
   assert.doesNotMatch(routes, /last_synced_at/);
   const page = await readFrontend("pages/app/integrations/index.html");
   const app = await readFrontend("pages/app/integrations/app.js");
-  assert.match(page, /Connectors for iFood, 99Food, Keeta, payments, and logistics are not implemented/);
-  assert.match(page, /signed order\.received events as external orders/);
-  assert.match(page, /does not authenticate with provider APIs, send orders, or sync statuses/);
+  assert.match(page, /option value="ifood"/);
+  assert.match(page, /option value="keeta"/);
+  assert.match(page, /data-i18n="integrationsAvailabilityNotice"/);
+  assert.match(page, /data-i18n="integrationsWebhookNotice"/);
+  const english = await readFrontend("shared/i18n/locales/en.js");
+  assert.match(english, /integrationsAvailabilityNotice: "Provider connectors are not implemented/);
+  assert.match(english, /integrationsWebhookNotice: "Only signed order\.received webhook events can be accepted as external orders/);
+  assert.match(app, /provider connector is not implemented|provider credentials were not checked/);
   assert.doesNotMatch(page, /Token da API/);
   assert.match(app, /Test URL response/);
   assert.match(app, /URL responded · provider not verified/);
@@ -774,7 +883,7 @@ test("business route inventory requires an access check except for documented pu
       unprotected.push(key);
     }
   }
-  assert.ok(registrations.length >= 75, `Route inventory unexpectedly found only ${registrations.length} handlers`);
+  assert.ok(registrations.length >= 73, `Route inventory unexpectedly found only ${registrations.length} handlers`);
   assert.deepEqual(unprotected.sort(), [
     "GET /api/v1/businesses/:businessId/public",
     "POST /api/v1/businesses/:businessId/orders",
@@ -793,13 +902,13 @@ test("local first-run provisions its business explicitly and retries after offli
   const entry = await readFrontend("entry/entry.js");
   const client = await readFrontend("shared/api/client.js");
   const routes = await read("src/routes/auth.js");
-  assert.match(auth, /if \(apiAvailable && LOCAL_MODE\)[\s\S]*await provisionLocalBusiness\(localName\)/);
+  assert.match(auth, /if \(apiAvailable\)[\s\S]*await provisionLocalBusiness\(localName\)/);
   assert.match(entry, /await provisionLocalBusiness\(name\)/);
   assert.match(client, /apiRequest\("\/local\/business", \{ method: "PUT"/);
   assert.match(routes, /app\.put\("\/api\/v1\/local\/business"/);
-  assert.match(routes, /ON CONFLICT\(id\) DO UPDATE SET name = excluded\.name/);
+  assert.match(routes, /ON CONFLICT\(id\) DO NOTHING/);
   assert.doesNotMatch(routes, /ON CONFLICT\(id\)[^\n]*settings = excluded\.settings/);
-  assert.match(auth, /saveBusiness\(\{ id: business\.id, name: business\.name \}\)/);
+  assert.match(auth, /saveBusiness\(\{ id: business\.id, name: business\.name/);
   assert.match(client, /fetch\(`\$\{API_BASE_URL\}\/health`/);
 });
 
@@ -821,7 +930,7 @@ test("frontend health probe reports the database as offline when API health retu
     globalThis.fetch = async (url, options) => {
       requestedUrl = url;
       assert.ok(options.signal);
-      return new Response("{}", { status: Number(process.env.CASE_STATUS) });
+      return new Response(JSON.stringify({ status: "ok", database: "ok" }), { status: Number(process.env.CASE_STATUS) });
     };
     const { pingApi } = await import(${JSON.stringify(clientUrl)});
     assert.equal(await pingApi(), process.env.CASE_STATUS === "200");
@@ -964,7 +1073,7 @@ test("inventory batch operations cap work and stay within database decimal range
   assert.match(routes, /MAX_INVENTORY_QUANTITY = 999_999_999\.999/);
   assert.match(routes, /MAX_UNIT_COST = 99_999_999\.9999/);
   assert.match(routes, /MAX_MONEY = 9_999_999_999\.99/);
-  assert.match(routes, /totalCost \+ lineTotal > MAX_MONEY/);
+  assert.match(routes, /totalCostCents \+ lineCents > MAX_MONEY_CENTS/);
   assert.match(routes, /hasDecimalScale\(input\.quantity, 3\)/);
   assert.match(routes, /hasDecimalScale\(input\.unit_cost, 4\)/);
   assert.match(routes, /hasDecimalScale\(entry\.quantity, 3\)/);
@@ -983,27 +1092,27 @@ test("inventory batch operations cap work and stay within database decimal range
   assert.match(numbers, /Number\(number\.toFixed\(scale\)\) === number/);
 });
 
-test("order migration persists public customer names", async () => {
-  const migration = await read("sql/migrations/021_order_customer_name.sql");
+test("order schema persists public customer names", async () => {
+  const migration = await read("sqlite/schema.sql");
   const orders = await read("src/routes/orders.js");
   const businesses = await read("src/routes/businesses.js");
   const auth = await readFrontend("shared/auth/auth.js");
-  assert.match(migration, /ALTER TABLE orders ADD COLUMN customer_name VARCHAR\(160\) NULL/);
+  assert.match(migration, /"customer_name" TEXT DEFAULT NULL/);
   assert.match(orders, /customer_name: customerName \|\| null/);
   assert.match(businesses, /hasDecimalScale\(business\.settings\.delivery_fee, 2\)/);
   assert.doesNotMatch(auth, /customer_phone: "0000000000"/);
 });
 
-test("order migrations add a business-scoped idempotency key", async () => {
-  const key = await read("sql/migrations/022_order_idempotency_key.sql");
-  assert.match(key, /ADD COLUMN idempotency_key CHAR\(36\) NULL/);
-  assert.match(key, /ADD COLUMN idempotency_hash CHAR\(64\) NULL/);
-  assert.match(key, /UNIQUE KEY uq_orders_business_idempotency \(business_id, idempotency_key\)/);
+test("order schema has a business-scoped idempotency key", async () => {
+  const key = await read("sqlite/schema.sql");
+  assert.match(key, /"idempotency_key" TEXT DEFAULT NULL/);
+  assert.match(key, /"idempotency_hash" TEXT DEFAULT NULL/);
+  assert.match(key, /uq_orders_business_idempotency` UNIQUE \(`business_id`,`idempotency_key`\)/);
 });
 
 test("courier location writes are throttled and retain only the latest position", async () => {
   const delivery = await read("src/routes/delivery.js");
-  const migration = await read("sql/migrations/020_courier_latest_location.sql");
+  const migration = await read("sqlite/schema.sql");
   const server = await read("src/server.js");
   const db = await read("src/db.js");
   assert.match(delivery, /const courierLocationWrites = new Map\(\)/);
@@ -1014,7 +1123,7 @@ test("courier location writes are throttled and retain only the latest position"
   assert.match(delivery, /Invalid courier delivery status transition/);
   assert.match(delivery, /ON CONFLICT\(courier_id\) DO UPDATE SET business_id = excluded\.business_id/);
   assert.match(server, /reply\.header\("Cache-Control", "no-store"\)/);
-  assert.match(migration, /ADD UNIQUE KEY uq_courier_locations_courier \(courier_id\)/);
+  assert.match(migration, /uq_courier_locations_courier` UNIQUE \(`courier_id`\)/);
 });
 
 test("outbound HTTPS probes cap response bytes and total duration", async () => {
@@ -1045,8 +1154,7 @@ test("local app shell collapses navigation to icon rail and opens its profile pa
   const entry = await readFrontend("entry/entry.js");
   const firstRun = await readFrontend("index.html");
   const dashboard = await readFrontend("pages/app/dashboard/index.html");
-  assert.match(auth, /const LOCAL_MODE = true/);
-  assert.match(auth, /if \(LOCAL_MODE\) return ensureLocalSession\(\)/);
+  assert.match(auth, /export const requireAuth = \(\) => ensureLocalSession\(\)/);
   assert.match(shell, /food-system-sidebar-collapsed/);
   assert.match(shell, /setSidebarCollapsedState\(collapsed\)/);
   assert.match(shell, /const scheduleSidebarNavigationScrollSave =/);
@@ -1104,21 +1212,42 @@ test("business validators enforce name, UTF-8 description, and color boundaries"
   assert.equal(hasValidBusinessColor("#12345g"), false);
 });
 
+test("verification panel lists process results and provides green checks, red X marks, and a close button", async () => {
+  const ui = await readFrontend("shared/ui/ui.js");
+  const styles = await readFrontend("styles/base.css");
+  assert.match(ui, /data-profile-view="verification"/);
+  assert.match(ui, /data-verification-close/);
+  assert.match(ui, /data-verification-refresh/);
+  assert.match(ui, /verificationBackendTestsPending/);
+  assert.match(ui, /verificationContractTestsPending/);
+  assert.match(ui, /classList\.toggle\("is-complete"/);
+  assert.match(ui, /verification-panel__status is-pending/);
+  assert.match(styles, /\.verification-panel__status\.is-complete\{background:#16803a\}/);
+  assert.match(styles, /\.verification-panel__status\.is-pending\{background:#dc2626\}/);
+  assert.match(styles, /stroke-width:3\.7/);
+});
+
+test("legacy text translation leaves keyed data-i18n content to its semantic translation", async () => {
+  const i18n = await readFrontend("shared/i18n/i18n.js");
+  assert.match(i18n, /node\.parentElement\?\.closest\("script,style,\[data-i18n\]"\)/);
+});
+
 test("local team is a business-scoped roster and does not claim per-person access control", async () => {
-  const sql = await read("sql/migrations/023_local_team_roster.sql");
+  const sql = await read("sqlite/schema.sql");
   const routes = await read("src/routes/platform.js");
   const page = await readFrontend("pages/app/team/index.html");
   const app = await readFrontend("pages/app/team/app.js");
   const i18n = await readFrontend("shared/i18n/locales/en.js");
-  assert.match(sql, /CREATE TABLE IF NOT EXISTS local_team_members/);
-  assert.match(sql, /FOREIGN KEY \(business_id\) REFERENCES businesses\(id\) ON DELETE CASCADE/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS "local_team_members"/);
+  assert.match(sql, /"fk_local_team_business" FOREIGN KEY \("business_id"\) REFERENCES "businesses" \("id"\) ON DELETE CASCADE/);
   assert.match(routes, /if \(user\.local\) \{\s+const \[members\] = await pool\.query\([\s\S]+?FROM local_team_members WHERE business_id = \?/);
   assert.match(routes, /INSERT INTO local_team_members \(id, business_id, name, role\)/);
   assert.match(routes, /UPDATE local_team_members SET role = \? WHERE id = \? AND business_id = \?/);
   assert.match(routes, /DELETE FROM local_team_members WHERE id = \? AND business_id = \?/);
-  assert.match(page, /no individual sign-in, these roles are informational only/);
-  assert.match(page, /Team directory/);
+  assert.match(page, /data-i18n="teamRolesInfoNotice"/);
+  assert.match(page, /data-i18n="teamTitle"/);
   assert.match(i18n, /teamEyebrow: "Team directory"/);
+  assert.match(i18n, /teamIntro: "Manage your team directory\. Since the system runs locally and has no individual sign-in, these roles are informational only\."/);
   assert.doesNotMatch(i18n, /Choose who can access the system|Access role for|People with access/);
   assert.doesNotMatch(page, /memberEmail|email@restaurant\.com|Access role/);
   assert.match(page, /minlength="2" maxlength="160"/);
@@ -1128,12 +1257,12 @@ test("local team is a business-scoped roster and does not claim per-person acces
 test("local administrator mutations are written to the audit log without a fake user account", async () => {
   const audit = await read("src/audit.js");
   const server = await read("src/server.js");
-  const schema = await read("sql/migrations/008_security.sql");
+  const schema = await read("sqlite/schema.sql");
   assert.match(audit, /if \(!user\) return/);
   assert.match(audit, /const auditUserId = user\.local \? null : user\.id \|\| null/);
   assert.match(audit, /user\.business_id \|\| null, auditUserId/);
   assert.doesNotMatch(server, /request\.user\.local \|\| request\.auditRecorded/);
-  assert.match(schema, /user_id CHAR\(36\) NULL/);
+  assert.match(schema, /"user_id" TEXT DEFAULT NULL/);
 });
 
 test("menu QR codes are generated locally without sending the target URL to a QR service", async () => {
@@ -1168,10 +1297,18 @@ test("customer and supplier fields are bounded before database writes", async ()
 
 test("SQLite backup and restore recognize the active database schema", async () => {
   const db = await read("src/db.js");
-  const backup = await read("src/routes/backups.js");
+  const backup = await read("src/backup.js");
+  const backupRoute = await read("src/routes/backups.js");
   const restore = await read("src/restore.js");
+  const backupApp = await readFrontend("pages/app/backups/app.js");
+  const pt = await readFrontend("shared/i18n/locales/pt.js");
   assert.match(db, /sqlite_initial_schema/);
-  assert.match(backup, /createDatabaseBackup/);
+  assert.match(backup, /createDatabaseBackup\(temporaryDatabase\)/);
+  assert.match(backup, /encryptFile\(temporaryDatabase, temporaryOutput\)/);
+  assert.match(backupRoute, /src\/backup\.js/);
+  assert.match(backupApp, /Backup encryption key is not configured/);
+  assert.match(backupApp, /backupEncryptionKeyRequired/);
+  assert.match(pt, /backupEncryptionKeyRequired: "Configure FOOD_SYSTEM_SECRET_KEY/);
   assert.match(restore, /SQLite restore source is invalid/);
   assert.match(restore, /replaceDatabase/);
 });

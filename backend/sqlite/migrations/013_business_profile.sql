@@ -1,0 +1,2 @@
+ALTER TABLE businesses ADD COLUMN profile_phone TEXT DEFAULT NULL;
+ALTER TABLE businesses ADD COLUMN profile_avatar TEXT DEFAULT NULL;

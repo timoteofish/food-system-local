@@ -61,18 +61,12 @@ textarea{
 .cash-history,
 .purchase-shell,
 .payment-panel,
-.login-panel,
-.signup-panel,
-.recover-panel,
 .browser-window,
 .menu-preview{
   min-width:0;
 }
 
-/* Public/auth pages */
-.login-page .shell,
-.register-page .shell,
-.recover-page .shell,
+/* Public payment pages */
 .payment-page .shell,
 .plans-page .shell{
   width:100%;
@@ -80,26 +74,15 @@ textarea{
   padding:var(--app-safe-gap);
 }
 
-.login-panel,
-.signup-panel,
-.recover-panel,
 .payment-panel{
   width:min(420px,100%);
   margin-inline:auto !important;
 }
 
-.register-layout{
-  width:min(420px,100%);
-  margin-inline:auto;
-}
-
-.terms,
-.login-options,
-.auth-switch{
+.terms{
   width:100%;
 }
 
-.terms-panel,
 .user-edit-panel,
 .business-onboarding-panel,
 .qr-code-panel,
@@ -514,8 +497,7 @@ body.menu-sidebar-collapsed .profile-label,
   .cash-history,
   .menu-builder,
   .payment-panel,
-  .purchase-shell,
-  .user-edit-card{
+  .purchase-shell{
     width:100%;
   }
 
@@ -758,10 +740,7 @@ body.menu-sidebar-collapsed .profile-label,
   .orders-board__toolbar .orders-filter,
   .cash-controls input,
   .table-controls input,
-  .product-form .btn,
-  .user-edit-card__header .btn,
-  .user-edit-card__avatar > .btn,
-  .user-edit-card__section .btn{
+  .product-form .btn{
     width:100%;
   }
 
@@ -809,7 +788,6 @@ body.menu-sidebar-collapsed .profile-label,
 
   .table-controls,
   .cash-history__head,
-  .user-edit-card__header,
   .payment-panel__header,
   .purchase-shell__header{
     min-width:0;
@@ -913,10 +891,7 @@ body.menu-sidebar-collapsed .profile-label,
   .cash-history,
   .plan-card,
   .selected-plan-card,
-  .payment-panel,
-  .login-panel,
-  .signup-panel,
-  .recover-panel{
+  .payment-panel{
     padding:10px !important;
   }
 }
@@ -924,31 +899,23 @@ body.menu-sidebar-collapsed .profile-label,
 /* Small-screen safety net for forms and dialogs rendered dynamically. */
 @media(max-width:600px){
   .shell,
-  .page,
-  .user-edit-page{
+  .page{
     padding:12px !important;
   }
 
-  .login-panel,
-  .signup-panel,
-  .recover-panel,
   .payment-panel,
-  .purchase-shell,
-  .user-edit-card{
+  .purchase-shell{
     width:100% !important;
     max-width:100% !important;
   }
 
-  .auth-form,
   .payment-form,
-  .user-edit-form,
   .business-onboarding-panel__form,
   .user-edit-panel__settings-grid,
   .user-edit-panel__settings-shell{
     grid-template-columns:1fr !important;
   }
 
-  .terms-panel,
   .business-onboarding-panel,
   .qr-code-panel,
   .category-user-panel,

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
-import { hasDecimalScale } from "../numbers.js";
+import { discountCents, hasDecimalScale, toMinorUnits } from "../numbers.js";
 
 const isMoney = (value) => Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 99999999.99;
 const MAX_LOYALTY_POINTS_PER_OPERATION = 1_000_000;
@@ -41,8 +41,9 @@ export default async function customerValueRoutes(app) {
     const [rows] = await pool.query("SELECT * FROM discounts WHERE business_id = ? AND code = ? AND active = TRUE AND (starts_at IS NULL OR starts_at <= NOW()) AND (ends_at IS NULL OR ends_at >= NOW()) LIMIT 1", [request.params.businessId, code]);
     if (!rows.length) return reply.notFound("Discount not found");
     const discount = rows[0];
-    const amount = Math.min(subtotal, discount.type === "percentage" ? subtotal * Number(discount.value) / 100 : Number(discount.value));
-    return { discount: { id: discount.id, name: discount.name, amount: Number(amount.toFixed(2)), total: Number((subtotal - amount).toFixed(2)) } };
+    const subtotalCents = toMinorUnits(subtotal);
+    const amount = discountCents(subtotalCents, discount.type, discount.value);
+    return { discount: { id: discount.id, name: discount.name, amount: amount / 100, total: (subtotalCents - amount) / 100 } };
   });
 
   app.get("/api/v1/businesses/:businessId/customers/:customerId/loyalty", async (request, reply) => {

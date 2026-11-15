@@ -11,6 +11,9 @@ const confirmCreateButton = document.getElementById("confirmCreateBackup");
 const backupStatus = document.getElementById("backupStatus");
 const backupList = document.getElementById("backupList");
 const backupUnits = ["B", "KB", "MB", "GB", "TB"];
+let backupOperationInProgress = false;
+let backupListLoadSequence = 0;
+let backupPageReady = false;
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>\'"]/g, (character) => ({
   "&": "&amp;",
@@ -43,6 +46,43 @@ const setStatus = (message = "", type = "success") => {
   backupStatus.dataset.state = message ? type : "";
 };
 
+const setStatusText = (message = "", type = "success") => {
+  backupStatus.textContent = message;
+  backupStatus.hidden = !message;
+  backupStatus.dataset.state = message ? type : "";
+};
+
+const setBackupActionsDisabled = (disabled) => {
+  const locked = disabled || !backupPageReady;
+  createButton.disabled = locked;
+  confirmCreateButton.disabled = locked;
+  backupList.querySelectorAll("[data-restore]").forEach((button) => { button.disabled = locked; });
+};
+
+setBackupActionsDisabled(true);
+
+const getBackupLoadError = (error) => error?.apiMessage === "Backup encryption key is not configured"
+  ? translate("backupEncryptionKeyRequired")
+  : error?.message || translate("loadRetryError");
+
+const getBackupRestoreError = (error) => {
+  const messages = {
+    "Restore failed; the original database was recovered from its safety backup": "backupRestoreRecovered",
+    "Restore failed due to insufficient storage; the original database was recovered": "backupRestoreStorageRecovered",
+    "Insufficient storage for restore": "backupRestoreStorageFull",
+    "Current database failed integrity validation; a restorable safety backup could not be created": "backupRestoreCurrentInvalid",
+    "Restore and automatic recovery failed. The API remains in maintenance; contact support before restarting.": "backupRestoreMaintenance",
+    "The backup was restored, but its audit record could not be saved. Check the restore state before retrying.": "backupRestoreAuditUncertain",
+    "Backup requires a different application version": "backupRestoreVersionMismatch",
+    "Stop the print worker or review an existing restore lock before restoring": "backupRestoreWorkerConflict",
+    "Stop the print or backup worker or review an existing restore lock before restoring": "backupRestoreWorkerConflict",
+    "Stop print, backup or maintenance workers, or review an existing restore lock before restoring": "backupRestoreWorkerConflict",
+    "Stop other API, print, backup or maintenance processes, or review an existing restore lock before restoring": "backupRestoreWorkerConflict",
+  };
+  const key = messages[error?.apiMessage];
+  return key ? translate(key) : error?.message || translate("Could not restore the backup Try again");
+};
+
 const renderBackups = (backups) => {
   if (!backups.length) {
     backupList.innerHTML = `<p class="operation-empty">${translate("No backups available")}</p>`;
@@ -59,7 +99,7 @@ const renderBackups = (backups) => {
           <strong>${escapeHtml(name)}</strong>
           ${size ? `<span>${escapeHtml(size)}</span>` : ""}
         </div>
-        <button class="btn btn--secondary" data-restore="${escapeHtml(name)}" type="button">
+        <button class="btn btn--secondary" data-restore="${escapeHtml(name)}" type="button" ${backupOperationInProgress ? "disabled" : ""}>
           ${translate("Restore")}
         </button>
       </article>
@@ -67,14 +107,19 @@ const renderBackups = (backups) => {
   }).join("");
 };
 
-const loadBackups = async () => {
+const loadBackups = async ({ preserveStatus = false } = {}) => {
+  const requestSequence = ++backupListLoadSequence;
   backupList.innerHTML = `<p class="operation-empty">${translate("Loading backups")}</p>`;
-  setStatus();
+  if (!preserveStatus) setStatus();
   try {
     const data = await apiRequest(`/businesses/${businessId}/backups`);
+    if (requestSequence !== backupListLoadSequence) return;
     renderBackups(Array.isArray(data.backups) ? data.backups : []);
+    setBackupActionsDisabled(backupOperationInProgress);
   } catch (error) {
-    backupList.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(translate("loadRetryError"))}</p><button class="btn btn--secondary" type="button" data-backup-retry>${translate("Try again")}</button></div>`;
+    if (requestSequence !== backupListLoadSequence) return;
+    backupList.innerHTML = `<div class="operation-empty" role="alert"><p>${escapeHtml(getBackupLoadError(error))}</p><button class="btn btn--secondary" type="button" data-backup-retry>${translate("Try again")}</button></div>`;
+    setBackupActionsDisabled(backupOperationInProgress);
   }
 };
 
@@ -89,6 +134,7 @@ const closeCreateModal = () => {
 };
 
 createButton.addEventListener("click", () => {
+  if (backupOperationInProgress) return;
   createModal.hidden = false;
   document.body.classList.add("modal-open");
   confirmCreateButton.focus();
@@ -103,50 +149,55 @@ document.addEventListener("keydown", (event) => {
 });
 
 confirmCreateButton.addEventListener("click", async () => {
-  if (confirmCreateButton.disabled) return;
-  confirmCreateButton.disabled = true;
-  createButton.disabled = true;
+  if (backupOperationInProgress || confirmCreateButton.disabled) return;
+  backupOperationInProgress = true;
   closeCreateModal();
+  setBackupActionsDisabled(true);
   setStatus("Creating backup");
 
   try {
-    await apiRequest(`/businesses/${businessId}/backups`, { method: "POST" });
-    setStatus("Backup created");
-    await loadBackups();
+    const result = await apiRequest(`/businesses/${businessId}/backups`, { method: "POST" });
+    const warning = result.cleanup_warning && result.audit_recorded === false ? "backupCreatedBothWarnings" : result.cleanup_warning ? "backupCreatedCleanupWarning" : result.audit_recorded === false ? "backupCreatedAuditWarning" : "backupCreatedLocalNotice";
+    setStatus(warning, result.cleanup_warning || result.audit_recorded === false ? "error" : "success");
+    await loadBackups({ preserveStatus: true });
   } catch (error) {
-    setStatus("Could not create the backup Try again", "error");
+    setStatus(error?.apiMessage === "Backup encryption key is not configured" ? "backupEncryptionKeyRequired" : error?.apiMessage === "Insufficient storage for backup" ? "backupCreateStorageFull" : error?.apiMessage === "Backup failed integrity validation" ? "backupCreateInvalid" : "Could not create the backup Try again", "error");
   } finally {
-    createButton.disabled = false;
-    confirmCreateButton.disabled = false;
+    backupOperationInProgress = false;
+    setBackupActionsDisabled(false);
   }
 });
 
 backupList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-restore]");
-  if (!button || button.disabled) return;
+  if (!button || button.disabled || backupOperationInProgress) return;
 
   const backupName = button.dataset.restore;
-  const confirmation = `${translate("Restore")} ${backupName}${translate("? Current data will be replaced")}.`;
+  const confirmation = `${translate("Restore")} ${backupName}${translate("? Current data will be replaced")}. ${translate("backupStopExternalWorkers")}`;
   if (!window.confirm(confirmation)) return;
 
-  button.disabled = true;
+  backupOperationInProgress = true;
+  setBackupActionsDisabled(true);
   setStatus("Restoring backup");
   try {
-    await apiRequest(`/businesses/${businessId}/backups/restore`, {
+    const result = await apiRequest(`/businesses/${businessId}/backups/restore`, {
       method: "POST",
       body: { name: backupName },
     });
-    setStatus("Backup restored Restart the app if needed");
+    const warning = result.cleanup_warning && result.audit_recorded === false ? "backupRestoreBothWarnings" : result.cleanup_warning ? "backupRestoreCleanupWarning" : result.audit_recorded === false ? "backupRestoreAuditUncertain" : "Backup restored Restart the app if needed";
+    setStatus(warning, result.cleanup_warning || result.audit_recorded === false ? "error" : "success");
   } catch (error) {
-    setStatus("Could not restore the backup Try again", "error");
+    setStatusText(getBackupRestoreError(error), "error");
   } finally {
-    if (button.isConnected) button.disabled = false;
+    backupOperationInProgress = false;
+    setBackupActionsDisabled(false);
   }
 });
 
 const start = async () => {
   try {
     await initAppShell({ activeNav: "backups" });
+    backupPageReady = true;
     await loadBackups();
   } catch (error) {
     setStatus("Could not open backups", "error");

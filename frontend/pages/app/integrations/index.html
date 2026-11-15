@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Integrations | Food System</title>
+    <title>Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <link rel="stylesheet" href="../../../styles/base.css" />
     <link rel="stylesheet" href="../../../styles/shared/app-shell.css" />
@@ -59,6 +59,8 @@
         <div class="page-title">
           <div>
             <h1>Integrations</h1>
+            <p data-i18n="integrationsAvailabilityNotice">Provider connectors are not implemented. The system does not authenticate with provider APIs, send orders, or sync statuses.</p>
+            <p data-i18n="integrationsWebhookNotice">Only signed order.received webhook events can be accepted as external orders.</p>
           </div>
           <span class="integration-loading" id="integrationLoading" role="status" aria-live="polite"><span data-integration-loading-label>Loading</span><span class="integration-loading__dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></span>
         </div>

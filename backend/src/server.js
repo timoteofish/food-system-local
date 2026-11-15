@@ -1,12 +1,13 @@
+import "./server-registration.js";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
 import { config } from "./config.js";
+import { isLoopbackHttpOrigin } from "./local-origin.js";
 import { checkDatabase, pool } from "./db.js";
 import businessesRoutes from "./routes/businesses.js";
 import catalogRoutes from "./routes/catalog.js";
 import tableRoutes from "./routes/tables.js";
-import diningTabRoutes from "./routes/dining-tabs.js";
 import orderRoutes from "./routes/orders.js";
 import cashRoutes from "./routes/cash.js";
 import authRoutes from "./routes/auth.js";
@@ -21,7 +22,7 @@ import fiscalRoutes from "./routes/fiscal.js";
 import deliveryRoutes from "./routes/delivery.js";
 import kitchenRoutes from "./routes/kitchen.js";
 import { audit } from "./audit.js";
-import { enterRequest, leaveRequest } from "./maintenance.js";
+import { enterRequest, leaveRequest, enterWork, leaveWork, trackRouteWork, isRestoreInProgress } from "./maintenance.js";
 
 const app = Fastify({ logger: true, trustProxy: false, bodyLimit: 5 * 1024 * 1024 });
 let shutdownStarted = false;
@@ -35,11 +36,12 @@ const testRateLimitBypass = config.nodeEnv === "test" && process.env.FOOD_SYSTEM
 await app.register(sensible);
 await app.register(cors, {
   origin: (origin, callback) => {
-    if (!origin || config.corsOrigins.includes(origin)) return callback(null, true);
+    if (!origin || config.corsOrigins.includes(origin) || (config.allowLocalHeader && isLoopbackHttpOrigin(origin))) return callback(null, true);
     return callback(new Error("Origin not allowed"), false);
   },
   credentials: false,
 });
+app.addHook("onRoute", trackRouteWork);
 app.addHook("onRequest", async (request, reply) => {
   if (!enterRequest()) return reply.serviceUnavailable("Database restore is in progress; retry shortly");
   request.maintenanceRequest = true;
@@ -86,8 +88,13 @@ app.addHook("onSend", async (_request, reply) => {
   if (config.nodeEnv === "production") reply.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 });
 app.addHook("onResponse", async (request, reply) => {
+  enterWork();
   try {
-    if (!request.user || request.auditRecorded || !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return;
+    if (!request.user || request.auditRecorded || request.auditAttempted || !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return;
+    if (isRestoreInProgress()) {
+      app.log.warn({ method: request.method, route: request.routeOptions?.url }, "Skipped late administrative audit during database restore");
+      return;
+    }
     try {
       await audit(request, request.user, `HTTP ${request.method} ${request.routeOptions?.url || request.url}`.slice(0, 120), null, null, { status_code: reply.statusCode });
     } catch (error) {
@@ -95,12 +102,12 @@ app.addHook("onResponse", async (request, reply) => {
     }
   } finally {
     releaseMaintenanceRequest(request);
+    leaveWork();
   }
 });
 await app.register(businessesRoutes);
 await app.register(catalogRoutes);
 await app.register(tableRoutes);
-await app.register(diningTabRoutes);
 await app.register(orderRoutes);
 await app.register(cashRoutes);
 await app.register(authRoutes);

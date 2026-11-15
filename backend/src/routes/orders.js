@@ -3,11 +3,13 @@ import { pool } from "../db.js";
 import { requireBusinessAccess, requireRole } from "./auth.js";
 import { audit } from "../audit.js";
 import { canTransitionOrderStatus } from "../order-status.js";
-import { hasDecimalScale, toMinorUnits } from "../numbers.js";
+import { discountCents, hasDecimalScale, orderLineCents, stockDemandMicroUnits, stockDemandQuantity, toMinorUnits } from "../numbers.js";
+import { localDateString, localDayBoundaryUtc } from "../local-date.js";
 import { hydrateOrders } from "../order-hydration.js";
 
 const statuses = new Set(["pending", "confirmed", "preparing", "ready", "out_for_delivery", "completed", "cancelled"]);
 const number = (value) => Number(Number(value).toFixed(2));
+const stockUnits = (value) => toMinorUnits(value, 3);
 const MAX_ORDER_AMOUNT = 99999999.99;
 const MAX_ORDER_ITEMS = 100;
 const MAX_PAYMENT_ALLOCATIONS = 20;
@@ -15,6 +17,125 @@ const validId = (value) => typeof value === "string" && value.length > 0 && valu
 const validTableToken = (value) => typeof value === "string" && /^[0-9a-f]{48}$/i.test(value);
 const validIdempotencyKey = (value) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+
+const findOrderReplay = async (connection, businessId, idempotencyKey, requestHash) => {
+  const [existing] = await connection.query("SELECT * FROM orders WHERE business_id = ? AND idempotency_key = ? LIMIT 1", [businessId, idempotencyKey]);
+  if (!existing.length) return null;
+  const saved = existing[0];
+  if (saved.idempotency_hash !== requestHash) return { conflict: true };
+  const [items] = await connection.query("SELECT id, product_id, name, unit_price, quantity, total FROM order_items WHERE order_id = ? ORDER BY created_at", [saved.id]);
+  let address = saved.delivery_address;
+  if (typeof address === "string") {
+    try { address = JSON.parse(address); } catch { address = null; }
+  }
+  return { order: {
+    id: saved.id, business_id: saved.business_id, restaurant_table_id: saved.restaurant_table_id,
+    dining_tab_id: saved.dining_tab_id, customer_id: saved.customer_id, customer_name: saved.customer_name,
+    delivery_address: address, delivery_fee: Number(saved.delivery_fee), scheduled_for: saved.scheduled_for,
+    payment_method_id: saved.payment_method_id, discount_code: saved.discount_code,
+    discount_amount: Number(saved.discount_amount), status: saved.status, subtotal: Number(saved.subtotal),
+    total: Number(saved.total),
+    items: items.map((item) => ({ ...item, unit_price: Number(item.unit_price), quantity: Number(item.quantity), total: Number(item.total) })),
+  } };
+};
+
+const calculateRecipeRequirements = async (connection, businessId, productQuantities) => {
+  const requirements = new Map();
+  for (const [productId, quantity] of productQuantities) {
+    if (quantity <= 0) continue;
+    const [recipe] = await connection.query("SELECT inventory_item_id, quantity FROM product_ingredients WHERE product_id = ? AND business_id = ?", [productId, businessId]);
+    for (const ingredient of recipe) requirements.set(ingredient.inventory_item_id, (requirements.get(ingredient.inventory_item_id) || 0n) + stockDemandMicroUnits(ingredient.quantity, quantity));
+  }
+  return new Map([...requirements].map(([id, microUnits]) => [id, stockDemandQuantity(microUnits)]));
+};
+
+export const reserveOrderInventory = async (connection, businessId, orderId, userId) => {
+  const [existing] = await connection.query("SELECT id FROM inventory_reservations WHERE business_id = ? AND order_id = ? AND status = 'held' LIMIT 1", [businessId, orderId]);
+  if (existing.length) return existing[0].id;
+  const [orderItems] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
+  const productReservations = new Map();
+  const remainingProducts = new Map();
+  for (const row of orderItems) {
+    const productId = row.product_id;
+    const demand = Number(row.quantity);
+    const [availableRows] = await connection.query("SELECT COALESCE(SUM(current_quantity), 0) AS quantity FROM inventory_product_lots WHERE EXISTS (SELECT 1 FROM inventory_locations loc WHERE loc.id = inventory_product_lots.location_id AND loc.business_id = inventory_product_lots.business_id AND loc.active = TRUE) AND business_id = ? AND product_id = ? AND status = 'active' AND current_quantity > 0 AND (expires_at IS NULL OR expires_at >= date('now','localtime'))", [businessId, productId]);
+    const [heldRows] = await connection.query("SELECT COALESCE(SUM(pi.quantity), 0) AS quantity FROM inventory_reservation_product_items pi JOIN inventory_reservations r ON r.id = pi.reservation_id WHERE pi.business_id = ? AND pi.product_id = ? AND r.status = 'held'", [businessId, productId]);
+    const alreadyReserved = productReservations.get(productId) || 0;
+    const finishedQty = Math.min(stockUnits(demand), Math.max(0, stockUnits(availableRows[0].quantity) - stockUnits(heldRows[0].quantity) - stockUnits(alreadyReserved))) / 1000;
+    if (finishedQty > 0) productReservations.set(productId, Number((alreadyReserved + finishedQty).toFixed(3)));
+    remainingProducts.set(productId, Number(((remainingProducts.get(productId) || 0) + demand - finishedQty).toFixed(3)));
+  }
+  const requirements = await calculateRecipeRequirements(connection, businessId, remainingProducts);
+  for (const [inventoryItemId, required] of [...requirements].sort(([left], [right]) => left.localeCompare(right))) {
+    const [inventory] = await connection.query("SELECT i.id, COALESCE(SUM(l.current_quantity), 0) AS current_quantity FROM inventory_items i LEFT JOIN inventory_lots l ON l.inventory_item_id = i.id AND l.business_id = i.business_id AND EXISTS (SELECT 1 FROM inventory_locations loc WHERE loc.id = l.location_id AND loc.business_id = l.business_id AND loc.active = TRUE) AND l.status = 'active' AND (l.expires_at IS NULL OR l.expires_at >= date('now','localtime')) WHERE i.id = ? AND i.business_id = ? AND i.active = TRUE GROUP BY i.id", [inventoryItemId, businessId]);
+    if (!inventory.length) throw new Error("Inventory item for this order is no longer active");
+    const [reservedRows] = await connection.query("SELECT COALESCE(SUM(ri.quantity), 0) AS quantity FROM inventory_reservation_items ri JOIN inventory_reservations r ON r.id = ri.reservation_id WHERE ri.business_id = ? AND ri.inventory_item_id = ? AND r.status = 'held'", [businessId, inventoryItemId]);
+    if (stockUnits(inventory[0].current_quantity) - stockUnits(reservedRows[0].quantity) < stockUnits(required)) throw new Error("Insufficient unreserved inventory to confirm this order");
+  }
+  const reservationId = randomUUID();
+  await connection.query("INSERT INTO inventory_reservations (id, business_id, order_id, created_by) VALUES (?, ?, ?, ?)", [reservationId, businessId, orderId, userId]);
+  for (const [inventoryItemId, quantity] of requirements) await connection.query("INSERT INTO inventory_reservation_items (id, business_id, reservation_id, inventory_item_id, quantity) VALUES (?, ?, ?, ?, ?)", [randomUUID(), businessId, reservationId, inventoryItemId, quantity]);
+  for (const [productId, quantity] of productReservations) await connection.query("INSERT INTO inventory_reservation_product_items (id, business_id, reservation_id, product_id, quantity) VALUES (?, ?, ?, ?, ?)", [randomUUID(), businessId, reservationId, productId, quantity]);
+  return reservationId;
+};
+
+const calculateUnreservedOrderConsumption = async (connection, businessId, orderId) => {
+  const [orderItems] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
+  const productConsumption = new Map();
+  const remainingProducts = new Map();
+  for (const row of orderItems) {
+    const productId = row.product_id;
+    const demand = Number(row.quantity);
+    const [availableRows] = await connection.query("SELECT COALESCE(SUM(current_quantity), 0) AS quantity FROM inventory_product_lots WHERE EXISTS (SELECT 1 FROM inventory_locations loc WHERE loc.id = inventory_product_lots.location_id AND loc.business_id = inventory_product_lots.business_id AND loc.active = TRUE) AND business_id = ? AND product_id = ? AND status = 'active' AND current_quantity > 0 AND (expires_at IS NULL OR expires_at >= date('now','localtime'))", [businessId, productId]);
+    const [heldRows] = await connection.query("SELECT COALESCE(SUM(pi.quantity), 0) AS quantity FROM inventory_reservation_product_items pi JOIN inventory_reservations r ON r.id = pi.reservation_id WHERE pi.business_id = ? AND pi.product_id = ? AND r.status = 'held'", [businessId, productId]);
+    const alreadyConsumed = productConsumption.get(productId) || 0;
+    const finishedQty = Math.min(stockUnits(demand), Math.max(0, stockUnits(availableRows[0].quantity) - stockUnits(heldRows[0].quantity) - stockUnits(alreadyConsumed))) / 1000;
+    if (finishedQty > 0) productConsumption.set(productId, Number((alreadyConsumed + finishedQty).toFixed(3)));
+    remainingProducts.set(productId, Number(((remainingProducts.get(productId) || 0) + demand - finishedQty).toFixed(3)));
+  }
+  return { productConsumption, ingredientRequirements: await calculateRecipeRequirements(connection, businessId, remainingProducts) };
+};
+
+const consumeFinishedProducts = async (connection, businessId, productConsumption, reservationId) => {
+  for (const [productId, quantity] of [...productConsumption].sort(([a], [b]) => a.localeCompare(b))) {
+    if (quantity <= 0) continue;
+    const [lots] = await connection.query("SELECT id, current_quantity FROM inventory_product_lots WHERE EXISTS (SELECT 1 FROM inventory_locations loc WHERE loc.id = inventory_product_lots.location_id AND loc.business_id = inventory_product_lots.business_id AND loc.active = TRUE) AND business_id = ? AND product_id = ? AND status = 'active' AND current_quantity > 0 AND (expires_at IS NULL OR expires_at >= date('now','localtime')) ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END, expires_at, created_at, id", [businessId, productId]);
+    const [held] = await connection.query("SELECT COALESCE(SUM(pi.quantity), 0) AS quantity FROM inventory_reservation_product_items pi JOIN inventory_reservations r ON r.id = pi.reservation_id WHERE pi.business_id = ? AND pi.product_id = ? AND r.status = 'held' AND (? IS NULL OR r.id <> ?)", [businessId, productId, reservationId, reservationId]);
+    if (lots.reduce((sum, lot) => sum + stockUnits(lot.current_quantity), 0) - stockUnits(held[0].quantity) < stockUnits(quantity)) throw new Error("Finished production stock no longer matches its held reservation");
+    let remaining = quantity;
+    for (const lot of lots) {
+      if (remaining <= 0) break;
+      const taken = Math.min(remaining, Number(lot.current_quantity));
+      await connection.query("UPDATE inventory_product_lots SET current_quantity = ROUND(current_quantity - ?, 3), status = CASE WHEN ROUND(current_quantity - ?, 3) <= 0 THEN 'depleted' ELSE status END WHERE id = ?", [taken, taken, lot.id]);
+      remaining = Number((remaining - taken).toFixed(3));
+    }
+  }
+};
+
+const consumeOrderInventory = async (connection, businessId, orderId, userId, requirements, reservationId) => {
+  for (const [inventoryItemId, required] of [...requirements].sort(([left], [right]) => left.localeCompare(right))) {
+    const [inventory] = await connection.query("SELECT current_quantity FROM inventory_items WHERE id = ? AND business_id = ? AND active = TRUE FOR UPDATE", [inventoryItemId, businessId]);
+    if (!inventory.length) throw new Error("Insufficient inventory to complete order");
+    const [lots] = await connection.query("SELECT id, location_id, current_quantity FROM inventory_lots WHERE EXISTS (SELECT 1 FROM inventory_locations loc WHERE loc.id = inventory_lots.location_id AND loc.business_id = inventory_lots.business_id AND loc.active = TRUE) AND business_id = ? AND inventory_item_id = ? AND status = 'active' AND current_quantity > 0 AND (expires_at IS NULL OR expires_at >= date('now','localtime')) ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END, expires_at, received_at, id", [businessId, inventoryItemId]);
+    const available = lots.reduce((sum, lot) => sum + stockUnits(lot.current_quantity), 0);
+    const [held] = await connection.query("SELECT COALESCE(SUM(ri.quantity), 0) AS quantity FROM inventory_reservation_items ri JOIN inventory_reservations r ON r.id = ri.reservation_id WHERE ri.business_id = ? AND ri.inventory_item_id = ? AND r.status = 'held' AND (? IS NULL OR r.id <> ?)", [businessId, inventoryItemId, reservationId, reservationId]);
+    if (available - stockUnits(held[0].quantity) < stockUnits(required)) throw new Error("Insufficient unreserved inventory to complete this order");
+    const movementId = randomUUID();
+    const allocations = [];
+    let remaining = required;
+    for (const lot of lots) {
+      if (remaining <= 0) break;
+      const taken = Math.min(remaining, Number(lot.current_quantity));
+      await connection.query("UPDATE inventory_lots SET current_quantity = ROUND(current_quantity - ?, 3), status = CASE WHEN ROUND(current_quantity - ?, 3) <= 0 THEN 'depleted' ELSE status END WHERE id = ?", [taken, taken, lot.id]);
+      allocations.push({ lot_id: lot.id, location_id: lot.location_id, quantity: taken });
+      remaining = Number((remaining - taken).toFixed(3));
+    }
+    const [remainingRows] = await connection.query("SELECT COALESCE(SUM(current_quantity), 0) AS quantity FROM inventory_lots WHERE EXISTS (SELECT 1 FROM inventory_locations loc WHERE loc.id = inventory_lots.location_id AND loc.business_id = inventory_lots.business_id AND loc.active = TRUE) AND business_id = ? AND inventory_item_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at >= date('now','localtime'))", [businessId, inventoryItemId]);
+    await connection.query("UPDATE inventory_items SET current_quantity = ? WHERE id = ? AND business_id = ?", [Number(remainingRows[0].quantity), inventoryItemId, businessId]);
+    await connection.query("INSERT INTO inventory_movements (id, business_id, inventory_item_id, order_id, type, quantity, description, created_by) VALUES (?, ?, ?, ?, 'sale', ?, ?, ?)", [movementId, businessId, inventoryItemId, orderId, -required, "Automatic order stock deduction", userId]);
+    for (const allocation of allocations) await connection.query("INSERT INTO inventory_movement_lot_allocations (id, business_id, movement_id, lot_id, quantity) VALUES (?, ?, ?, ?, ?)", [randomUUID(), businessId, movementId, allocation.lot_id, allocation.quantity]);
+  }
+};
 
 export default async function orderRoutes(app) {
   app.post("/api/v1/businesses/:businessId/orders/:id/print-jobs", async (request, reply) => {
@@ -47,11 +168,17 @@ export default async function orderRoutes(app) {
     if (!(await requireBusinessAccess(request, reply))) return;
     const status = request.query?.status;
     const stationId = request.query?.station_id;
+    const view = request.query?.view;
     const params = [request.params.businessId];
     let where = "o.business_id = ?";
+    if (view !== undefined && !["kitchen", "active", "recent"].includes(view)) throw app.httpErrors.badRequest("Invalid order view");
+    if (view && status) throw app.httpErrors.badRequest("Order view cannot be combined with status");
+    if (view === "kitchen") where += " AND o.status IN ('pending', 'confirmed', 'preparing', 'ready')";
+    if (view === "active") where += " AND o.status IN ('pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery')";
     if (status) { if (!statuses.has(status)) throw app.httpErrors.badRequest("Invalid order status"); where += " AND o.status = ?"; params.push(status); }
     if (stationId) { where += " AND EXISTS (SELECT 1 FROM order_items soi JOIN products sop ON sop.id = soi.product_id WHERE soi.order_id = o.id AND sop.kitchen_station_id = ? AND sop.business_id = ?)"; params.push(stationId, request.params.businessId); }
-    const [orders] = await pool.query(`SELECT o.*, t.name AS table_name, dt.status AS tab_status FROM orders o LEFT JOIN restaurant_tables t ON t.id = o.restaurant_table_id LEFT JOIN dining_tabs dt ON dt.id = o.dining_tab_id WHERE ${where} ORDER BY COALESCE(o.scheduled_for, o.created_at) DESC`, params);
+    const ordering = view === "recent" ? "o.created_at DESC, o.id DESC LIMIT 3" : "COALESCE(o.scheduled_for, o.created_at) DESC";
+    const [orders] = await pool.query(`SELECT o.*, t.name AS table_name FROM orders o LEFT JOIN restaurant_tables t ON t.id = o.restaurant_table_id WHERE ${where} ORDER BY ${ordering}`, params);
     return { orders: await hydrateOrders(orders, pool.query.bind(pool)) };
   });
 
@@ -64,7 +191,6 @@ export default async function orderRoutes(app) {
     if (body.payments !== undefined && !Array.isArray(body.payments)) return reply.badRequest("Payments must be an array");
     if (Array.isArray(body.payments) && (body.payments.length > MAX_PAYMENT_ALLOCATIONS || body.payments.some((payment) => !payment || typeof payment !== "object" || Array.isArray(payment)))) return reply.badRequest(`Orders may contain at most ${MAX_PAYMENT_ALLOCATIONS} valid payment allocations`);
     if (body.table_token !== undefined && body.table_token !== "" && !validTableToken(body.table_token)) return reply.badRequest("Invalid table token");
-    if (body.dining_tab_id !== undefined && body.dining_tab_id !== null && body.dining_tab_id !== "" && !validId(body.dining_tab_id)) return reply.badRequest("Invalid dining tab id");
     if (body.payment_method_id !== undefined && body.payment_method_id !== null && body.payment_method_id !== "" && !validId(body.payment_method_id)) return reply.badRequest("Invalid payment method id");
     if (body.customer_id !== undefined && body.customer_id !== null && body.customer_id !== "" && !validId(body.customer_id)) return reply.badRequest("Invalid customer id");
     if (!validIdempotencyKey(body.idempotency_key)) return reply.badRequest("A valid idempotency key is required");
@@ -104,18 +230,16 @@ export default async function orderRoutes(app) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
+      const replay = await findOrderReplay(connection, request.params.businessId, idempotencyKey, requestHash);
+      if (replay) {
+        await connection.commit();
+        return replay.conflict ? reply.conflict("Idempotency key was already used for a different order") : reply.code(200).send(replay);
+      }
       let tableId = null;
-      let diningTabId = body.dining_tab_id || null;
       if (body.table_token) {
         const [tables] = await connection.query("SELECT id FROM restaurant_tables WHERE business_id = ? AND public_token = ? AND active = TRUE LIMIT 1", [request.params.businessId, body.table_token]);
         if (!tables.length) { await connection.rollback(); return reply.notFound("Table not found"); }
         tableId = tables[0].id;
-      }
-      if (diningTabId) {
-        const [tabs] = await connection.query("SELECT id, restaurant_table_id FROM dining_tabs WHERE id = ? AND business_id = ? AND status = 'open' LIMIT 1", [diningTabId, request.params.businessId]);
-        if (!tabs.length) { await connection.rollback(); return reply.badRequest("Invalid or closed dining tab"); }
-        if (tableId && tableId !== tabs[0].restaurant_table_id) { await connection.rollback(); return reply.badRequest("Dining tab does not belong to the selected table"); }
-        tableId = tabs[0].restaurant_table_id;
       }
       let paymentMethodId = null;
       if (body.payment_method_id) {
@@ -129,6 +253,7 @@ export default async function orderRoutes(app) {
       if (typeof businessSettings === "string") {
         try { businessSettings = JSON.parse(businessSettings); } catch { businessSettings = {}; }
       }
+      if (!businessSettings || typeof businessSettings !== "object" || Array.isArray(businessSettings)) businessSettings = {};
       const configuredDeliveryFee = Number(businessSettings?.delivery_fee ?? 0);
       if (!Number.isFinite(configuredDeliveryFee) || configuredDeliveryFee < 0 || configuredDeliveryFee > MAX_ORDER_AMOUNT || !hasDecimalScale(configuredDeliveryFee, 2)) {
         await connection.rollback();
@@ -145,25 +270,32 @@ export default async function orderRoutes(app) {
       const ids = inputItems.map((item) => item.product_id || item.id);
       if (ids.some((id) => !validId(id))) { await connection.rollback(); return reply.badRequest("Each item must include a valid product id"); }
       const placeholders = ids.map(() => "?").join(",");
-      const [products] = await connection.query(`SELECT id, name, price, active FROM products WHERE business_id = ? AND id IN (${placeholders})`, [request.params.businessId, ...ids]);
+      const [products] = await connection.query(`SELECT p.id, p.name, p.price, p.active, c.name AS category_name FROM products p JOIN categories c ON c.id = p.category_id AND c.business_id = p.business_id AND c.active = TRUE WHERE p.business_id = ? AND p.id IN (${placeholders})`, [request.params.businessId, ...ids]);
       const byId = new Map(products.map((product) => [product.id, product]));
+      const selectedCategories = new Set(Array.isArray(businessSettings.selected_categories)
+        ? businessSettings.selected_categories.filter((name) => typeof name === "string")
+        : []);
       const items = inputItems.map((item) => {
         const product = byId.get(item.product_id || item.id);
         const quantity = Number(item.quantity);
-        if (!product || !product.active || !hasDecimalScale(item.quantity, 2) || quantity <= 0 || quantity > 999) throw app.httpErrors.badRequest("Invalid product or quantity; quantity must have at most 2 decimal places");
-        const total = number(product.price * quantity);
+        if (!product || !product.active) throw app.httpErrors.badRequest("Product is not available on the public menu");
+        if (!hasDecimalScale(item.quantity, 2) || quantity <= 0 || quantity > 999) throw app.httpErrors.badRequest("Invalid product or quantity; quantity must have at most 2 decimal places");
+        if (businessSettings.show_all_products === false && !selectedCategories.has(product.category_name)) {
+          throw app.httpErrors.badRequest("Product is not available on the public menu");
+        }
+        const total = orderLineCents(product.price, quantity) / 100;
         if (total > MAX_ORDER_AMOUNT) throw app.httpErrors.badRequest("Order item exceeds the maximum supported amount");
         return { id: randomUUID(), product_id: product.id, name: product.name, unit_price: number(product.price), quantity, total };
       });
-      const subtotal = number(items.reduce((sum, item) => sum + item.total, 0));
+      const subtotal = items.reduce((sum, item) => sum + toMinorUnits(item.total), 0) / 100;
       if (subtotal > MAX_ORDER_AMOUNT) { await connection.rollback(); return reply.badRequest("Order subtotal exceeds the maximum supported amount"); }
       if (discountInput) {
         discountCode = discountInput;
         const [discounts] = await connection.query("SELECT type, value FROM discounts WHERE business_id = ? AND code = ? AND active = TRUE AND (starts_at IS NULL OR starts_at <= NOW()) AND (ends_at IS NULL OR ends_at >= NOW()) LIMIT 1", [request.params.businessId, discountCode]);
         if (!discounts.length) { await connection.rollback(); return reply.badRequest("Invalid or expired discount code"); }
-        discountAmount = number(Math.min(subtotal, discounts[0].type === "percentage" ? subtotal * Number(discounts[0].value) / 100 : Number(discounts[0].value)));
+        discountAmount = discountCents(toMinorUnits(subtotal), discounts[0].type, discounts[0].value) / 100;
       }
-      const total = number(subtotal - discountAmount + deliveryFee);
+      const total = (toMinorUnits(subtotal) - toMinorUnits(discountAmount) + toMinorUnits(deliveryFee)) / 100;
       if (total > MAX_ORDER_AMOUNT) { await connection.rollback(); return reply.badRequest("Order total exceeds the maximum supported amount"); }
       const paymentInputs = Array.isArray(body.payments) ? body.payments : [];
       if (paymentInputs.length) {
@@ -175,41 +307,17 @@ export default async function orderRoutes(app) {
         if (methods.length !== paymentIds.length) { await connection.rollback(); return reply.badRequest("Invalid payment method"); }
       }
       const orderId = randomUUID();
-      await connection.query("INSERT INTO orders (id, business_id, idempotency_key, idempotency_hash, restaurant_table_id, dining_tab_id, customer_id, customer_name, delivery_address, delivery_fee, scheduled_for, payment_method_id, subtotal, discount_code, discount_amount, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [orderId, request.params.businessId, idempotencyKey, requestHash, tableId, diningTabId, customerId, customerName || null, deliveryAddress ? JSON.stringify(deliveryAddress) : null, deliveryFee, scheduledFor ? scheduledFor : null, paymentMethodId, subtotal, discountCode, discountAmount, total, orderNotes || null]);
+      await connection.query("INSERT INTO orders (id, business_id, idempotency_key, idempotency_hash, restaurant_table_id, customer_id, customer_name, delivery_address, delivery_fee, scheduled_for, payment_method_id, subtotal, discount_code, discount_amount, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [orderId, request.params.businessId, idempotencyKey, requestHash, tableId, customerId, customerName || null, deliveryAddress ? JSON.stringify(deliveryAddress) : null, deliveryFee, scheduledFor ? scheduledFor : null, paymentMethodId, subtotal, discountCode, discountAmount, total, orderNotes || null]);
       for (const item of items) await connection.query("INSERT INTO order_items (id, order_id, product_id, name, unit_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?)", [item.id, orderId, item.product_id, item.name, item.unit_price, item.quantity, item.total]);
       for (const payment of paymentInputs) await connection.query("INSERT INTO order_payments (id, business_id, order_id, payment_method_id, amount) VALUES (?, ?, ?, ?, ?)", [randomUUID(), request.params.businessId, orderId, payment.payment_method_id, (toMinorUnits(payment.amount) / 100).toFixed(2)]);
+      if (deliveryAddress) await connection.query("INSERT INTO delivery_assignments (id, business_id, order_id, provider, status, payload) VALUES (?, ?, ?, 'local', 'requested', ?)", [randomUUID(), request.params.businessId, orderId, JSON.stringify({ source: "local" })]);
       await connection.commit();
-      return reply.code(201).send({ order: { id: orderId, business_id: request.params.businessId, restaurant_table_id: tableId, dining_tab_id: diningTabId, customer_id: customerId, customer_name: customerName || null, delivery_address: deliveryAddress, delivery_fee: deliveryFee, scheduled_for: scheduledFor, payment_method_id: paymentMethodId, discount_code: discountCode, discount_amount: discountAmount, status: "pending", subtotal, total, items } });
+      return reply.code(201).send({ order: { id: orderId, business_id: request.params.businessId, restaurant_table_id: tableId, dining_tab_id: null, customer_id: customerId, customer_name: customerName || null, delivery_address: deliveryAddress, delivery_fee: deliveryFee, scheduled_for: scheduledFor, payment_method_id: paymentMethodId, discount_code: discountCode, discount_amount: discountAmount, status: "pending", subtotal, total, items } });
     } catch (error) {
       await connection.rollback();
       if (error.code === "ER_DUP_ENTRY" && idempotencyKey) {
-        const [existing] = await connection.query("SELECT * FROM orders WHERE business_id = ? AND idempotency_key = ? LIMIT 1", [request.params.businessId, idempotencyKey]);
-        if (existing.length) {
-          if (existing[0].idempotency_hash !== requestHash) return reply.conflict("Idempotency key was already used for a different order");
-          const [items] = await connection.query("SELECT id, product_id, name, unit_price, quantity, total FROM order_items WHERE order_id = ? ORDER BY created_at", [existing[0].id]);
-          let savedAddress = existing[0].delivery_address;
-          if (typeof savedAddress === "string") {
-            try { savedAddress = JSON.parse(savedAddress); } catch { savedAddress = null; }
-          }
-          return reply.code(200).send({ order: {
-            id: existing[0].id,
-            business_id: existing[0].business_id,
-            restaurant_table_id: existing[0].restaurant_table_id,
-            dining_tab_id: existing[0].dining_tab_id,
-            customer_id: existing[0].customer_id,
-            customer_name: existing[0].customer_name,
-            delivery_address: savedAddress,
-            delivery_fee: Number(existing[0].delivery_fee),
-            scheduled_for: existing[0].scheduled_for,
-            payment_method_id: existing[0].payment_method_id,
-            discount_code: existing[0].discount_code,
-            discount_amount: Number(existing[0].discount_amount),
-            status: existing[0].status,
-            subtotal: Number(existing[0].subtotal),
-            total: Number(existing[0].total),
-            items: items.map((item) => ({ ...item, unit_price: Number(item.unit_price), quantity: Number(item.quantity), total: Number(item.total) })),
-          } });
-        }
+        const replay = await findOrderReplay(connection, request.params.businessId, idempotencyKey, requestHash);
+        if (replay) return replay.conflict ? reply.conflict("Idempotency key was already used for a different order") : reply.code(200).send(replay);
       }
       throw error;
     } finally { connection.release(); }
@@ -237,20 +345,41 @@ export default async function orderRoutes(app) {
         await connection.commit();
         return { order: rows[0] };
       }
+      const actorId = request.user?.local ? null : request.user?.id || null;
+      if (status === "completed") {
+        const [activeDeliveries] = await connection.query("SELECT id FROM delivery_assignments WHERE business_id = ? AND order_id = ? AND status IN ('requested','assigned','picked_up') LIMIT 1", [request.params.businessId, request.params.id]);
+        if (activeDeliveries.length) { await connection.rollback(); return reply.conflict("Finish the active delivery before completing the order"); }
+      }
+      if (["confirmed", "preparing", "ready", "out_for_delivery"].includes(status)) {
+        try { await reserveOrderInventory(connection, request.params.businessId, request.params.id, actorId); }
+        catch (error) { throw app.httpErrors.conflict(error.message); }
+      }
+      if (status === "cancelled") {
+        await connection.query("UPDATE inventory_reservations SET status = 'released', updated_at = CURRENT_TIMESTAMP WHERE business_id = ? AND order_id = ? AND status = 'held'", [request.params.businessId, request.params.id]);
+        const [couriers] = await connection.query("SELECT DISTINCT courier_id FROM delivery_assignments WHERE business_id = ? AND order_id = ? AND status IN ('requested','assigned','picked_up') AND courier_id IS NOT NULL", [request.params.businessId, request.params.id]);
+        await connection.query("UPDATE delivery_assignments SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE business_id = ? AND order_id = ? AND status IN ('requested','assigned','picked_up')", [request.params.businessId, request.params.id]);
+        for (const { courier_id: courierId } of couriers) {
+          await connection.query("DELETE FROM courier_locations WHERE courier_id = ? AND business_id = ? AND NOT EXISTS (SELECT 1 FROM delivery_assignments WHERE courier_id = ? AND business_id = ? AND status IN ('assigned','picked_up'))", [courierId, request.params.businessId, courierId, request.params.businessId]);
+        }
+      }
       if (status === "completed" && current.status !== "completed" && current.status !== "cancelled") {
-        const [items] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [request.params.id]);
-        const requirements = new Map();
-        for (const item of items) {
-          const [recipe] = await connection.query("SELECT inventory_item_id, quantity FROM product_ingredients WHERE product_id = ? AND business_id = ?", [item.product_id, request.params.businessId]);
-          for (const ingredient of recipe) requirements.set(ingredient.inventory_item_id, (requirements.get(ingredient.inventory_item_id) || 0) + Number(ingredient.quantity) * Number(item.quantity));
+        const [reservations] = await connection.query("SELECT id FROM inventory_reservations WHERE business_id = ? AND order_id = ? AND status = 'held' LIMIT 1", [request.params.businessId, request.params.id]);
+        let productConsumption;
+        let requirements;
+        if (reservations.length) {
+          const [finishedRows] = await connection.query("SELECT product_id, quantity FROM inventory_reservation_product_items WHERE business_id = ? AND reservation_id = ?", [request.params.businessId, reservations[0].id]);
+          const [ingredientRows] = await connection.query("SELECT inventory_item_id, quantity FROM inventory_reservation_items WHERE business_id = ? AND reservation_id = ?", [request.params.businessId, reservations[0].id]);
+          productConsumption = new Map(finishedRows.map((row) => [row.product_id, Number(row.quantity)]));
+          requirements = new Map(ingredientRows.map((row) => [row.inventory_item_id, Number(row.quantity)]));
         }
-        for (const [inventoryItemId, required] of [...requirements].sort(([left], [right]) => left.localeCompare(right))) {
-          const [inventory] = await connection.query("SELECT current_quantity FROM inventory_items WHERE id = ? AND business_id = ? AND active = TRUE FOR UPDATE", [inventoryItemId, request.params.businessId]);
-          if (!inventory.length || Number(inventory[0].current_quantity) < required) throw app.httpErrors.conflict("Insufficient inventory to complete order");
-          const movementId = randomUUID();
-          await connection.query("UPDATE inventory_items SET current_quantity = current_quantity - ? WHERE id = ? AND business_id = ?", [required, inventoryItemId, request.params.businessId]);
-          await connection.query("INSERT INTO inventory_movements (id, business_id, inventory_item_id, order_id, type, quantity, description) VALUES (?, ?, ?, ?, 'sale', ?, ?)", [movementId, request.params.businessId, inventoryItemId, request.params.id, -required, "Automatic order stock deduction"]);
+        try {
+          if (!reservations.length) ({ productConsumption, ingredientRequirements: requirements } = await calculateUnreservedOrderConsumption(connection, request.params.businessId, request.params.id));
+          const reservationId = reservations[0]?.id || null;
+          await consumeFinishedProducts(connection, request.params.businessId, productConsumption, reservationId);
+          await consumeOrderInventory(connection, request.params.businessId, request.params.id, actorId, requirements, reservationId);
         }
+        catch (error) { throw app.httpErrors.conflict(error.message); }
+        if (reservations.length) await connection.query("UPDATE inventory_reservations SET status = 'consumed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [reservations[0].id]);
       }
       await connection.query("UPDATE orders SET status = ? WHERE id = ? AND business_id = ?", [status, request.params.id, request.params.businessId]);
       if (status === "completed" && current.status !== "completed" && current.status !== "cancelled") {
@@ -270,9 +399,12 @@ export default async function orderRoutes(app) {
   app.get("/api/v1/businesses/:businessId/orders/today_stats", async (request, reply) => {
     if (!(await requireBusinessAccess(request, reply))) return;
     const { params } = request;
+    const today = localDateString();
+    const from = localDayBoundaryUtc(today);
+    const to = localDayBoundaryUtc(today, true);
     const [[orders], [sales]] = await Promise.all([
-      pool.query("SELECT COUNT(*) AS orders FROM orders WHERE business_id = ? AND created_at >= CURDATE() AND status <> 'cancelled'", [params.businessId]),
-      pool.query("SELECT COALESCE(SUM(amount), 0) AS total FROM cash_movements WHERE business_id = ? AND type = 'sale' AND created_at >= CURDATE()", [params.businessId]),
+      pool.query("SELECT COUNT(*) AS orders FROM orders WHERE business_id = ? AND created_at >= ? AND created_at < ? AND status <> 'cancelled'", [params.businessId, from, to]),
+      pool.query("SELECT COALESCE(SUM(amount), 0) AS total FROM cash_movements WHERE business_id = ? AND type = 'sale' AND created_at >= ? AND created_at < ?", [params.businessId, from, to]),
     ]);
     return { orders: Number(orders[0].orders), total: Number(sales[0].total) };
   });

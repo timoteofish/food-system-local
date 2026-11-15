@@ -24,8 +24,8 @@
         "title": "Food System",
         "width": 1366,
         "height": 820,
-        "minWidth": 1024,
-        "minHeight": 680,
+        "minWidth": 800,
+        "minHeight": 600,
         "resizable": true,
         "fullscreen": false
       }

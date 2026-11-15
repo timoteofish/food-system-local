@@ -1,4 +1,8 @@
-import { pool } from "./db.js";
+import "./load-env.js";
+import { registerMaintenanceWorker } from "./restore-coordination.js";
+
+await registerMaintenanceWorker();
+const { pool } = await import("./db.js");
 
 try {
   const [rows] = await pool.query("SELECT version FROM app_schema_migrations ORDER BY version");

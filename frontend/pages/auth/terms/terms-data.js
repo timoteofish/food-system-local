@@ -1,45 +1,24 @@
 export const TERMS_SECTIONS = [
   {
-    title: "About Food System",
+    title: "Sobre o Food System",
     items: [
-      "Food System is a platform that helps restaurants and food businesses create digital menus with QR codes",
-      "Businesses can add products, organize tables, receive orders, and monitor operations from the dashboard",
+      "O Food System ajuda a organizar produtos, cardápio digital, pedidos e rotinas do estabelecimento",
+      "Alguns recursos precisam de conexão com a internet e da API configurada para funcionar",
     ],
   },
   {
-    title: "Business account",
+    title: "Uso do sistema",
     items: [
-      "By creating an account, you confirm that you are authorized to add and manage the business information",
-      "Keep your sign-in details secure and notify the responsible team if you notice unauthorized account use",
+      "Use o sistema apenas para atividades legais do estabelecimento e mantenha os dados de acesso ao dispositivo e à API protegidos",
+      "O estabelecimento é responsável por manter corretos os produtos, preços, disponibilidade, taxas, horários e demais informações exibidas",
+      "Confira os pedidos e seus detalhes antes de preparar, cobrar ou entregar, o sistema organiza as informações e a equipe continua responsável pelo atendimento",
     ],
   },
   {
-    title: "Menu, prices, and orders",
+    title: "Dados e disponibilidade",
     items: [
-      "The business is responsible for menu information, including names, images, descriptions, availability, and prices",
-      "Customer orders rely on the menu information and should be checked by staff before preparation and delivery",
-      "The business is responsible for honoring offers, service rules, hours, fees, and terms shown to customers",
-    ],
-  },
-  {
-    title: "Local app use",
-    items: [
-      "Features run locally on this computer and depend on the business configuration",
-      "App updates can be checked in settings and installed only with the user's approval",
-    ],
-  },
-  {
-    title: "Availability and improvements",
-    items: [
-      "Food System may receive updates, security fixes, visual improvements, and maintenance to keep the service running well",
-      "If service is disrupted, the team will work to restore access as soon as possible The business should keep an alternative process for urgent situations",
-    ],
-  },
-  {
-    title: "Acceptable use",
-    items: [
-      "Do not use the system to add false, offensive, illegal, or rights-infringing content",
-      "By continuing, you agree to use Food System responsibly and in line with your actual business operations",
+      "Os dados podem ser armazenados neste dispositivo e, conforme a configuração, enviados à API usada pelo sistema",
+      "Faça backups com regularidade e guarde uma cópia em local seguro, a disponibilidade dos recursos pode depender do dispositivo, da API e da conexão com a internet",
     ],
   },
 ];

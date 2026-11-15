@@ -228,6 +228,7 @@
 .team-role-form{display:grid;gap:16px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface-soft)}
 .team-role-permissions{display:grid;gap:10px;margin:0;padding:14px;border:1px solid var(--line);border-radius:10px}
 .team-role-permissions legend{padding:0 5px;font-size:.88rem;font-weight:800}
+.team-roles-panel__notice{margin:8px 0 0;padding:12px 14px;border:1px solid #f0c36d;border-radius:10px;background:#fff8e8;color:#704b00;font-size:.9rem;line-height:1.5}
 .team-role-permissions__list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .team-role-permission{display:flex;align-items:center;gap:8px;color:var(--text);font-size:.84rem;cursor:pointer}
 .team-role-permission input{width:17px;height:17px;margin:0;accent-color:var(--accent)}

@@ -1,4 +1,4 @@
-/* Theme overrides shared by authenticated application screens. */
+/* Theme overrides shared by application screens. */
 html[data-theme="dark"] {
   color-scheme: dark;
   --accent-text: #ff9aa5;
@@ -52,11 +52,8 @@ html[data-theme="dark"] .table-panel,
 html[data-theme="dark"] .orders-table,
 html[data-theme="dark"] .orders-card,
 html[data-theme="dark"] .orders-overview-card,
-html[data-theme="dark"] .user-edit-card,
 html[data-theme="dark"] .purchase-shell,
 html[data-theme="dark"] .payment-panel,
-html[data-theme="dark"] .login-panel,
-html[data-theme="dark"] .signup-panel,
 html[data-theme="dark"] .user-edit-panel,
 html[data-theme="dark"] .business-onboarding-panel,
 html[data-theme="dark"] .qr-code-panel,

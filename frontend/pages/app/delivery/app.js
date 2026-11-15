@@ -17,6 +17,7 @@ const deliveryErrorClose = document.getElementById("deliveryErrorClose");
 const deliveryPageLoading = document.getElementById("deliveryPageLoading");
 let appShellReady = false;
 let couriers = [];
+let courierAccessBusy = false;
 
 const hideDeliveryError = () => {
   deliveryErrorModal.hidden = true;
@@ -65,6 +66,31 @@ const setMessage = (element, message, type = "success") => {
   element.classList.toggle("is-success", type === "success" && Boolean(message));
 };
 
+const getCourierPublicUrl = async () => {
+  let base = String(window.FOOD_SYSTEM_PUBLIC_MENU_URL || "").trim();
+  if (!base) {
+    try { base = await window.__TAURI__?.core?.invoke?.("public_menu_base_url") || ""; }
+    catch { /* Browser development can use its current origin. */ }
+  }
+  try {
+    const url = new URL(base || window.location.origin);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/" ||
+        host === "localhost" || host.endsWith(".localhost") || host === "[::1]" || host === "0.0.0.0" || /^127\./.test(host)) return "";
+    return new URL("/pages/courier/index.html", url.origin).href;
+  } catch { return ""; }
+};
+
+const showCourierAccess = async (access, message) => {
+  if (typeof access.token !== "string" || !access.token) throw new Error("Token unavailable");
+  setMessage(courierMessage, message);
+  courierMessage.textContent = courierMessage.textContent.replace("$1", access.token).replace("$2", String(access.expires_in_days));
+  const courierUrl = await getCourierPublicUrl();
+  courierMessage.textContent += " " + (courierUrl
+    ? translate("Configured driver address $1").replace("$1", courierUrl)
+    : translate("Configure an HTTPS network address for access from another device"));
+};
+
 const renderEmpty = (message) => `<p class="operation-empty">${escapeHtml(translate(message))}</p>`;
 
 const parseAddress = (value) => {
@@ -97,6 +123,7 @@ const renderCouriers = (couriers) => {
     <article class="courier-entry">
       <strong>${escapeHtml(courier.name)}</strong>
       ${courier.phone ? `<span>${escapeHtml(courier.phone)}</span>` : ""}
+      ${Number(courier.active) === 1 ? `<button class="btn btn--secondary courier-entry__access" type="button" data-renew-courier="${escapeHtml(courier.id)}">${translate("Renew driver access")}</button>` : ""}
     </article>
   `).join("");
 };
@@ -116,9 +143,10 @@ const renderDeliveries = (deliveries) => {
     const courierDetail = delivery.status === "requested"
       ? ""
       : `<p class="delivery-card__courier">${translate("Driver: ")}${escapeHtml(delivery.courier_name || translate("Unassigned"))}</p>`;
-    const assignmentControls = delivery.status === "requested"
-      ? couriers.length
-        ? `<div class="delivery-assignment"><label for="courier-${escapeHtml(delivery.id)}">${translate("Driver")}</label><select id="courier-${escapeHtml(delivery.id)}" data-courier-for-delivery><option value="">${translate("Select a driver")}</option>${couriers.map((courier) => `<option value="${escapeHtml(courier.id)}">${escapeHtml(courier.name)}</option>`).join("")}</select><button class="btn btn--primary" data-assign-delivery="${escapeHtml(delivery.id)}" data-order-id="${escapeHtml(delivery.order_id)}" type="button" disabled>${translate("Assign and start delivery")}</button></div>`
+    const activeCouriers = couriers.filter((courier) => Number(courier.active) === 1);
+    const assignmentControls = delivery.status === "requested" || (delivery.status === "failed" && Number(delivery.can_retry) === 1)
+      ? activeCouriers.length
+        ? `<div class="delivery-assignment"><label for="courier-${escapeHtml(delivery.id)}">${translate("Driver")}</label><select id="courier-${escapeHtml(delivery.id)}" data-courier-for-delivery><option value="">${translate("Select a driver")}</option>${activeCouriers.map((courier) => `<option value="${escapeHtml(courier.id)}">${escapeHtml(courier.name)}</option>`).join("")}</select><button class="btn btn--primary" data-assign-delivery="${escapeHtml(delivery.id)}" data-order-id="${escapeHtml(delivery.order_id)}" type="button" disabled>${translate(delivery.status === "failed" ? "Assign another delivery attempt" : "Assign and start delivery")}</button></div>`
         : `<p class="delivery-card__courier">${translate("Add a driver to start this delivery")}</p>`
       : "";
 
@@ -130,6 +158,7 @@ const renderDeliveries = (deliveries) => {
         </div>
         <p class="operation-card__meta delivery-card__address">${formatAddress(delivery)}</p>
         ${courierDetail}
+        ${delivery.status === "failed" && delivery.failure_reason ? `<p class="delivery-card__courier">${escapeHtml(translate("Issue reason: "))}${escapeHtml(delivery.failure_reason)}</p>` : ""}
         ${assignmentControls}
         ${next ? `
           <div class="operation-card__actions delivery-actions">
@@ -139,6 +168,7 @@ const renderDeliveries = (deliveries) => {
               data-next-status="${next.value}"
               type="button"
             >${translate(next.label)}</button>
+            <button class="btn btn--secondary" data-delivery-id="${escapeHtml(delivery.id)}" data-next-status="failed" type="button">${translate("Report delivery issue")}</button>
           </div>
         ` : ""}
       </article>
@@ -152,7 +182,7 @@ const load = async () => {
   deliveryList.setAttribute("aria-busy", "true");
   const results = await Promise.allSettled([
       apiRequest(`/businesses/${businessId}/couriers`),
-      apiRequest(`/businesses/${businessId}/deliveries`),
+      apiRequest(`/businesses/${businessId}/deliveries?view=queue`),
   ]);
   const [courierResult, deliveryResult] = results;
   let hasLoadError = false;
@@ -178,8 +208,6 @@ const load = async () => {
   return courierResult.status === "fulfilled" && deliveryResult.status === "fulfilled";
 };
 
-deliveryLoadRetry.addEventListener("click", () => void start());
-
 deliveryList.addEventListener("change", (event) => {
   if (!event.target.matches("[data-courier-for-delivery]")) return;
   const card = event.target.closest(".delivery-card");
@@ -189,6 +217,7 @@ deliveryList.addEventListener("change", (event) => {
 
 courierForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (courierAccessBusy) return;
   const form = event.currentTarget;
   const button = form.querySelector("button[type='submit']");
   const name = document.getElementById("courierName").value.trim();
@@ -199,22 +228,50 @@ courierForm.addEventListener("submit", async (event) => {
   }
 
   button.disabled = true;
+  courierAccessBusy = true;
   setMessage(courierMessage, "");
 
+  let courierCreated = false;
   try {
-    await apiRequest(`/businesses/${businessId}/couriers`, {
+    const created = await apiRequest(`/businesses/${businessId}/couriers`, {
       method: "POST",
       body: {
         name,
         phone: document.getElementById("courierPhone").value.trim(),
       },
     });
+    courierCreated = true;
     form.reset();
-    setMessage(courierMessage, "Driver added");
+    try {
+      const access = await apiRequest(`/businesses/${businessId}/couriers/${encodeURIComponent(created.courier.id)}/token`, { method: "POST", body: {} });
+      await showCourierAccess(access, "Driver added Access token $1 Valid for $2 days Copy and share privately It will not be shown again");
+    } catch {
+      setMessage(courierMessage, "Driver added but access token could not be issued Contact the administrator", "error");
+    }
     await load();
   } catch (error) {
-    setMessage(courierMessage, "Could not add the driver", "error");
+    if (!courierCreated) setMessage(courierMessage, "Could not confirm driver registration Check the list before trying again", "error");
   } finally {
+    courierAccessBusy = false;
+    button.disabled = false;
+  }
+});
+
+courierList.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-renew-courier]");
+  if (!button || button.disabled || courierAccessBusy) return;
+  const courier = couriers.find((entry) => entry.id === button.dataset.renewCourier && Number(entry.active) === 1);
+  if (!courier || !window.confirm(translate("Renew access for $1 The previous token will stop working").replace("$1", courier.name))) return;
+  courierAccessBusy = true;
+  button.disabled = true;
+  setMessage(courierMessage, "");
+  try {
+    const access = await apiRequest(`/businesses/${businessId}/couriers/${encodeURIComponent(courier.id)}/token`, { method: "POST", body: {} });
+    await showCourierAccess(access, "Driver access renewed Token $1 Valid for $2 days Copy and share privately It will not be shown again");
+  } catch {
+    setMessage(courierMessage, "Could not confirm access renewal The previous token may no longer work Check before trying again", "error");
+  } finally {
+    courierAccessBusy = false;
     button.disabled = false;
   }
 });
@@ -237,13 +294,20 @@ deliveryList.addEventListener("click", async (event) => {
       await load();
     } catch (error) {
       assignButton.disabled = false;
-      setMessage(deliveryMessage, "Could not assign the delivery", "error");
+      await load();
+      setMessage(deliveryMessage, "Could not confirm delivery assignment Check the queue before trying again", "error");
     }
     return;
   }
 
   const button = event.target.closest("[data-delivery-id]");
   if (!button || button.disabled) return;
+  let failureReason;
+  if (button.dataset.nextStatus === "failed") {
+    failureReason = window.prompt(translate("Describe the delivery issue Optional maximum 500 characters"), "");
+    if (failureReason === null) return;
+    if (failureReason.length > 500) { setMessage(deliveryMessage, "Delivery issue reason must be at most 500 characters", "error"); return; }
+  }
 
   button.disabled = true;
   setMessage(deliveryMessage, "");
@@ -251,13 +315,14 @@ deliveryList.addEventListener("click", async (event) => {
   try {
     await apiRequest(`/businesses/${businessId}/deliveries/${button.dataset.deliveryId}`, {
       method: "PATCH",
-      body: { status: button.dataset.nextStatus },
+      body: { status: button.dataset.nextStatus, ...(failureReason === undefined ? {} : { failure_reason: failureReason.trim() }) },
     });
     setMessage(deliveryMessage, "Delivery updated");
     await load();
   } catch (error) {
     button.disabled = false;
-    setMessage(deliveryMessage, "Could not update the delivery", "error");
+    await load();
+    setMessage(deliveryMessage, "Could not confirm delivery update Check the queue before trying again", "error");
   }
 });
 

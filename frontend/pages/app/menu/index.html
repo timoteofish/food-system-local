@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Menu | Food System</title>
+    <title>Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
@@ -71,6 +71,7 @@
             <div class="field"><label for="businessName" data-i18n="businessNameLabel">Business name</label><input id="businessName" placeholder="Ex.: Café da Montanha" /></div>
             <div class="field"><label for="menuName" data-i18n="menuTitleLabel">Menu title</label><input id="menuName" placeholder="Ex.: Cardápio do café" /></div>
             <div class="field"><label for="menuBanner" data-i18n="customerNoticeLabel">Short customer notice</label><textarea id="menuBanner" rows="3" placeholder="Ex.: Aceitamos pedidos até as 22h"></textarea></div>
+            <div class="field"><label for="deliveryFeeSetting" data-i18n="deliveryFeeLabel">Delivery fee (R$)</label><input id="deliveryFeeSetting" type="number" min="0" max="99999999.99" step="0.01" inputmode="decimal" aria-describedby="deliveryFeeHelp" /><small id="deliveryFeeHelp" data-i18n="deliveryFeeHelp">This amount is calculated by the server and shown on the public menu.</small></div>
             <div class="field"><label for="primaryColor" data-i18n="brandColorLabel">Brand color</label><input id="primaryColor" type="color" /></div>
             <input id="gradientStart" type="hidden" />
             <input id="gradientEnd" type="hidden" />
@@ -87,6 +88,7 @@
                 </label>
               </div>
               <div class="category-list category-list--menu" id="categoryList"></div>
+              <small class="menu-categories__help" data-i18n="categorySelectionHelp">Desmarque “Mostrar todos os produtos” para escolher categorias.</small>
             </div>
           </aside>
           <section class="preview-area">
@@ -117,20 +119,20 @@
                 <label class="field" for="qrCodeTable">
                   <input id="qrCodeTable" type="text" aria-label="Table" placeholder="Ex.: Mesa 07" />
                 </label>
-                <img id="qrCodeImage" alt="Menu QR code" />
+                <img id="qrCodeImage" alt="Menu QR code" hidden />
                 <p data-i18n="qrTableHelp">Use a different QR code for each table</p>
                 <div class="qr-code-panel__link-row">
                   <input id="qrCodeLink" type="text" readonly />
-                  <button class="qr-code-copy-btn" id="copyQrCodeLink" type="button" aria-label="Copy menu link" title="Copy menu link">
+                  <button class="qr-code-copy-btn" id="copyQrCodeLink" type="button" aria-label="Copy menu link" title="Copy menu link" disabled>
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                       <path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10V1zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H10V7h9v14z"/>
                     </svg>
                   </button>
                 </div>
                 <div class="qr-code-panel__downloads">
-                  <button class="btn btn--secondary" id="downloadQrPng" type="button" data-i18n="downloadPng">Download PNG</button>
-                  <button class="btn btn--secondary" id="downloadQrJpeg" type="button" data-i18n="downloadJpeg">Download JPEG</button>
-                  <button class="btn btn--secondary" id="downloadQrPdf" type="button" data-i18n="downloadPdf">Download PDF</button>
+                  <button class="btn btn--secondary" id="downloadQrPng" type="button" data-i18n="downloadPng" disabled>Download PNG</button>
+                  <button class="btn btn--secondary" id="downloadQrJpeg" type="button" data-i18n="downloadJpeg" disabled>Download JPEG</button>
+                  <button class="btn btn--secondary" id="downloadQrPdf" type="button" data-i18n="downloadPdf" disabled>Download PDF</button>
                 </div>
                 <button class="btn btn--primary" id="qrCodeOpenPage" type="button" data-i18n="openMenuPreview">Open menu preview</button>
               </div>

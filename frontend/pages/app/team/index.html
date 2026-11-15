@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Team | Food System</title>
+    <title>Food System</title>
     <link rel="icon" href="../../../assets/favicon.webp" type="image/webp" />
     <script src="../../../shared/ui/sidebar-boot.js"></script>
 <link rel="stylesheet" href="../../../styles/base.css" />
@@ -106,13 +106,14 @@
       <section class="team-roles-panel" role="dialog" aria-modal="true" aria-labelledby="teamRolesTitle">
         <button class="team-roles-panel__close" type="button" data-close-roles aria-label="Fechar">×</button>
         <div class="team-roles-panel__intro">
-          <h2 id="teamRolesTitle">Cargos e acessos</h2>
+          <h2 id="teamRolesTitle" data-i18n="teamRolesTitle">Cargos informativos</h2>
+          <p class="team-roles-panel__notice" data-i18n="teamRolesInfoNotice">Os cargos e áreas abaixo servem apenas para organização. Neste modo local, eles não restringem o acesso às telas nem às ações do sistema.</p>
         </div>
         <div class="team-roles-panel__layout">
           <form id="teamRoleForm" class="team-role-form">
             <label class="field"><span>Nome do cargo</span><input id="teamRoleName" maxlength="60" required placeholder="Ex.: Cozinheiro" /></label>
             <fieldset class="team-role-permissions">
-              <legend>Áreas visíveis no sistema</legend>
+              <legend data-i18n="teamRoleAreasReference">Áreas de referência</legend>
               <div id="teamRolePermissions" class="team-role-permissions__list"></div>
             </fieldset>
             <div class="team-role-form__actions">
@@ -120,7 +121,7 @@
             </div>
           </form>
           <section class="team-roles-list" aria-labelledby="teamRolesListTitle">
-            <h3 id="teamRolesListTitle">Cargos personalizados</h3>
+            <h3 id="teamRolesListTitle" data-i18n="teamRoleListTitle">Cargos da equipe</h3>
             <div id="teamRolesList"></div>
           </section>
         </div>

@@ -8,9 +8,11 @@ import {
   saveMenuSettingsRemote,
 } from "../../../shared/features/menu/index.js";
 import {
+  getBusiness,
   getMenuSettings,
   getSession,
 } from "../../../shared/data/storage.js";
+import { fetchBusiness } from "../../../shared/api/client.js";
 import { escapeHtml, formatPrice, parsePrice, safeImageUrl } from "../../../shared/utils/utils.js";
 import { translate } from "../../../shared/i18n/i18n.js";
 import { initAppShell, showToast } from "../../../shared/ui/ui.js";
@@ -27,6 +29,10 @@ let menuLoading = false;
 let appShellInitialized = false;
 let saveSequence = 0;
 let pendingSettings = null;
+let saveQueue = Promise.resolve();
+let menuSettingsVersion = null;
+let menuBusinessVersion = null;
+let menuSaveConflict = false;
 
 const fields = {
   businessName: document.getElementById("businessName"),
@@ -73,6 +79,44 @@ const menuLoadErrorClose = document.getElementById("menuLoadErrorClose");
 const menuSaveStatus = document.getElementById("menuSaveStatus");
 const menuSaveRetry = document.getElementById("menuSaveRetry");
 
+const applyBusinessMenuSettings = async () => {
+  const business = await fetchBusiness(getSession()?.businessId);
+  menuBusinessVersion = { name: business.name, description: business.description ?? null, primary_color: business.primary_color };
+  let remoteSettings = business?.settings;
+  menuSettingsVersion = typeof remoteSettings === "string" ? remoteSettings : JSON.stringify(remoteSettings ?? {});
+  if (typeof remoteSettings === "string") {
+    try { remoteSettings = JSON.parse(remoteSettings); } catch { remoteSettings = {}; }
+  }
+  if (!remoteSettings || typeof remoteSettings !== "object" || Array.isArray(remoteSettings)) remoteSettings = {};
+
+  settings = {
+    ...settings,
+    businessName: business?.name || settings.businessName || getBusiness()?.name || "",
+    menuName: business?.description === "Local application"
+      ? ""
+      : business?.description ?? settings.menuName,
+    primaryColor: business?.primary_color || settings.primaryColor,
+    style: remoteSettings.style || business?.theme_style || settings.style,
+    gradientStart: remoteSettings.gradient_start ?? settings.gradientStart,
+    gradientEnd: remoteSettings.gradient_end ?? settings.gradientEnd,
+    gradientAngle: remoteSettings.gradient_angle ?? settings.gradientAngle,
+    menuBanner: remoteSettings.menu_banner ?? settings.menuBanner,
+    deliveryFee: remoteSettings.delivery_fee ?? settings.deliveryFee,
+    showAllProducts: remoteSettings.show_all_products ?? settings.showAllProducts,
+    selectedCategories: Array.isArray(remoteSettings.selected_categories)
+      ? remoteSettings.selected_categories
+      : settings.selectedCategories,
+  };
+
+  fields.businessName.value = settings.businessName;
+  fields.menuName.value = settings.menuName || "";
+  fields.primaryColor.value = settings.primaryColor;
+  if (fields.menuBanner) fields.menuBanner.value = settings.menuBanner || "";
+  if (fields.visualStyle) fields.visualStyle.value = settings.style;
+  if (fields.showAllProducts) fields.showAllProducts.checked = settings.showAllProducts !== false;
+  if (fields.deliveryFee) fields.deliveryFee.value = String(settings.deliveryFee ?? 0);
+};
+
 const setMenuLoading = (isLoading) => {
   menuPageLoading.hidden = !isLoading;
   if (isLoading) {
@@ -114,6 +158,7 @@ const setMenuEditorDisabled = (disabled) => {
     .forEach((control) => {
       if (control) control.disabled = disabled;
     });
+  syncQrActionAvailability(disabled);
   tableShortcutList?.querySelectorAll("button").forEach((button) => {
     button.disabled = disabled;
   });
@@ -127,21 +172,39 @@ const setMenuSaveStatus = (message, state = "") => {
   else menuSaveStatus.removeAttribute("data-state");
 };
 
+const syncQrActionAvailability = (disabled = menuLoadFailed || menuLoading) => {
+  const hasQrCode = Boolean(qrCodeImage?.getAttribute("src") && qrCodeLink?.value.trim());
+  [copyQrCodeLink, downloadQrPng, downloadQrJpeg, downloadQrPdf].forEach((control) => {
+    if (control) control.disabled = disabled || !hasQrCode;
+  });
+};
+
 const persistMenuSettings = async (sequence) => {
   if (!pendingSettings) return;
+  const snapshot = { ...pendingSettings, selectedCategories: [...pendingSettings.selectedCategories] };
   menuSaveRetry.disabled = true;
+  const save = saveQueue.then(async () => {
+    if (menuSaveConflict) { const error = new Error("Business settings changed; reload before saving"); error.status = 409; throw error; }
+    try {
+      const result = await saveMenuSettingsRemote(snapshot, { expectedSettings: menuSettingsVersion, expectedBusiness: menuBusinessVersion });
+      menuSettingsVersion = result.settingsVersion;
+      menuBusinessVersion = result.businessVersion;
+    } catch (error) {
+      if (error?.status === 409) menuSaveConflict = true;
+      throw error;
+    }
+  });
+  saveQueue = save.catch(() => {});
   try {
-    await saveMenuSettingsRemote({
-      ...pendingSettings,
-      selectedCategories: [...pendingSettings.selectedCategories],
-    });
+    await save;
     if (sequence === saveSequence) {
       setMenuSaveStatus(translate("menuSaveSuccess"), "success");
       menuSaveRetry.hidden = true;
     }
   } catch {
     if (sequence === saveSequence) {
-      setMenuSaveStatus(translate("menuSaveError"), "error");
+      setMenuSaveStatus(translate(menuSaveConflict ? "menuSaveConflict" : "menuSaveError"), "error");
+      menuSaveRetry.textContent = translate(menuSaveConflict ? "menuReloadLabel" : "saveAgainLabel");
       menuSaveRetry.hidden = false;
     }
   } finally {
@@ -191,7 +254,9 @@ const normalizeProduct = (item) => ({
   id: String(item.id),
   name: item.name || "Produto",
   description: item.description || "",
-  category: typeof item.category === "object" ? item.category?.name || "" : item.category || "",
+  category: typeof item.category === "object"
+    ? item.category?.name || item.category_name || ""
+    : item.category || item.category_name || "",
   image: item.image || item.image_url || "",
   active: item.active ?? item.status === "active",
 });
@@ -202,6 +267,13 @@ const productPriceHtml = (item) => {
 
 const ALL_CATEGORIES = "__all_categories__";
 const getCategoryOptions = () => [ALL_CATEGORIES, ...categoryNames];
+const getMenuPreviewEmptyMessage = () => {
+  if (!settings.showAllProducts && !(settings.selectedCategories || []).some((name) => categoryNames.includes(name))) {
+    return translate(categoryNames.length ? "menuNoCategoriesSelected" : "menuNoCategoriesAvailable");
+  }
+  if (menuSearchQuery.trim()) return translate("menuSearchNoResults");
+  return translate("noActiveMenuProducts");
+};
 
 const syncCategoryField = () => {
   const selected = Array.isArray(settings.selectedCategories) ? settings.selectedCategories : [];
@@ -248,9 +320,7 @@ const getFilteredProducts = () => {
   let filtered = products.filter((item) => item.active);
   if (!settings.showAllProducts) {
     const selected = new Set(settings.selectedCategories || []);
-    if (selected.size) {
-      filtered = filtered.filter((item) => selected.has(item.category));
-    }
+    filtered = filtered.filter((item) => selected.has(item.category));
   }
 
   const query = menuSearchQuery.trim().toLowerCase();
@@ -266,7 +336,7 @@ const getFilteredProducts = () => {
   return filtered;
 };
 
-const getCustomerMenuUrl = async () => {
+const getCustomerMenuUrl = async ({ allowLocalPreview = false } = {}) => {
   let publicBase = String(window.FOOD_SYSTEM_PUBLIC_MENU_URL || "").trim();
   if (!publicBase) {
     try {
@@ -285,7 +355,7 @@ const getCustomerMenuUrl = async () => {
     }
     baseUrl = parsedBase.origin;
   } else if (["tauri.localhost", "localhost", "127.0.0.1", ""].includes(window.location.hostname)) {
-    throw new Error("publicMenuUrlRequired");
+    if (!allowLocalPreview) throw new Error("publicMenuUrlRequired");
   } else if (window.location.protocol !== "https:") {
     throw new Error("publicMenuHttpsRequired");
   }
@@ -302,7 +372,7 @@ const getCustomerMenuUrl = async () => {
   return url.href;
 };
 
-const renderQrCode = async () => {
+const ensureQrTable = async () => {
   const tableName = qrCodeTable?.value.trim();
   if (tableName) {
     const existing = restaurantTables.find((item) => item.name.toLowerCase() === tableName.toLowerCase());
@@ -314,13 +384,23 @@ const renderQrCode = async () => {
       ];
     }
   }
+};
 
+const renderQrCode = async () => {
+  if (qrCodeImage) qrCodeImage.removeAttribute("src");
+  if (qrCodeImage) qrCodeImage.hidden = true;
+  if (qrCodeLink) qrCodeLink.value = "";
+  syncQrActionAvailability();
+  await getCustomerMenuUrl();
+  await ensureQrTable();
   const targetUrl = await getCustomerMenuUrl();
   const code = qrcode(0, "M");
   code.addData(targetUrl);
   code.make();
   if (qrCodeImage) qrCodeImage.src = code.createDataURL(8, 4);
+  if (qrCodeImage) qrCodeImage.hidden = false;
   if (qrCodeLink) qrCodeLink.value = targetUrl;
+  syncQrActionAvailability();
 };
 
 const renderMenuLoadError = () => {
@@ -462,8 +542,11 @@ const render = () => {
 
   preview.categories.innerHTML = getCategoryOptions()
     .map(
-      (category) =>
-        `<button class="chip ${(settings.showAllProducts || (settings.selectedCategories || []).includes(category) || category === ALL_CATEGORIES) ? "active" : ""}" type="button" data-category="${escapeHtml(category)}">${category === ALL_CATEGORIES ? escapeHtml(translate("all")) : escapeHtml(category)}</button>`
+      (category) => {
+        const selected = settings.selectedCategories || [];
+        const active = settings.showAllProducts || (category !== ALL_CATEGORIES && selected.includes(category));
+        return `<button class="chip ${active ? "active" : ""}" type="button" data-category="${escapeHtml(category)}" aria-pressed="${active}">${category === ALL_CATEGORIES ? escapeHtml(translate("all")) : escapeHtml(category)}</button>`;
+      }
     )
     .join("");
 
@@ -488,13 +571,28 @@ const render = () => {
       `;
         })
         .join("")
-    : `<div class="menu-preview-empty">${translate("noActiveMenuProducts")}</div>`;
+    : `<div class="menu-preview-empty">${escapeHtml(getMenuPreviewEmptyMessage())}</div>`;
 
   syncOrderCapacityDots();
 };
 
 const syncFromFields = () => {
   if (menuLoadFailed || menuLoading) return;
+
+  if (fields.deliveryFee) {
+    const rawDeliveryFee = fields.deliveryFee.value.trim();
+    const parsedDeliveryFee = rawDeliveryFee === "" ? 0 : Number(rawDeliveryFee);
+    const validDeliveryFee = Number.isFinite(parsedDeliveryFee)
+      && parsedDeliveryFee >= 0
+      && parsedDeliveryFee <= 99999999.99
+      && Number(parsedDeliveryFee.toFixed(2)) === parsedDeliveryFee;
+    fields.deliveryFee.setCustomValidity(validDeliveryFee ? "" : translate("invalidDeliveryFee"));
+    if (!validDeliveryFee) {
+      fields.deliveryFee.value = String(settings.deliveryFee ?? 0);
+      fields.deliveryFee.reportValidity();
+      return;
+    }
+  }
 
   const selectedCategories = Array.from(
     fields.categoryList?.querySelectorAll('input[type="checkbox"]:checked') || []
@@ -553,6 +651,7 @@ Object.entries(fields).forEach(([key, field]) => {
 });
 
 menuSaveRetry.addEventListener("click", () => {
+  if (menuSaveConflict) { window.location.reload(); return; }
   window.clearTimeout(saveSettingsTimer);
   const sequence = ++saveSequence;
   setMenuSaveStatus(translate("savingChanges"), "saving");
@@ -607,6 +706,7 @@ preview.categories.addEventListener("click", (event) => {
     const wrapper = input.closest(".category-check");
     wrapper?.classList.toggle("is-active", input.checked);
   }
+  syncCategoryField();
   syncFromFields();
 });
 
@@ -617,20 +717,30 @@ generateQrCodeButton?.addEventListener("click", () => {
 });
 
 qrCodeTable?.addEventListener("change", () => {
-  renderQrCode().catch(() => {});
+  renderQrCode().catch((error) => {
+    showToast(translate(error.message || "qrUpdateError"), { type: "error" });
+  });
 });
 
 qrCodeOpenPage?.addEventListener("click", () => {
   const popup = window.open("about:blank", "_blank");
   if (popup) popup.opener = null;
-  renderQrCode()
-    .then(() => {
-      if (popup && qrCodeLink?.value) popup.location.href = qrCodeLink.value;
-    })
+  const localHost = ["tauri.localhost", "localhost", "127.0.0.1", ""].includes(window.location.hostname);
+  const openPreview = async () => {
+    if (localHost && !window.FOOD_SYSTEM_PUBLIC_MENU_URL) {
+      await ensureQrTable();
+      const previewUrl = await getCustomerMenuUrl({ allowLocalPreview: true });
+      if (popup) popup.location.href = previewUrl;
+      return;
+    }
+    await renderQrCode();
+    if (popup && qrCodeLink?.value) popup.location.href = qrCodeLink.value;
+  };
+  openPreview()
     .catch((error) => {
       popup?.close();
       showToast(translate(error.message || "publicMenuOpenError"), { type: "error" });
-    });
+    })
 });
 copyQrCodeLink?.addEventListener("click", async () => {
   try {
@@ -681,6 +791,7 @@ const initializeMenu = async () => {
       await initAppShell({ activeNav: "menu" });
       appShellInitialized = true;
     }
+    await applyBusinessMenuSettings();
     products = (await loadProducts()).map(normalizeProduct);
     categoryNames = await loadCategories();
     restaurantTables = await loadRestaurantTablesRemote();
@@ -694,6 +805,10 @@ const initializeMenu = async () => {
   }
 
   menuLoadFailed = false;
+  if (!String(settings.businessName || "").trim()) {
+    settings.businessName = getBusiness()?.name || "";
+    fields.businessName.value = settings.businessName;
+  }
   if (!Array.isArray(settings.selectedCategories)) {
     settings.selectedCategories = [];
   }

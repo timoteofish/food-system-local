@@ -1,5 +1,5 @@
 import { getLegacyTranslationCandidates, getLocale, translate } from "../../../shared/i18n/i18n.js";
-import { escapeHtml, formatOrderLocation, formatPrice } from "../../../shared/utils/utils.js";
+import { escapeHtml, formatOrderLocation, formatPrice, parseApiTimestamp } from "../../../shared/utils/utils.js";
 import { initAppShell } from "../../../shared/ui/ui.js";
 import { loadOrdersRemote, updateOrderStatusRemote } from "../../../shared/features/menu/index.js";
 
@@ -10,7 +10,7 @@ let hasLoadedOrders = false;
 let orders = [];
 let activeFilter = "active";
 
-const ACTIVE_STATUSES = ["new", "preparing", "ready"];
+const ACTIVE_STATUSES = ["new", "preparing", "ready", "out_for_delivery"];
 const mobileOrdersQuery = window.matchMedia("(max-width: 767px)");
 let appShellInitialized = false;
 let refreshTimerStarted = false;
@@ -54,7 +54,7 @@ const startRefreshTimer = () => {
 };
 
 const formatDateTime = (value) => {
-  const date = new Date(value);
+  const date = parseApiTimestamp(value);
   if (Number.isNaN(date.getTime())) return translate("ordersTimeUnavailable");
   return date.toLocaleString(getLocale(), {
     hour: "2-digit",
@@ -108,6 +108,7 @@ const getStatusLabel = (status) => {
     new: "ordersStatusNew",
     preparing: "ordersStatusPreparing",
     ready: "ordersStatusReady",
+    out_for_delivery: "ordersStatusOutForDelivery",
     completed: "ordersStatusCompleted",
     cancelled: "ordersStatusCancelled",
   };
@@ -116,7 +117,7 @@ const getStatusLabel = (status) => {
 
 const getStatusClass = (status) => {
   if (status === "preparing") return "is-preparing";
-  if (status === "ready") return "is-ready";
+  if (status === "ready" || status === "out_for_delivery") return "is-ready";
   if (status === "completed") return "is-completed";
   if (status === "cancelled") return "is-cancelled";
   return "is-new";
@@ -125,6 +126,7 @@ const getStatusClass = (status) => {
 const getStatusToneLabel = (status) => {
   if (status === "preparing") return translate("ordersTonePreparing");
   if (status === "ready") return translate("ordersToneReady");
+  if (status === "out_for_delivery") return translate("ordersStatusOutForDelivery");
   return translate("ordersToneWaiting");
 };
 
@@ -137,7 +139,7 @@ const getOrderActions = (order) => {
   if (order.status === "preparing") {
     return `${rejectButton}<button class="orders-card__action" type="button" data-order-action="ready" data-order-id="${orderId}">${translate("ordersActionMarkReady")}</button>`;
   }
-  if (order.status === "ready") {
+  if (order.status === "ready" || order.status === "out_for_delivery") {
     return `${rejectButton}<button class="orders-card__action" type="button" data-order-action="completed" data-order-id="${orderId}">${translate("ordersActionComplete")}</button>`;
   }
   return "";
@@ -179,6 +181,8 @@ const getLocationStageSummary = (orders) => {
 
   const hasPreparing = orders.some((order) => order.status === "preparing");
   if (hasPreparing) return "preparing";
+
+  if (orders.some((order) => order.status === "out_for_delivery")) return "out_for_delivery";
 
   return "new";
 };
@@ -255,7 +259,7 @@ const renderOrders = (orders) => {
 
   const sorted = orders
     .slice()
-    .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+    .sort((left, right) => parseApiTimestamp(right.createdAt) - parseApiTimestamp(left.createdAt));
   const visibleOrders = getVisibleOrders(sorted);
   const groupedOrders = groupOrdersByLocation(visibleOrders);
   const heading = document.getElementById("ordersHeadingTitle");
@@ -380,7 +384,7 @@ document.addEventListener("click", async (event) => {
   } catch (error) {
     const feedback = document.getElementById("ordersFeedback");
     if (feedback) {
-      feedback.textContent = translate("ordersUpdateError");
+      feedback.textContent = translate(error.apiMessage === "Finish the active delivery before completing the order" ? "ordersActiveDeliveryError" : "ordersUpdateError");
       feedback.dataset.state = "error";
       feedback.hidden = false;
     }

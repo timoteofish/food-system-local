@@ -69,7 +69,7 @@ export default async function operationsRoutes(app) {
       const [open] = await connection.query("SELECT id FROM cash_register_sessions WHERE business_id = ? AND status = 'open' FOR UPDATE", [request.params.businessId]);
       if (open.length) { await connection.rollback(); return reply.conflict("A cash register is already open"); }
       const id = randomUUID();
-      await connection.query("INSERT INTO cash_register_sessions (id, business_id, opened_by, opening_amount) VALUES (?, ?, ?, ?)", [id, request.params.businessId, request.user?.id || null, openingAmount]);
+      await connection.query("INSERT INTO cash_register_sessions (id, business_id, opened_by, opening_amount) VALUES (?, ?, ?, ?)", [id, request.params.businessId, request.user?.local ? null : request.user?.id || null, openingAmount]);
       await connection.commit();
       return reply.code(201).send({ session: { id, status: "open", opening_amount: openingAmount } });
     } catch (error) { await connection.rollback(); throw error; } finally {
@@ -91,7 +91,7 @@ export default async function operationsRoutes(app) {
       const [totals] = await connection.query("SELECT COALESCE(SUM(CASE WHEN type IN ('sale','entry') THEN amount ELSE -amount END), 0) AS movements FROM cash_movements WHERE session_id = ?", [request.params.sessionId]);
       const expectedAmount = Number((Number(sessions[0].opening_amount) + Number(totals[0].movements)).toFixed(2));
       const differenceAmount = Number((closingAmount - expectedAmount).toFixed(2));
-      await connection.query("UPDATE cash_register_sessions SET status = 'closed', closing_amount = ?, expected_amount = ?, difference_amount = ?, closed_by = ?, closed_at = CURRENT_TIMESTAMP, notes = ? WHERE id = ? AND business_id = ? AND status = 'open'", [closingAmount, expectedAmount, differenceAmount, request.user?.id || null, request.body.notes?.trim() || null, request.params.sessionId, request.params.businessId]);
+      await connection.query("UPDATE cash_register_sessions SET status = 'closed', closing_amount = ?, expected_amount = ?, difference_amount = ?, closed_by = ?, closed_at = CURRENT_TIMESTAMP, notes = ? WHERE id = ? AND business_id = ? AND status = 'open'", [closingAmount, expectedAmount, differenceAmount, request.user?.local ? null : request.user?.id || null, request.body.notes?.trim() || null, request.params.sessionId, request.params.businessId]);
       await connection.commit();
       return { closed: true, reconciliation: { expected_amount: expectedAmount, closing_amount: closingAmount, difference_amount: differenceAmount } };
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }

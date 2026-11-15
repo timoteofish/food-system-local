@@ -13,14 +13,8 @@ import {
   fetchTeamMembers,
   fetchTodayStats,
   fetchBusiness,
-  fetchProfile,
   provisionLocalBusiness,
-  firebaseAuthRequest,
-  loginRequest,
-  logoutRequest,
-  persistAuthSession,
   pingApi,
-  registerRequest,
   createCashMovement as apiCreateCashMovement,
   updateOrderStatusRequest,
   updateBusiness,
@@ -33,22 +27,16 @@ import { legacyOrderNoteLabels, legacyPaymentMethodEntries } from "../compatibil
 import { PAYMENT_METHODS } from "../domain/payment-methods.js";
 import { isApiEnabled } from "../api/config.js";
 import {
-  clearPendingRegistration,
-  clearSession,
-  getPendingRegistration,
   getSession,
   saveBusiness,
-  savePendingRegistration,
   setSession,
   getBusiness,
 } from "../data/storage.js";
-import { formatOrderLocation } from "../utils/utils.js";
+import { formatOrderLocation, parseApiTimestamp } from "../utils/utils.js";
 import { getLocale, translate } from "../i18n/i18n.js";
-import { signInWithFirebaseGoogle, signOutFirebaseSession } from "./firebase.js";
 
 // This is an installed, single-computer application. The local profile is
 // created automatically; there is no login, password or subscription flow.
-const LOCAL_MODE = true;
 const BUSINESS_TYPE_LABELS = {
   restaurant: "Restaurant",
   snack_bar: "Snack bar",
@@ -95,140 +83,29 @@ export const checkApiAvailability = async () => {
     return false;
   }
   apiAvailable = await pingApi();
-  if (apiAvailable && LOCAL_MODE) {
+  if (apiAvailable) {
     const localSession = ensureLocalSession();
     const localName = String(getBusiness()?.name || "").trim();
     if (localName) {
       try {
         const business = await provisionLocalBusiness(localName);
-        saveBusiness({ id: business.id, name: business.name });
+        saveBusiness({ id: business.id, name: business.name, ...(business.profile_phone === null || business.profile_phone === undefined ? {} : { phone: business.profile_phone }), ...(business.profile_avatar === null || business.profile_avatar === undefined ? {} : { avatar: business.profile_avatar }) });
       } catch {
         // Keep the interface usable if the local profile cannot sync yet.
       }
     }
-  } else if (apiAvailable && getSession()?.token) {
-    const profile = await fetchProfile();
-    persistAuthSession({ user: profile.user, business: profile.business, local: true });
   }
   return apiAvailable;
 };
 
 export const isUsingApi = () => apiAvailable === true;
-export const isLocalMode = () => LOCAL_MODE;
-
 const requireBusinessId = () => {
   const businessId = getSession()?.businessId;
   if (!businessId) throw new Error("Session expired Sign in again");
   return businessId;
 };
 
-export const login = async ({ email, password }) => {
-  await checkApiAvailability();
-  if (!isUsingApi()) throw new Error("API unavailable Check the backend before signing in");
-
-  const data = await loginRequest(email, password);
-  persistAuthSession({ user: data.user, business: data.business, token: data.token });
-  return data.user;
-};
-
-export const loginWithGoogle = async () => {
-  throw new Error("Use loginWithFirebaseGoogle to sign in with Google");
-};
-
-export const loginWithFirebaseGoogle = async () => {
-  await checkApiAvailability();
-
-  if (!isUsingApi()) {
-    throw new Error("Firebase sign-in requires the API to be active");
-  }
-
-  const { idToken } = await signInWithFirebaseGoogle();
-  const data = await firebaseAuthRequest(idToken);
-  persistAuthSession({ user: data.user, business: data.business, token: data.token });
-  setSession({
-    ...getSession(),
-    needsOnboarding: !data.business?.city || !data.business?.phone,
-  });
-  return data.user;
-};
-
-export const logout = async () => {
-  if (LOCAL_MODE) return ensureLocalSession();
-  if (getSession()) {
-    try {
-      await logoutRequest();
-    } catch {
-    }
-  }
-  await signOutFirebaseSession();
-  clearSession();
-};
-
-export const getCurrentUser = () => {
-  if (LOCAL_MODE) return ensureLocalSession();
-  const session = getSession();
-  if (!session?.email) return null;
-  return session;
-};
-
-export const isAuthenticated = () => Boolean(getSession()?.email);
-
-export const requireAuth = () => {
-  if (LOCAL_MODE) return ensureLocalSession();
-  if (isAuthenticated()) return getCurrentUser();
-  window.location.replace("../../auth/login/index.html");
-  return null;
-};
-
-export const saveRegistrationStep = ({ name, email, password }) => {
-  savePendingRegistration({
-    name: String(name || "").trim(),
-    email: String(email || "").trim().toLowerCase(),
-    password,
-    savedAt: new Date().toISOString(),
-  });
-};
-
-export const completeRegistration = async () => {
-  const pending = getPendingRegistration();
-  if (!pending?.email || !pending?.password) {
-    throw new Error("Registration is incomplete Go back and complete your details");
-  }
-  if (!pending?.businessName) {
-    throw new Error("Enter the business details before completing registration");
-  }
-
-  await checkApiAvailability();
-
-  if (!isUsingApi()) throw new Error("API unavailable You cannot register without the backend");
-
-  const data = await registerRequest(pending);
-  persistAuthSession({
-    user: data.user,
-    business: data.business,
-    token: data.token,
-  });
-  setSession({
-    ...getSession(),
-    name: pending.businessName,
-    avatar: pending.businessAvatar || "",
-    needsOnboarding: false,
-  });
-  saveBusiness({
-    ...(data.business || {}),
-    name: pending.businessName,
-    email: pending.email,
-    avatar: pending.businessAvatar || "",
-    logo_url: pending.businessAvatar || data.business?.logo_url || "",
-    onboardingCompleted: true,
-  });
-  await saveMenuSettingsRemote({
-    businessName: pending.businessName,
-    menuName: pending.businessName,
-  });
-  clearPendingRegistration();
-  return data.user;
-};
+export const requireAuth = () => ensureLocalSession();
 
 export const completeBusinessOnboarding = async (payload) => {
   const businessName = String(payload.businessName || "").trim();
@@ -319,7 +196,7 @@ export const toggleProductStatus = async (product) => {
 export const loadCategories = async () => {
   const businessId = requireBusinessId();
   const categories = await fetchCategories(businessId);
-  return categories.map((item) => item.name);
+  return categories.filter((item) => item.active !== false && item.active !== 0).map((item) => item.name);
 };
 
 export const addCategoryRemote = async (name) => {
@@ -366,36 +243,47 @@ export const removeCategoryRemote = async (name) => {
   return loadCategories();
 };
 
-export const saveMenuSettingsRemote = async (settings) => {
+export const saveMenuSettingsRemote = async (settings, { expectedSettings: expectedVersion, expectedBusiness } = {}) => {
   if (!isUsingApi()) throw new Error("API unavailable Could not save the menu");
 
   const businessId = requireBusinessId();
   const currentBusiness = await fetchBusiness(businessId);
   let currentSettings = currentBusiness?.settings;
+  const expectedSettings = expectedVersion ?? (typeof currentSettings === "string" ? currentSettings : JSON.stringify(currentSettings ?? {}));
   if (typeof currentSettings === "string") {
     try { currentSettings = JSON.parse(currentSettings); } catch { currentSettings = {}; }
   }
-  await updateBusiness(businessId, {
+  const menuChanges = Object.fromEntries(Object.entries({
+    gradient_start: settings.gradientStart,
+    gradient_end: settings.gradientEnd,
+    gradient_angle: settings.gradientAngle,
+    style: settings.style,
+    menu_banner: settings.menuBanner,
+    delivery_fee: settings.deliveryFee,
+    show_all_products: settings.showAllProducts,
+    selected_categories: settings.selectedCategories,
+  }).filter(([, value]) => value !== undefined));
+  const updated = await updateBusiness(businessId, {
     name: settings.businessName,
     description: settings.menuName,
     primary_color: settings.primaryColor,
     theme_style: settings.style,
+    expected_settings: expectedSettings,
+    expected_business: expectedBusiness,
     settings: {
       ...(currentSettings && typeof currentSettings === "object" && !Array.isArray(currentSettings) ? currentSettings : {}),
-      gradient_start: settings.gradientStart,
-      gradient_end: settings.gradientEnd,
-      gradient_angle: settings.gradientAngle,
-      style: settings.style,
-      menu_banner: settings.menuBanner,
-      delivery_fee: settings.deliveryFee,
-      show_all_products: settings.showAllProducts,
-      selected_categories: settings.selectedCategories || [],
+      ...menuChanges,
     },
   });
 
-  const { saveMenuSettings } = await import("../data/storage.js");
-  saveMenuSettings(settings);
-  return settings;
+  const { getMenuSettings, saveMenuSettings } = await import("../data/storage.js");
+  saveMenuSettings({ ...getMenuSettings(), ...settings });
+  return { ...settings, settingsVersion: typeof updated?.settings === "string" ? updated.settings : JSON.stringify(updated?.settings ?? {}), businessVersion: { name: updated?.name, description: updated?.description ?? null, primary_color: updated?.primary_color } };
+};
+
+export const saveBusinessProfileRemote = async ({ businessName, phone, avatar }) => {
+  if (!isUsingApi()) throw new Error("API unavailable Could not save the business");
+  return updateBusiness(requireBusinessId(), { name: businessName, profile_phone: phone, profile_avatar: avatar });
 };
 
 export const placeOrderRemote = async ({
@@ -426,7 +314,7 @@ export const placeOrderRemote = async ({
 
 export const loadOrdersRemote = async () => {
   const businessId = requireBusinessId();
-  const orders = await fetchOrders(businessId);
+  const orders = await fetchOrders(businessId, { activeOnly: true });
   return (orders || []).map((order) => ({
     id: order.id,
     total: order.total,
@@ -486,30 +374,31 @@ const normalizeOrderStatus = (status = "") => {
   if (value === "confirmed" || value === "pending") return "new";
   if (value === "preparing") return "preparing";
   if (value === "ready") return "ready";
-  if (value === "delivered") return "completed";
+  if (value === "completed" || value === "delivered") return "completed";
   if (value === "cancelled") return "cancelled";
-  return "new";
+  return value;
 };
 
 const normalizeApiOrderStatus = (status = "") => {
   if (status === "new") return "confirmed";
   if (status === "preparing") return "preparing";
   if (status === "ready") return "ready";
-  if (status === "completed") return "delivered";
+  if (status === "completed") return "completed";
   if (status === "cancelled") return "cancelled";
-  return "confirmed";
+  return status;
 };
 
 export const loadDashboardData = async () => {
   const businessId = requireBusinessId();
-  const [statsPayload, orders] = await Promise.all([
+  const [statsPayload, activeOrders, recentOrders] = await Promise.all([
     fetchTodayStats(businessId),
-    fetchOrders(businessId),
+    fetchOrders(businessId, { activeOnly: true }),
+    fetchOrders(businessId, { recentOnly: true }),
   ]);
 
   const products = await loadProducts();
   const activeLocations = new Set(
-    (orders || [])
+    (activeOrders || [])
       .filter((order) => ["confirmed", "pending", "preparing", "ready"].includes(String(order.status || "").toLowerCase()))
       .map((order) => formatOrderLocation(order.table_name || order.restaurant_table_name || order.delivery_address) || extractTableName(order.notes))
       .filter((location) => location && location !== translate("Table not specified"))
@@ -523,9 +412,9 @@ export const loadDashboardData = async () => {
       ordersToday: Number(statsPayload.total_orders || 0),
       activeLocations: activeLocations.size,
     },
-    orders: (orders || [])
+    orders: (recentOrders || [])
       .slice()
-      .sort((left, right) => new Date(right.created_at) - new Date(left.created_at))
+      .sort((left, right) => parseApiTimestamp(right.created_at) - parseApiTimestamp(left.created_at))
       .slice(0, 3)
       .map((order) => ({
         id: order.id,
@@ -575,7 +464,7 @@ export const loadCashierData = async () => {
       orderCode: order.order_number,
       total: order.total,
       paymentMethod: extractPaymentMethod(order.notes),
-      paymentStatus: order.status === "completed" ? "paid" : "pending",
+      orderStatus: order.status,
       customerName: order.customer_name || translate("Customer"),
       tableName: formatOrderLocation(order.table_name || order.restaurant_table_name || order.delivery_address) || extractTableName(order.notes),
       createdAt: order.created_at,

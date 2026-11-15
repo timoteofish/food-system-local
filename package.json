@@ -1,20 +1,18 @@
 {
   "name": "food-system-desktop",
   "private": true,
+  "type": "module",
   "version": "0.1.0",
   "scripts": {
     "test": "npm --prefix backend test",
     "test:contract": "npm --prefix backend run test:contract",
     "desktop:download-update": "node desktop/download-update.mjs",
     "desktop:dev": "npm ci --prefix backend && tauri dev",
-    "desktop:prepare-runtime": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File desktop/prepare-runtime.ps1",
+    "desktop:prepare-runtime": "node desktop/prepare-runtime.mjs",
     "desktop:build": "tauri build",
     "desktop:check": "tauri info"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2.12.4"
   }
 }

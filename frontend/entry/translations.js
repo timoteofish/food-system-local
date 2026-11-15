@@ -1,7 +1,7 @@
 const translations = {
   pt: {
     ariaLabel: "Configuração inicial do Food System",
-    documentTitle: "Boas-vindas · Food System",
+    documentTitle: "Food System",
     headline: "Organize seu<br />restaurante",
     intro: "Pedidos, cardápio e operação em um só lugar",
     title: "Configure seu negócio",

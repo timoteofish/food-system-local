@@ -3,12 +3,13 @@ import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer as createHttpServer, request as createHttpRequest } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { extname, isAbsolute, join, normalize, relative as relativePath, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { removeStalePlaintextBackups } from "./cleanup-backups.mjs";
+import { loadOrCreateLocalSecret } from "../backend/src/local-secret.js";
 
 const execFile = promisify(execFileCallback);
 let backend = null;
@@ -45,18 +46,9 @@ const recoveryMarker = resolve(backupDir, "..", "restore-recovery-required");
 if (existsSync(recoveryMarker)) {
   throw new Error("A database restore was interrupted or could not be recovered. Food System startup is blocked until the database and safety backup are checked by an administrator.");
 }
-const secretKeyPath = join(dataDir, "secret.key");
 let secretKey = process.env.FOOD_SYSTEM_SECRET_KEY || "";
 if (!secretKey) {
-  try { secretKey = (await readFile(secretKeyPath, "utf8")).trim(); }
-  catch {
-    secretKey = randomBytes(32).toString("base64url");
-    await mkdir(dataDir, { recursive: true });
-    await writeFile(secretKeyPath, `${secretKey}\n`, { mode: 0o600, flag: "wx" }).catch(async (error) => {
-      if (error.code !== "EEXIST") throw error;
-      secretKey = (await readFile(secretKeyPath, "utf8")).trim();
-    });
-  }
+  secretKey = await loadOrCreateLocalSecret({ dataDir, backupDir });
 }
 if (secretKey.length < 32) {
   throw new Error("The local encryption key is missing or invalid. Restore the key from a backup before continuing.");
@@ -64,7 +56,9 @@ if (secretKey.length < 32) {
 await mkdir(backupDir, { recursive: true });
 try {
   const removedPlaintextFiles = await removeStalePlaintextBackups(backupDir);
-  if (removedPlaintextFiles.length) console.warn(`Removed ${removedPlaintextFiles.length} stale plaintext backup file(s).`);
+  const removedRestoreFiles = await removeStalePlaintextBackups(dataDir, { includePlainBackups: false });
+  const removedCount = removedPlaintextFiles.length + removedRestoreFiles.length;
+  if (removedCount) console.warn(`Removed ${removedCount} stale plaintext backup file(s).`);
 } catch (error) {
   console.warn("Food System could not clean stale plaintext backup files:", error.message);
 }
@@ -144,6 +138,7 @@ const waitForApiListener = (child, timeoutMs = 10_000) => new Promise((resolveAp
 const shutdown = () => {
   if (shutdownPromise) return shutdownPromise;
   shuttingDown = true;
+  if (process.env.FOOD_SYSTEM_TAURI_CONTROL === "1") process.stdin.destroy();
   if (frontend?.listening) frontend.close();
   shutdownPromise = (async () => {
     if (migrationPromise) {
@@ -402,6 +397,9 @@ const backendEnv = {
   FOOD_SYSTEM_BACKUP_DIR: join(dataDir, "backups"),
   FOOD_SYSTEM_ENV_FILE: environmentFile,
   HOST: "127.0.0.1",
+  // The desktop proxy, frontend CSP, and Tauri configuration use this port.
+  // Ignore an unrelated inherited PORT rather than starting an unreachable API.
+  PORT: "3000",
 };
 migrationPromise = execFile(process.execPath, ["src/migrate.js"], {
   cwd: backendRoot,

@@ -2,7 +2,7 @@ import "../../shared/i18n/legacy-control.js";
 import { translate } from "../../shared/i18n/i18n.js";
 import { createOrder as apiCreateOrder, fetchPublicMenu, fetchPublicMenuByTableToken } from "../../shared/api/client.js";
 import { clearCart, getCart, saveCart } from "../../shared/data/storage.js";
-import { escapeHtml, formatPrice, parsePrice, safeImageUrl } from "../../shared/utils/utils.js";
+import { escapeHtml, formatPrice, orderLineCents, parsePrice, safeImageUrl } from "../../shared/utils/utils.js";
 import { showToast } from "../../shared/ui/ui.js";
 import { legacyMenuQueryParams } from "../../shared/compatibility/legacy-portuguese-data.js";
 import { PAYMENT_METHODS } from "../../shared/domain/payment-methods.js";
@@ -33,14 +33,26 @@ const publicBusinessId = getQueryValue("business", legacyMenuQueryParams.busines
 const tableToken = getQueryValue("table_token", legacyMenuQueryParams.tableToken);
 let currentTableName = tableName;
 const idempotencyStorageKey = "food-system-public-order-idempotency-key";
+let orderSubmissionInProgress = false;
 let pendingOrderRequest = (() => {
   try {
-    const key = sessionStorage.getItem(idempotencyStorageKey);
-    return key ? { signature: "", key } : null;
+    const saved = sessionStorage.getItem(idempotencyStorageKey);
+    if (!saved) return null;
+    try {
+      const parsed = JSON.parse(saved);
+      if (typeof parsed?.key === "string" && typeof parsed?.signature === "string") return parsed;
+    } catch { /* Older versions stored only the key. */ }
+    return { signature: "", key: saved };
   } catch {
     return null;
   }
 })();
+
+const hashOrderSignature = async (details) => {
+  const bytes = new TextEncoder().encode(JSON.stringify(details));
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
 
 const cart = { ...getCart() };
 
@@ -143,7 +155,7 @@ const getVisibleProducts = () => {
   const selected = new Set(settings.selectedCategories || []);
   let filtered = products.filter((item) => item.active);
 
-  if (settings.showAllProducts === false && selected.size) {
+  if (settings.showAllProducts === false) {
     filtered = filtered.filter((item) => selected.has(item.category));
   }
 
@@ -164,20 +176,25 @@ const getVisibleProducts = () => {
   return filtered;
 };
 
+const isAvailableOnMenu = (product) =>
+  Boolean(product?.active) && (settings.showAllProducts !== false || (settings.selectedCategories || []).includes(product.category));
+
 const getCartEntries = () =>
   Object.entries(cart)
     .filter(([id, quantity]) => Boolean(id) && Number(quantity) > 0)
     .map(([id, quantity]) => {
       const product = products.find((item) => item.id === id);
-      return product ? { product, quantity: Number(quantity) } : null;
+      return isAvailableOnMenu(product)
+        ? { product, quantity: Number(quantity) }
+        : null;
     })
     .filter(Boolean);
 
 const getCartTotal = () =>
-  getCartEntries().reduce((sum, entry) => sum + getProductPrice(entry.product) * entry.quantity, 0);
+  getCartEntries().reduce((sum, entry) => sum + orderLineCents(getProductPrice(entry.product), entry.quantity), 0) / 100;
 
 const updateBagCount = () => {
-  const totalItems = Object.values(cart).reduce((sum, quantity) => sum + Number(quantity || 0), 0);
+  const totalItems = getCartEntries().reduce((sum, entry) => sum + entry.quantity, 0);
   elements.bagCounts.forEach((node) => {
     node.textContent = String(totalItems);
   });
@@ -187,7 +204,7 @@ const renderCategories = () => {
   const availableCategories = [allCategoriesValue, ...categories.filter((category) => {
     if (settings.showAllProducts !== false) return true;
     const selected = new Set(settings.selectedCategories || []);
-    return selected.size ? selected.has(category) : true;
+    return selected.has(category);
   })];
 
   if (!availableCategories.includes(selectedCategory)) {
@@ -221,7 +238,7 @@ const renderBagPanel = () => {
                   <span class="bag-panel__item-name">${escapeHtml(product.name)}</span>
                   <span class="bag-panel__item-meta">${escapeHtml(product.category || translate("Uncategorized"))}</span>
                 </div>
-                <strong class="bag-panel__item-price">${formatPrice(getProductPrice(product) * quantity)}</strong>
+                <strong class="bag-panel__item-price">${formatPrice(orderLineCents(getProductPrice(product), quantity) / 100)}</strong>
               </div>
               <div class="bag-panel__item-bottom">
                 <div class="bag-panel__qty">
@@ -243,14 +260,15 @@ const renderBagPanel = () => {
   if (elements.deliveryFeeRow) elements.deliveryFeeRow.hidden = !isDelivery;
   if (elements.deliveryFeeTotal) elements.deliveryFeeTotal.textContent = formatPrice(deliveryFee);
   elements.bagTotal.textContent = formatPrice(getCartTotal() + deliveryFee);
-  elements.bagConfirm.disabled = entries.length === 0;
-  elements.bagConfirm.textContent = translate("Place order");
+  elements.bagConfirm.disabled = orderSubmissionInProgress || entries.length === 0;
+  elements.bagConfirm.textContent = translate(orderSubmissionInProgress ? "Placing order" : "Place order");
   if (elements.paymentNote) {
     elements.paymentNote.textContent = translate("The team will confirm your payment after receiving the order");
   }
 };
 
 const getEmptyMenuMessage = () => {
+  if (settings.showAllProducts === false && !(settings.selectedCategories || []).length) return translate("No products are available right now");
   if (!products.some((item) => item.active)) return translate("This menu does not have any products available yet");
   if (searchQuery.trim()) return translate("No products match your search");
   if (selectedCategory !== allCategoriesValue) return translate("No products are available in the “$1” category").replace("$1", escapeHtml(selectedCategory));
@@ -347,14 +365,10 @@ const loadPublicMenuData = async () => {
   if (elements.deliveryFee) elements.deliveryFee.textContent = formatPrice(settings.deliveryFee);
 };
 
-const placeCustomerOrder = async ({ entries, paymentMethod, customerName, idempotencyKey }) => {
+const placeCustomerOrder = async ({ entries, paymentMethod, customerName, idempotencyKey, delivery, tableLabel }) => {
   const businessId = publicBusinessId || settings.businessId || "";
   if (!businessId && !tableToken) throw new Error("Could not identify the business for this menu");
-  const tableLabel = elements.customerTable?.textContent?.trim() || currentTableName;
-  const isDelivery = elements.orderType?.value === "delivery";
-  const delivery = isDelivery ? {
-    address: { street: elements.deliveryStreet.value.trim(), number: elements.deliveryNumber.value.trim(), city: elements.deliveryCity.value.trim() },
-  } : null;
+  const isDelivery = Boolean(delivery);
 
   const data = await apiCreateOrder(
     businessId,
@@ -402,7 +416,8 @@ const updateCartQuantity = (id, nextQuantity) => {
 };
 
 const addToCart = (id) => {
-  if (!id) return;
+  if (orderSubmissionInProgress) return;
+  if (!id || !getVisibleProducts().some((product) => product.id === id)) return;
   if (elements.success) elements.success.hidden = true;
   cart[id] = (cart[id] || 0) + 1;
   persistCart();
@@ -422,6 +437,7 @@ elements.categories.addEventListener("click", (event) => {
 });
 
 elements.list.addEventListener("click", (event) => {
+  if (orderSubmissionInProgress) return;
   const chooseButton = event.target.closest(".choose-btn");
   if (chooseButton) {
     addToCart(chooseButton.dataset.id);
@@ -436,6 +452,7 @@ elements.list.addEventListener("click", (event) => {
 });
 
 elements.bagItems.addEventListener("click", (event) => {
+  if (orderSubmissionInProgress) return;
   const button = event.target.closest("[data-cart-action][data-id]");
   if (!button) return;
   const id = button.dataset.id;
@@ -454,6 +471,7 @@ elements.orderType?.addEventListener("change", () => {
   renderBagPanel();
 });
 elements.bagConfirm?.addEventListener("click", async () => {
+  if (orderSubmissionInProgress) return;
   const entries = getCartEntries();
   if (!entries.length) return;
 
@@ -466,37 +484,37 @@ elements.bagConfirm?.addEventListener("click", async () => {
   const customerName = elements.customerName.value.trim() || translate("Customer");
   const paymentMethod = elements.paymentMethod.value || "pix";
   const totalBeforeClear = getCartTotal();
-  const orderSignature = JSON.stringify({ entries: entries.map(({ product, quantity }) => [product.id, quantity]), paymentMethod, customerName, delivery: isDelivery ? { street: elements.deliveryStreet.value.trim(), number: elements.deliveryNumber.value.trim(), city: elements.deliveryCity.value.trim() } : null });
-  if (!pendingOrderRequest || (pendingOrderRequest.signature && pendingOrderRequest.signature !== orderSignature)) {
-    pendingOrderRequest = { signature: orderSignature, key: globalThis.crypto.randomUUID() };
-    try { sessionStorage.setItem(idempotencyStorageKey, pendingOrderRequest.key); } catch { /* Keep the key for this page session. */ }
-  } else {
-    pendingOrderRequest.signature = orderSignature;
-  }
+  const tableLabel = elements.customerTable?.textContent?.trim() || currentTableName;
+  const delivery = isDelivery ? { address: { street: elements.deliveryStreet.value.trim(), number: elements.deliveryNumber.value.trim(), city: elements.deliveryCity.value.trim() } } : null;
+  orderSubmissionInProgress = true;
   elements.bagConfirm.disabled = true;
   elements.bagConfirm.textContent = translate("Placing order");
+  let orderAccepted = false;
 
   try {
+    const orderSignature = await hashOrderSignature({ business: publicBusinessId || settings.businessId || "", tableToken, table: tableLabel, entries: entries.map(({ product, quantity }) => [product.id, quantity]), paymentMethod, customerName, delivery: delivery?.address || null });
+    if (pendingOrderRequest?.signature && pendingOrderRequest.signature !== orderSignature && !window.confirm(translate("The previous order may have been placed Confirm with the restaurant before sending a different order Continue"))) return;
+    if (!pendingOrderRequest || (pendingOrderRequest.signature && pendingOrderRequest.signature !== orderSignature)) {
+      pendingOrderRequest = { signature: orderSignature, key: globalThis.crypto.randomUUID() };
+    } else {
+      pendingOrderRequest.signature = orderSignature;
+    }
+    try { sessionStorage.setItem(idempotencyStorageKey, JSON.stringify(pendingOrderRequest)); } catch { /* Keep the key for this page session. */ }
     const request = (idempotencyKey) => placeCustomerOrder({
       entries,
       paymentMethod,
       customerName,
       idempotencyKey,
+      delivery,
+      tableLabel,
     });
-    let order;
-    try {
-      order = await request(pendingOrderRequest.key);
-    } catch (error) {
-      if (!String(error.apiMessage || error.message || "").includes("Idempotency key was already used")) throw error;
-      pendingOrderRequest = { signature: orderSignature, key: globalThis.crypto.randomUUID() };
-      try { sessionStorage.setItem(idempotencyStorageKey, pendingOrderRequest.key); } catch { /* Keep the key for this page session. */ }
-      order = await request(pendingOrderRequest.key);
-    }
+    const order = await request(pendingOrderRequest.key);
+    orderAccepted = true;
 
-    pendingOrderRequest = null;
-    try { sessionStorage.removeItem(idempotencyStorageKey); } catch { /* Ignore unavailable session storage. */ }
     Object.keys(cart).forEach((key) => delete cart[key]);
     clearCart();
+    pendingOrderRequest = null;
+    try { sessionStorage.removeItem(idempotencyStorageKey); } catch { /* Ignore unavailable session storage. */ }
     closeBagPanel();
     render();
     elements.customerName.value = "";
@@ -513,12 +531,17 @@ elements.bagConfirm?.addEventListener("click", async () => {
       `;
     }
   } catch (error) {
-    if (String(error.apiMessage || error.message || "").includes("Idempotency key was already used")) {
+    if (orderAccepted) {
+      showToast(translate("Order received but this device could not update the cart Check with the restaurant before sending again"), { type: "error" });
+    } else if (String(error.apiMessage || error.message || "").includes("Idempotency key was already used")) {
       pendingOrderRequest = null;
       try { sessionStorage.removeItem(idempotencyStorageKey); } catch { /* Ignore unavailable session storage. */ }
+      showToast(translate("The previous order may have been placed Check with the restaurant before trying again"), { type: "error" });
+    } else {
+      showToast(translate(error.message || "Could not place the order"), { type: "error" });
     }
-    showToast(translate(error.message || "Could not place the order"), { type: "error" });
   } finally {
+    orderSubmissionInProgress = false;
     renderBagPanel();
   }
 });

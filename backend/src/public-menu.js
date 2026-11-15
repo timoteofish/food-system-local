@@ -15,7 +15,7 @@ const deliveryFee = (settings) => {
 
 export const createPublicMenu = (business, sourceCategories, table = null) => {
   const settings = parseSettings(business.settings);
-  const categories = (Array.isArray(sourceCategories) ? sourceCategories : []).map((category) => ({
+  const allCategories = (Array.isArray(sourceCategories) ? sourceCategories : []).map((category) => ({
     id: category.id,
     name: category.name,
     description: category.description || "",
@@ -31,16 +31,20 @@ export const createPublicMenu = (business, sourceCategories, table = null) => {
       active: true,
     })),
   }));
-  const categoryNames = new Set(categories.map((category) => category.name));
+  const categoryNames = new Set(allCategories.map((category) => category.name));
   const selectedCategories = Array.isArray(settings.selected_categories)
     ? [...new Set(settings.selected_categories.filter((name) => typeof name === "string" && categoryNames.has(name)))].slice(0, 100)
     : [];
+  const showAllProducts = typeof settings.show_all_products === "boolean" ? settings.show_all_products : true;
+  const categories = showAllProducts
+    ? allCategories
+    : allCategories.filter((category) => selectedCategories.includes(category.name));
   const angle = Number(settings.gradient_angle);
 
   return {
     business_id: business.id,
     business_name: business.name,
-    menu_name: business.description || "",
+    menu_name: business.description === "Local application" ? "" : business.description || "",
     primary_color: safeColor(business.primary_color, "#b4232f"),
     style: settings.style === "clean" ? settings.style : "clean",
     gradient_start: safeColor(settings.gradient_start, safeColor(business.primary_color, "#b4232f")),
@@ -48,7 +52,7 @@ export const createPublicMenu = (business, sourceCategories, table = null) => {
     gradient_angle: Number.isFinite(angle) && angle >= 0 && angle <= 360 ? angle : 140,
     menu_banner: typeof settings.menu_banner === "string" ? settings.menu_banner.slice(0, 500) : "",
     delivery_fee: deliveryFee(settings),
-    show_all_products: typeof settings.show_all_products === "boolean" ? settings.show_all_products : true,
+    show_all_products: showAllProducts,
     selected_categories: selectedCategories,
     ...(table ? { table: { id: table.id, name: table.name } } : {}),
     categories,

@@ -106,10 +106,11 @@ if (hasExistingSetup) {
     submitButton.disabled = true;
     try {
       previousValues = Object.fromEntries(keysToRestore.map((key) => [key, localStorage.getItem(key)]));
-      if (await pingApi()) await provisionLocalBusiness(name);
-      business = { ...business, name };
+      const savedBusiness = await pingApi() ? await provisionLocalBusiness(name) : null;
+      const businessName = savedBusiness?.name || name;
+      business = { ...business, ...savedBusiness, name: businessName };
       saveBusiness(business);
-      saveMenuSettings({ ...getMenuSettings(), businessName: name });
+      saveMenuSettings({ ...getMenuSettings(), businessName });
       localStorage.setItem("food-system-language", language);
       localStorage.setItem(SETUP_KEY, "true");
       window.location.assign(targetUrl.href);
