@@ -1,0 +1,26 @@
+@import url("../workspace/styles.css");
+
+/* Movements page: adjustment, transfer and movement history. */
+.inventory-workspace > .inventory-panel:not(:nth-child(2)),
+.inventory-workspace:not(.inventory-operations),
+.inventory-locations-panel,
+.inventory-list-panel:not(:has(#inventoryMovementRows)) { display:none; }
+
+@media (max-width: 767px) { .inventory-panel, .inventory-list-panel { padding: 15px !important; } }
+
+.inventory-back {
+  display: flex;
+  width: fit-content;
+  min-width: 180px;
+  justify-content: center;
+  margin: 28px auto 8px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+}
+.inventory-back:hover {
+  border-color: var(--accent-dark, var(--accent));
+  background: var(--accent-dark, var(--accent));
+  color: #fff;
+}

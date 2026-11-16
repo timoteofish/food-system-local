@@ -36,3 +36,4 @@ export const removeStalePlaintextBackups = async (directory, { now = Date.now(),
   }
   return removed;
 };
+

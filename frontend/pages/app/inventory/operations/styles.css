@@ -1,0 +1,32 @@
+@import url("../workspace/styles.css");
+
+/* Operations page: transfer, reorder, count, lots and production. */
+.inventory-workspace:not(.inventory-operations),
+.inventory-locations-panel,
+.inventory-list-panel { display:none; }
+
+@media (max-width: 767px) { .inventory-panel, .inventory-list-panel { padding: 15px !important; } }
+
+.inventory-back {
+  display: flex;
+  width: fit-content;
+  min-width: 180px;
+  justify-content: center;
+  margin: 28px auto 8px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+}
+.inventory-back:hover {
+  border-color: var(--accent-dark, var(--accent));
+  background: var(--accent-dark, var(--accent));
+  color: #fff;
+}
+
+/* Search control for the reorder list. */
+.inventory-panel:has(#reorderRows) > .inventory-table-search {
+  display: block;
+  min-height: 42px;
+  visibility: visible;
+}
