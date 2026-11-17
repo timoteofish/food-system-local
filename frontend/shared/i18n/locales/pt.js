@@ -44,7 +44,7 @@ export default {
     inventoryRecipeSaveError: "Não foi possível salvar a ficha técnica Confira os dados e tente novamente",
     inventoryRecipeLoadError: "Não foi possível carregar a ficha técnica. Tente novamente.",
     inventoryRecipeStale: "A ficha foi alterada por outra pessoa. Recarregue a ficha antes de salvar.",
-    inventoryRecipeReplaceWarning: "Salvar substitui a composição já gravada. Selecione o produto e revise todos os insumos antes de salvar.",
+    inventoryRecipeReplaceWarning: "Salvar substitui a composição já gravada, selecione o produto e revise todos os insumos antes de salvar!",
     inventoryRecipeDiscardDraftConfirm: "Descartar as alterações não salvas e carregar a ficha do outro produto?",
     inventoryRecipeUnitMismatch: "A unidade escolhida não é compatível com este insumo.",
     inventoryMovementHistory: "Histórico de movimentações",

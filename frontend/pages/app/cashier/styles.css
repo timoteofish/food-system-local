@@ -203,7 +203,7 @@
 }
 
 .cash-register-status {
-  display: inline-flex;
+  display: none !important;
   width: max-content;
   max-width: 100%;
   align-items: center;

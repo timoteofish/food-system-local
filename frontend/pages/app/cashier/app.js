@@ -413,7 +413,12 @@ const refresh = async () => {
   loadRetry.hidden = true;
   loadRetry.disabled = true;
   try {
-    currentRegister = await fetchCurrentCashRegister(businessId);
+    try {
+      currentRegister = await fetchCurrentCashRegister(businessId);
+    } catch (error) {
+      console.warn("[cashier] register status unavailable", error);
+      currentRegister = null;
+    }
     renderRegister();
     const data = await loadCashierData();
     orders = data.orders;
@@ -425,7 +430,8 @@ const refresh = async () => {
     renderRegister();
     render();
     hideLoadAlert();
-  } catch {
+  } catch (error) {
+    console.error("[cashier] failed to load cashier data", error);
     hasLoadedCash = false;
     pageLoading.hidden = true;
     registerAction.disabled = true;

@@ -48,6 +48,7 @@ const printCopy = {
 };
 
 const setStatus = (message, state = "") => {
+  if (!statusMessage) return;
   statusMessage.textContent = message;
   if (state) statusMessage.dataset.state = state;
   else statusMessage.removeAttribute("data-state");

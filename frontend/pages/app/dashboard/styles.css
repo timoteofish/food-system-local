@@ -171,6 +171,9 @@
 .stat--featured > strong { color: var(--accent-text, var(--accent)); }
 
 .dashboard-lower {
+  display: flex;
+  align-items: center;
+  min-height: 112px;
   margin-top: 24px;
   padding: 22px 24px;
   border: 1px solid var(--line);
@@ -179,11 +182,12 @@
 }
 
 .dashboard-section-head {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .dashboard-section-head h2 { margin: 0; font-size: 1.1rem; letter-spacing: -.02em; }

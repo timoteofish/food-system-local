@@ -158,7 +158,6 @@
           </article>
           <article class="panel inventory-panel" data-inventory-panel>
             <div class="inventory-panel__heading"><h2 data-i18n="inventoryReorderTitle">Reorder levels</h2><button class="inventory-panel__toggle" type="button" data-inventory-panel-toggle aria-expanded="false" aria-label="Collapse panel"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6" /></svg></button></div>
-            <div class="inventory-table-search"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.3"></circle><path d="m16 16 4.2 4.2"></path></svg><input type="search" data-inventory-table-search="reorderRows" placeholder="Pesquisar" aria-label="Pesquisar níveis de reposição"></div>
             <form class="inventory-form" id="reorderForm">
               <label for="reorderLocation"><span>Location</span><select id="reorderLocation" required disabled></select></label>
               <label for="reorderItem"><span>Ingredient</span><select id="reorderItem" required disabled></select></label>
@@ -168,6 +167,7 @@
               <button class="btn btn--primary" id="reorderSubmit" type="submit" data-i18n="inventorySaveReorder" disabled>Save reorder level</button>
             </form>
             <p id="reorderMessage" class="inventory-feedback" role="status" aria-live="polite" hidden></p>
+            <div class="inventory-table-search"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.3"></circle><path d="m16 16 4.2 4.2"></path></svg><input type="search" data-inventory-table-search="reorderRows" placeholder="Pesquisar" aria-label="Pesquisar níveis de reposição"></div>
             
              <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th data-i18n="ingredient">Ingredient</th><th data-i18n="inventoryLocation">Location</th><th data-i18n="inventoryOnHand">On hand</th><th data-i18n="minimum">Minimum</th><th data-i18n="inventorySuggestedOrderShort">Suggested order</th></tr></thead><tbody id="reorderRows"><tr><td colspan="5" class="inventory-empty">Loading reorder alerts</td></tr></tbody></table></div>
           </article>

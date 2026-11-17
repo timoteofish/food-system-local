@@ -390,10 +390,9 @@ const normalizeApiOrderStatus = (status = "") => {
 
 export const loadDashboardData = async () => {
   const businessId = requireBusinessId();
-  const [statsPayload, activeOrders, recentOrders] = await Promise.all([
+  const [statsPayload, activeOrders] = await Promise.all([
     fetchTodayStats(businessId),
     fetchOrders(businessId, { activeOnly: true }),
-    fetchOrders(businessId, { recentOnly: true }),
   ]);
 
   const products = await loadProducts();
@@ -412,26 +411,20 @@ export const loadDashboardData = async () => {
       ordersToday: Number(statsPayload.total_orders || 0),
       activeLocations: activeLocations.size,
     },
-    orders: (recentOrders || [])
-      .slice()
-      .sort((left, right) => parseApiTimestamp(right.created_at) - parseApiTimestamp(left.created_at))
-      .slice(0, 3)
-      .map((order) => ({
-        id: order.id,
-        orderCode: order.order_number || order.orderCode || "",
-        total: Number(order.total ?? order.total_amount ?? 0),
-        createdAt: order.created_at,
-        items: order.items || [],
-      })),
   };
 };
 
 export const loadCashierData = async () => {
   const businessId = requireBusinessId();
-  const [orders, cashPayload] = await Promise.all([
+  const [ordersResult, cashResult] = await Promise.allSettled([
     fetchOrders(businessId),
     fetchCashMovements(businessId),
   ]);
+  if (ordersResult.status === "rejected") throw ordersResult.reason;
+  const orders = ordersResult.value;
+  const cashPayload = cashResult.status === "fulfilled"
+    ? cashResult.value
+    : { movements: [], balance: 0 };
 
   const movements = (Array.isArray(cashPayload?.movements) ? cashPayload.movements : []).map((movement) => {
     const originalType = String(movement.type || movement.movement_type || "entry").toLowerCase();

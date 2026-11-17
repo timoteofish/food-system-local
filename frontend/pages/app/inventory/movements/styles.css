@@ -1,6 +1,24 @@
 @import url("../workspace/styles.css");
 
 /* Movements page: adjustment, transfer and movement history. */
+
+.inventory-table-search {
+  display: flex !important;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  visibility: visible;
+}
+
+.inventory-panel.is-collapsed > *:not(.inventory-panel__heading),
+.inventory-list-panel.is-collapsed > *:not(.inventory-list-panel__heading) {
+  display: none;
+}
+
+.inventory-panel.is-collapsed > .inventory-table-search,
+.inventory-list-panel.is-collapsed > .inventory-table-search {
+  display: none !important;
+}
 .inventory-workspace > .inventory-panel:not(:nth-child(2)),
 .inventory-workspace:not(.inventory-operations),
 .inventory-locations-panel,
