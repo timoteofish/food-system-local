@@ -632,6 +632,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
 .user-edit-panel--compact-view .user-edit-panel__settings-grid .field:last-child{
   grid-column:auto;
 }
+.user-edit-panel__feedback[hidden]{display:none}
 .user-edit-panel__feedback{
   margin:0;
   padding:12px 14px;
@@ -669,6 +670,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent-text, var(--ac
 .user-edit-panel__update-panel p{
   margin:0;
   line-height:1.45;
+}
+.user-edit-panel__update-panel p[data-update-current]{
+  text-align:center;
 }
 .user-edit-panel__update-panel p:empty{
   display:none;

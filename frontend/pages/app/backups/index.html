@@ -103,6 +103,31 @@
       </section>
     </div>
 
+    <div class="backup-delete-modal" id="backupDeleteModal" hidden>
+      <button class="backup-delete-modal__backdrop" type="button" data-close-delete-modal aria-label="Fechar"></button>
+      <section class="backup-delete-panel" role="dialog" aria-modal="true" aria-labelledby="backupDeleteTitle" aria-describedby="backupDeleteDescription">
+        <div class="backup-delete-panel__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" /></svg></div>
+        <h2 id="backupDeleteTitle" data-i18n="backupDelete">Excluir backup</h2>
+        <p id="backupDeleteDescription"><strong id="backupDeleteName"></strong><br><span data-i18n="backupDeleteConfirmDetails">A ação não pode ser desfeita!</span></p>
+        <footer class="backup-delete-panel__actions">
+          <button class="btn btn--secondary" id="cancelDeleteBackup" type="button" data-close-delete-modal data-i18n="backupDeleteNo">Não</button>
+          <button class="btn btn--primary" id="confirmDeleteBackup" type="button" data-i18n="backupDeleteYes">Sim</button>
+        </footer>
+      </section>
+    </div>
+
+    <div class="backup-result-modal" id="backupResultModal" hidden>
+      <button class="backup-result-modal__backdrop" type="button" data-close-result-modal aria-label="Fechar"></button>
+      <section class="backup-result-panel" role="dialog" aria-modal="true" aria-labelledby="backupResultTitle">
+        <button class="verification-panel__close backup-result-panel__close" type="button" data-close-result-modal aria-label="Fechar">×</button>
+        <span class="verification-panel__status is-complete backup-result-panel__status" id="backupResultIcon" role="img" aria-label="Sucesso">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 13 4 4L19 7" /></svg>
+        </span>
+        <h2 id="backupResultTitle">Backup excluído</h2>
+        <p id="backupResultMessage"></p>
+      </section>
+    </div>
+
     <script src="../../../env.js"></script>
     <script type="module" src="../../../shared/i18n/legacy-control.js"></script>
     <script type="module" src="../../../shared/ui/profile-menu-boot.js"></script>

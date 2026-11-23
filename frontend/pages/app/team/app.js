@@ -61,7 +61,6 @@ const elements = {
   name: document.getElementById("memberName"),
   role: document.getElementById("memberRole"),
   list: document.getElementById("teamList"),
-  count: document.getElementById("teamCount"),
 };
 const pageLoading = document.getElementById("teamPageLoading");
 const errorModal = document.getElementById("teamErrorModal");
@@ -183,9 +182,6 @@ roleForm.addEventListener("submit", (event) => {
 
 const renderTeam = () => {
   elements.list.setAttribute("aria-busy", "false");
-  const activeCount = state.members.filter((member) => member.status === "active").length;
-  const countKey = activeCount === 1 ? "teamCountSingle" : "teamCountPlural";
-  elements.count.textContent = translate(countKey).replace("$1", String(activeCount));
 
   if (!state.members.length) {
     elements.list.innerHTML = `<div class="team-empty">${translate("teamNoMembers")}</div>`;

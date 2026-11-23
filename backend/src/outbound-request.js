@@ -40,11 +40,12 @@ export const resolvePublicHttpsAddress = async (url, lookupHost = lookup) => {
   return addresses[0];
 };
 
-export const requestPublicHttps = async (url, { method = "GET", body } = {}) => {
+const requestPublicHttpsResult = async (url, { method = "GET", body, headers = {} } = {}) => {
   const selected = await resolvePublicHttpsAddress(url);
 
   return new Promise((resolve, reject) => {
     let responseBytes = 0;
+    let responseBody = "";
     let settled = false;
     let totalTimeout;
     const finish = (error, status) => {
@@ -52,17 +53,18 @@ export const requestPublicHttps = async (url, { method = "GET", body } = {}) => 
       settled = true;
       clearTimeout(totalTimeout);
       if (error) reject(error);
-      else resolve(status);
+      else resolve({ status, body: responseBody });
     };
     const request = httpsRequest(url, {
       method,
-      headers: { Accept: "application/json", ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+      headers: { Accept: "application/json", ...headers, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
       lookup: (_hostname, _options, callback) => callback(null, selected.address, selected.family),
       timeout: 10000,
     }, (response) => {
       response.on("data", (chunk) => {
         responseBytes += chunk.length;
         if (responseBytes > 1024 * 1024) request.destroy(new Error("Outbound HTTPS response exceeded 1 MiB"));
+        responseBody += chunk.toString("utf8");
       });
       response.on("end", () => finish(null, response.statusCode || 502));
       response.on("aborted", () => finish(new Error("Outbound HTTPS response was interrupted")));
@@ -75,3 +77,9 @@ export const requestPublicHttps = async (url, { method = "GET", body } = {}) => 
     request.end(body);
   });
 };
+
+export const requestPublicHttps = async (url, options = {}) =>
+  (await requestPublicHttpsResult(url, options)).status;
+
+export const requestPublicHttpsBody = async (url, options = {}) =>
+  (await requestPublicHttpsResult(url, options)).body;

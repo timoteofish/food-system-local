@@ -79,6 +79,52 @@ export const apiRequest = async (path, { method = "GET", body, auth = true, idem
   return parseResponse(response);
 };
 
+export const apiDownloadRequest = async (path) => {
+  if (!API_BASE_URL) {
+    throw new Error(localizeApiError("The API URL is not configured. Set window.FOOD_SYSTEM_API_URL or localStorage['food-system-api-url']"));
+  }
+
+  let localAccessToken = "";
+  if (isLocalAdminApi) {
+    try {
+      localAccessToken = await window.__TAURI__?.core?.invoke?.("local_access_token") || "";
+    } catch {
+      throw new Error(localizeApiError("The local API is not ready yet. Try again shortly."));
+    }
+  }
+  const developmentLocalMode = isLocalAdminApi && !localAccessToken && ["localhost", "127.0.0.1"].includes(window.location.hostname) && window.location.port === "4173";
+  const headers = {
+    Accept: "application/octet-stream",
+    "X-Food-System-Client": "web",
+    ...(localAccessToken ? { "X-Food-System-Local": localAccessToken } : developmentLocalMode ? { "X-Food-System-Local": "true" } : {}),
+  };
+  const storedSession = JSON.parse(localStorage.getItem("food-system-session") || "null");
+  if (storedSession?.token) headers.Authorization = `Bearer ${storedSession.token}`;
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "GET",
+      headers,
+      credentials: "same-origin",
+      redirect: "error",
+    });
+  } catch (error) {
+    throw new Error("Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.", { cause: error });
+  }
+
+  if (!response.ok) {
+    let data = {};
+    try { data = await response.json(); } catch {}
+    const message = data.error || data.message || "Request failed";
+    const error = new Error(localizeApiError(message));
+    error.apiMessage = message;
+    error.status = response.status;
+    throw error;
+  }
+  return response.blob();
+};
+
 export const fetchBusiness = (businessId) => apiRequest(`/businesses/${businessId}`).then((data) => data.business);
 
 export const provisionLocalBusiness = (name) =>

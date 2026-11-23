@@ -627,6 +627,42 @@ test("backup routes validate safe backup names", async () => {
   assert.match(page, /Criar backup|Create backup/);
 });
 
+test("backup download exposes an authenticated route and a frontend action", async () => {
+  const routes = await read("src/routes/backups.js");
+  const app = await readFrontend("pages/app/backups/app.js");
+  const client = await readFrontend("shared/api/client.js");
+  const pt = await readFrontend("shared/i18n/locales/pt.js");
+  assert.match(routes, /\/api\/v1\/businesses\/:businessId\/backups\/:name\/download/);
+  assert.match(routes, /if \(!isSafeBackupName\(name\)\) return reply\.badRequest/);
+  assert.match(routes, /Content-Disposition", `attachment; filename="\$\{name\}"`/);
+  assert.match(app, /data-download=/);
+  assert.match(app, /apiDownloadRequest/);
+  assert.match(client, /export const apiDownloadRequest/);
+  assert.match(pt, /backupCreatedLocalNotice: "Backup criado neste computador, guarde uma cópia fora dele/);
+
+  assert.match(routes, /app\.delete\("\/api\/v1\/businesses\/:businessId\/backups\/:name"/);
+  assert.match(routes, /await rm\(file, \{ force: false \}\)/);
+  assert.match(routes, /backup\.deleted/);
+  assert.match(routes, /recovery\.backup === name \|\| recovery\.safety_backup === name/);
+  assert.match(routes, /This backup is required to recover the database/);
+  assert.match(app, /data-delete=/);
+  assert.match(app, /method: "DELETE"/);
+  assert.match(pt, /backupDelete: "Excluir backup"/);
+
+  const page = await readFrontend("pages/app/backups/index.html");
+  assert.match(page, /id="backupDeleteModal"/);
+  assert.match(page, /id="confirmDeleteBackup"/);
+  assert.match(page, /data-i18n="backupDeleteNo"/);
+  assert.match(page, /data-i18n="backupDeleteYes"/);
+  assert.match(app, /openDeleteModal\(button\.dataset\.delete, button\)/);
+
+  assert.match(page, /id="backupResultModal"/);
+  assert.match(page, /verification-panel__status is-complete backup-result-panel__status/);
+  assert.match(page, /data-close-result-modal/);
+  assert.match(app, /openResultModal\(true/);
+  assert.match(app, /openResultModal\(false/);
+});
+
 test("concurrent backups use unique names and publish only completed encrypted files", async () => {
   const backup = await read("src/backup.js");
   const names = await read("src/backup-files.js");
@@ -757,10 +793,11 @@ test("fiscal workflow saves drafts and keeps unimplemented issuance disabled", a
   assert.match(routes, /configuration: \{ issuanceAvailable: false \}/);
   assert.doesNotMatch(routes, /node:https|resolvePublicHttpsAddress|fiscal\/credentials/);
   assert.match(page, /Tax documents/);
-  assert.match(page, /data-i18n="fiscalIntro"/);
+  assert.doesNotMatch(page, /data-i18n="fiscalIntro"/);
+  assert.doesNotMatch(page, /data-i18n="fiscalConfigurationHelp"/);
   assert.match(page, /data-i18n="fiscalStatusTitle"/);
-  assert.match(i18n, /fiscalIntro: "Drafts for reference only; valid tax documents cannot be issued"/);
-  assert.match(page, /data-i18n="fiscalNewDraftTitle"/);
+  assert.doesNotMatch(i18n, /fiscalIntro: "Drafts for reference only/);
+  assert.doesNotMatch(page, /data-i18n="fiscalNewDraftTitle"/);
   assert.match(app, /document\.status === "draft" \? "draft" : "legacy"/);
   assert.match(app, /fiscalLegacyStatus/);
   assert.doesNotMatch(app, /authorized:|issued:|rejected:/);
@@ -831,21 +868,19 @@ test("integration routes expose connection and event boundaries", async () => {
   assert.doesNotMatch(routes, /last_synced_at/);
   const page = await readFrontend("pages/app/integrations/index.html");
   const app = await readFrontend("pages/app/integrations/app.js");
-  assert.match(page, /option value="ifood"/);
-  assert.match(page, /option value="keeta"/);
-  assert.match(page, /data-i18n="integrationsAvailabilityNotice"/);
-  assert.match(page, /data-i18n="integrationsWebhookNotice"/);
-  const english = await readFrontend("shared/i18n/locales/en.js");
-  assert.match(english, /integrationsAvailabilityNotice: "Provider connectors are not implemented/);
-  assert.match(english, /integrationsWebhookNotice: "Only signed order\.received webhook events can be accepted as external orders/);
-  assert.match(app, /provider connector is not implemented|provider credentials were not checked/);
+  assert.match(page, /id="integrationProviders"/);
+  assert.match(page, /id="integrationModal"/);
+  assert.doesNotMatch(page, /data-i18n="integrationsAvailabilityNotice"/);
+  assert.doesNotMatch(page, /data-i18n="integrationsWebhookNotice"/);
+  assert.match(app, /ifood.*99food.*keeta/s);
+  assert.match(app, /data-provider-connect=/);
+  assert.match(app, /data-provider-sync=/);
+  assert.match(app, /polling-credentials/);
+  assert.match(app, /poll-now/);
+  assert.match(app, /Conectar/);
+  assert.match(app, /Sincronizar/);
   assert.doesNotMatch(page, /Token da API/);
-  assert.match(app, /Test URL response/);
-  assert.match(app, /URL responded · provider not verified/);
-  assert.match(app, /result\.reachable/);
-  assert.match(app, /Provider connector is not implemented yet/);
-  assert.match(app, /credentials: \{ webhook_secret: webhookSecret \}/);
-  assert.doesNotMatch(app, /api_token|Token da API/);
+  assert.doesNotMatch(app, /api_token|Test URL response/);
   assert.doesNotMatch(app, /Integration and credentials saved"/);
 });
 
@@ -862,7 +897,7 @@ test("business-scoped public routes have explicit security boundaries", async ()
   assert.match(platform, /app\.get\("\/api\/v1\/businesses\/:businessId\/public", async \(request, reply\) => \{\s+const \[businesses\]/);
   assert.match(integrations, /if \(request\.headers\.authorization\) \{\s+if \(!\(await requireRole\(request, reply\)\)\) return;\s+\} else if \(!\(await validWebhookSignature\(request, request\.params\.businessId, request\.params\.id\)\)\)/);
   assert.match(backups, /const requireLocalAdmin = async \(request, reply\) => \{\s+const user = await requireRole\(request, reply\);\s+if \(!user\) return null;\s+if \(user\.local !== true\)/);
-  assert.equal((backups.match(/await requireLocalAdmin\(request, reply\)/g) || []).length, 2);
+  assert.equal((backups.match(/await requireLocalAdmin\(request, reply\)/g) || []).length, 4);
   assert.match(backups, /const user = await requireLocalAdmin\(request, reply\);/);
 });
 

@@ -486,7 +486,6 @@ export const initProfileMenu = () => {
             <div class="user-edit-panel__actions-stack">
               <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="settings"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"/></svg></span><span><strong>Account settings</strong><small>Update your profile and business details</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
               <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="updates"><span class="user-edit-panel__action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M4.7 9A7.5 7.5 0 0 1 18 6l2 2M4 17v-5h5m10.3 3A7.5 7.5 0 0 1 6 18l-2-2"/></svg></span><span><strong>Updates</strong><small>Check the installed version</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
-              <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="verification"><span class="user-edit-panel__action-icon user-edit-panel__action-icon--verification" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.4 4.3L19 7.4"/></svg></span><span><strong>System verification</strong><small>See completed checks and pending items</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
               <button class="user-edit-panel__action user-edit-panel__action--menu" type="button" data-profile-open="support"><span class="user-edit-panel__action-icon user-edit-panel__action-icon--support" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-4v.01M9.6 9a2.4 2.4 0 1 1 4.35 1.42c-.95 1.05-1.95 1.26-1.95 2.83"/></svg></span><span><strong>Contact support</strong><small>Send a message to our team</small></span><span class="user-edit-panel__action-chevron" aria-hidden="true">›</span></button>
               <button class="user-edit-panel__action user-edit-panel__action--danger" type="button" data-action="close-app">Close application</button>
             </div>
@@ -1043,9 +1042,11 @@ export const initProfileMenu = () => {
   const checkSystemUpdate = async () => {
     if (!updateFeedback) return;
     if (updateCheck) {
+      updateCheck.hidden = false;
       updateCheck.disabled = true;
       updateCheck.textContent = translate("Checking for updates");
     }
+    if (updateCurrent) updateCurrent.hidden = true;
     if (updateIndicator) {
       updateIndicator.hidden = false;
       updateIndicator.className = "user-edit-panel__update-indicator is-checking";
@@ -1056,25 +1057,36 @@ export const initProfileMenu = () => {
     updateFeedback.textContent = translate("Checking for updates");
     try {
       const result = await checkForSystemUpdates();
-      updateCurrent.textContent = translate("installedVersionNotice").replace("$1", result.current_version).replace("$2", result.available_version);
-      updateNotes.textContent = translate(result.notes || "The system is up to date");
+      if (result.update_available) {
+        updateCurrent.textContent = translate("installedVersionNotice").replace("$1", result.current_version).replace("$2", result.available_version);
+        updateCurrent.hidden = false;
+        updateNotes.textContent = translate(result.notes || "The system is up to date");
+        updateNotes.hidden = false;
+        updateFeedback.textContent = translate("A new version is available. Installation is manual.");
+      } else {
+        updateCurrent.textContent = translate("The system is up to date");
+        updateCurrent.hidden = false;
+        updateNotes.hidden = true;
+        updateNotes.textContent = "";
+        updateFeedback.hidden = true;
+        updateFeedback.textContent = "";
+        updateCheck.hidden = true;
+      }
       if (updateIndicator) {
         updateIndicator.className = `user-edit-panel__update-indicator ${result.update_available ? "is-available" : "is-current"}`;
         updateIndicator.textContent = result.update_available ? "✓" : "×";
         updateIndicator.setAttribute("aria-label", translate(result.update_available ? "Update available" : "No updates available"));
       }
-      updateFeedback.textContent = result.update_available
-        ? translate("A new version is available. Installation is manual.")
-        : translate("The system is up to date");
     } catch (error) {
       if (updateIndicator) {
         updateIndicator.className = "user-edit-panel__update-indicator is-error";
         updateIndicator.textContent = "!";
         updateIndicator.setAttribute("aria-label", translate("Could not check for updates"));
       }
+      updateFeedback.hidden = false;
       updateFeedback.textContent = translate(error?.message || "Could not check for updates");
     } finally {
-      if (updateCheck) {
+      if (updateCheck && !updateCheck.hidden) {
         updateCheck.disabled = false;
         updateCheck.textContent = translate("Check now");
       }

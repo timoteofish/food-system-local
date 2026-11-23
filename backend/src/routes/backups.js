@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
+import { createReadStream } from "node:fs";
 import { promisify } from "node:util";
-import { mkdir, chmod, readdir, lstat, stat, rm, writeFile } from "node:fs/promises";
+import { mkdir, chmod, readdir, readFile, lstat, stat, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -56,6 +57,50 @@ export default async function backupRoutes(app) {
       return { name, size: info.size, created_at: info.mtime.toISOString() };
     }));
     return { backups: backups.filter(Boolean).sort((a, b) => b.created_at.localeCompare(a.created_at)) };
+  });
+
+  app.get("/api/v1/businesses/:businessId/backups/:name/download", async (request, reply) => {
+    if (!(await requireLocalAdmin(request, reply))) return;
+    if (!hasSecretKey()) return reply.code(503).send({ error: "Backup encryption key is not configured" });
+    const name = request.params.name;
+    if (!isSafeBackupName(name)) return reply.badRequest("Invalid backup name");
+    await ensureBackupDirectory();
+    const file = path.resolve(backupDir, name);
+    if (path.dirname(file) !== backupDir) return reply.badRequest("Invalid backup path");
+    let info;
+    try { info = await lstat(file); }
+    catch (error) { if (error.code === "ENOENT") return reply.notFound("Backup not found"); throw error; }
+    if (!info.isFile() || info.size === 0) return reply.badRequest("Backup file is empty or invalid");
+    reply.header("Content-Type", "application/octet-stream");
+    reply.header("Content-Disposition", `attachment; filename="${name}"`);
+    return reply.send(createReadStream(file));
+  });
+
+  app.delete("/api/v1/businesses/:businessId/backups/:name", async (request, reply) => {
+    const user = await requireLocalAdmin(request, reply);
+    if (!user) return;
+    if (!hasSecretKey()) return reply.code(503).send({ error: "Backup encryption key is not configured" });
+    const name = request.params.name;
+    if (!isSafeBackupName(name)) return reply.badRequest("Invalid backup name");
+    await ensureBackupDirectory();
+    const file = path.resolve(backupDir, name);
+    if (path.dirname(file) !== backupDir) return reply.badRequest("Invalid backup path");
+    let info;
+    try { info = await lstat(file); }
+    catch (error) { if (error.code === "ENOENT") return reply.notFound("Backup not found"); throw error; }
+    if (!info.isFile()) return reply.badRequest("Backup file is invalid");
+
+    const recovery = await readFile(recoveryMarker, "utf8").then((text) => JSON.parse(text)).catch(() => null);
+    if (recovery && (recovery.backup === name || recovery.safety_backup === name)) {
+      const recoveryError = "This backup is required to recover the database; contact support before deleting it";
+      return reply.code(409).send({ error: recoveryError, message: recoveryError });
+    }
+
+    await rm(file, { force: false });
+    request.auditAttempted = true;
+    try { await audit(request, user, "backup.deleted", "backup", null, { backup_name: name }); }
+    catch (error) { request.log.error(error, "Backup deleted but audit record failed"); }
+    return { deleted: true, name };
   });
 
   app.post("/api/v1/businesses/:businessId/backups", async (request, reply) => {
