@@ -17,7 +17,10 @@ const resultTitle = document.getElementById("backupResultTitle");
 const resultMessage = document.getElementById("backupResultMessage");
 const backupStatus = document.getElementById("backupStatus");
 const backupList = document.getElementById("backupList");
+const backupSearch = document.getElementById("backupSearch");
+const backupName = document.getElementById("backupName");
 const backupUnits = ["B", "KB", "MB", "GB", "TB"];
+let allBackups = [];
 let backupOperationInProgress = false;
 let backupListLoadSequence = 0;
 let backupPageReady = false;
@@ -91,20 +94,39 @@ const getBackupRestoreError = (error) => {
   return key ? translate(key) : error?.message || translate("Could not restore the backup Try again");
 };
 
+const suggestedBackupName = () => {
+  const stamp = new Intl.DateTimeFormat(getLocale(), {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date());
+  return `Backup ${stamp}`;
+};
+
+const displayNameOf = (backup) => backup.display_name || backup.name || "";
+
 const renderBackups = (backups) => {
-  if (!backups.length) {
-    backupList.innerHTML = `<p class="operation-empty">${translate("No backups available")}</p>`;
+  allBackups = Array.isArray(backups) ? backups : [];
+  const term = backupSearch.value.trim().toLocaleLowerCase("pt-BR");
+  const visible = allBackups.filter((backup) =>
+    displayNameOf(backup).toLocaleLowerCase("pt-BR").includes(term)
+  );
+
+  if (!visible.length) {
+    const emptyMessage = term ? "Nenhum backup encontrado" : translate("No backups available");
+    backupList.innerHTML = `<p class="operation-empty">${escapeHtml(emptyMessage)}</p>`;
     return;
   }
 
-  backupList.innerHTML = backups.map((backup) => {
+  backupList.innerHTML = visible.map((backup) => {
     const name = String(backup.name ?? "");
+    const displayName = displayNameOf(backup);
     const size = formatBytes(backup.size);
 
     return `
       <article class="backup-entry">
         <div class="backup-entry__details">
-          <strong>${escapeHtml(name)}</strong>
+          <strong>${escapeHtml(displayName)}</strong>
+          ${displayName !== name ? `<span class="backup-entry__filename">${escapeHtml(name)}</span>` : ""}
           ${size ? `<span>${escapeHtml(size)}</span>` : ""}
         </div>
         <div class="backup-entry__actions">
@@ -122,6 +144,8 @@ const renderBackups = (backups) => {
     `;
   }).join("");
 };
+
+backupSearch.addEventListener("input", () => renderBackups(allBackups));
 
 const loadBackups = async ({ preserveStatus = false } = {}) => {
   const requestSequence = ++backupListLoadSequence;
@@ -151,9 +175,11 @@ const closeCreateModal = () => {
 
 createButton.addEventListener("click", () => {
   if (backupOperationInProgress) return;
+  backupName.value = suggestedBackupName();
   createModal.hidden = false;
   document.body.classList.add("modal-open");
-  confirmCreateButton.focus();
+  backupName.focus();
+  backupName.select();
 });
 
 createModal.addEventListener("click", (event) => {
@@ -219,7 +245,10 @@ confirmCreateButton.addEventListener("click", async () => {
   setStatus("Creating backup");
 
   try {
-    const result = await apiRequest(`/businesses/${businessId}/backups`, { method: "POST" });
+    const result = await apiRequest(`/businesses/${businessId}/backups`, {
+      method: "POST",
+      body: { display_name: backupName.value.trim() },
+    });
     const warning = result.cleanup_warning && result.audit_recorded === false ? "backupCreatedBothWarnings" : result.cleanup_warning ? "backupCreatedCleanupWarning" : result.audit_recorded === false ? "backupCreatedAuditWarning" : "backupCreatedLocalNotice";
     setStatus(warning, result.cleanup_warning || result.audit_recorded === false ? "error" : "success");
     await loadBackups({ preserveStatus: true });

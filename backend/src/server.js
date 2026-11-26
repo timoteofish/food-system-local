@@ -22,6 +22,7 @@ import backupRoutes from "./routes/backups.js";
 import fiscalRoutes from "./routes/fiscal.js";
 import deliveryRoutes from "./routes/delivery.js";
 import kitchenRoutes from "./routes/kitchen.js";
+import paymentRoutes from "./routes/payments.js";
 import { audit } from "./audit.js";
 import { enterRequest, leaveRequest, enterWork, leaveWork, trackRouteWork, isRestoreInProgress } from "./maintenance.js";
 
@@ -123,6 +124,7 @@ await app.register(backupRoutes);
 await app.register(fiscalRoutes);
 await app.register(deliveryRoutes);
 await app.register(kitchenRoutes);
+await app.register(paymentRoutes);
 
 app.get("/up", async () => ({
   status: "ok",

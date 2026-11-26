@@ -40,6 +40,7 @@
           <a href="../reports/index.html" aria-label="Reports" title="Reports"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 20V10m5 10V4m5 16v-7m5 7V7" /></svg><span class="menu-label">Reports</span></a>
           <a href="../fiscal/index.html" aria-label="Tax documents" title="Tax documents"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6" /></svg><span class="menu-label">Tax documents</span></a>
           <a href="../integrations/index.html" aria-label="Integrations" title="Integrations"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 7V4m6 3V4M8 7h8v4a4 4 0 0 1-8 0zm4 8v5m-5 0h10" /></svg><span class="menu-label">Integrations</span></a>
+          <a href="../payments/index.html" aria-label="Payments" title="Payments"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 7h18v12H3zm0 4h18M7 15h4" /></svg><span class="menu-label">Pagamentos</span></a>
           <a class="active" aria-current="page" href="./index.html" aria-label="Backups" title="Backups"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v13H4zM3 4h18M9 11h6m-6 4h6" /></svg><span class="menu-label">Backups</span></a>
         </div>
         </nav>
@@ -66,6 +67,12 @@
 
         <section class="panel backup-panel" aria-labelledby="backupListTitle">
           <h2 id="backupListTitle">Available backups</h2>
+          <label class="backup-search" for="backupSearch">
+            <span class="backup-search__input-wrap">
+              <svg class="backup-search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.3" /><path d="m16 16 4.2 4.2" /></svg>
+              <input id="backupSearch" type="search" autocomplete="off" placeholder="Pesquisar backup por nome" aria-label="Pesquisar backups por nome" />
+            </span>
+          </label>
           <div class="backup-list" id="backupList" aria-live="polite">
             <p class="operation-empty">Loading backups</p>
           </div>
@@ -80,6 +87,11 @@
         <div class="backup-create-panel__intro">
           <h2 id="backupCreateTitle">Criar novo backup</h2>
         </div>
+        <label class="backup-name field" for="backupName">
+          <span>Nome do backup <small>(opcional)</small></span>
+          <input id="backupName" name="display_name" type="text" maxlength="80" autocomplete="off" placeholder="Ex.: Backup de sexta-feira" aria-describedby="backupNameHint" />
+          <small id="backupNameHint">Se vazio, será usado o nome padrão.</small>
+        </label>
         <div class="backup-create-groups" aria-label="Conteúdo do backup">
           <section class="backup-create-group">
             <h3>Operação</h3>

@@ -104,10 +104,24 @@ fn public_menu_base_url() -> String {
         .to_string()
 }
 
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err("Only HTTPS URLs can be opened".into());
+    }
+    #[cfg(target_os = "windows")]
+    let result = Command::new("cmd").args(["/C", "start", "", &url]).spawn();
+    #[cfg(target_os = "macos")]
+    let result = Command::new("open").arg(&url).spawn();
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let result = Command::new("xdg-open").arg(&url).spawn();
+    result.map(|_| ()).map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![app_info, local_access_token, public_menu_base_url])
+        .invoke_handler(tauri::generate_handler![app_info, local_access_token, public_menu_base_url, open_external_url])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 window.app_handle().exit(0);

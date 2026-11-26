@@ -402,7 +402,7 @@ test("Tauri does not bundle an unused shell plugin", async () => {
   assert.doesNotMatch(manifest, /tauri-plugin-shell/);
   assert.doesNotMatch(lockfile, /tauri-plugin-shell/);
   assert.doesNotMatch(bootstrap, /tauri_plugin_shell/);
-  assert.match(bootstrap, /generate_handler!\[app_info, local_access_token, public_menu_base_url\]/);
+  assert.match(bootstrap, /generate_handler!\[app_info, local_access_token, public_menu_base_url, open_external_url\]/);
 });
 
 test("obsolete MariaDB setup code and package dependencies are removed", async () => {
@@ -803,6 +803,12 @@ test("fiscal workflow saves drafts and keeps unimplemented issuance disabled", a
   assert.doesNotMatch(app, /authorized:|issued:|rejected:/);
   assert.doesNotMatch(styles, /status--authorized|status--issued|status--rejected/);
   assert.doesNotMatch(i18n, /issueDocument|providerAuthorizedDocument/);
+  assert.match(page, /id="fiscalSearch"/);
+  assert.match(page, /class="fiscal-search__icon"/);
+  assert.match(app, /fiscalSearch/);
+  assert.match(app, /fiscalNoSearchResults/);
+  assert.match(i18n, /fiscalSearchPlaceholder: "Search by number or order"/);
+  assert.match(styles, /\.fiscal-search/);
 });
 
 test("application screens use Portuguese translations without legacy language selectors", async () => {
@@ -874,11 +880,12 @@ test("integration routes expose connection and event boundaries", async () => {
   assert.doesNotMatch(page, /data-i18n="integrationsWebhookNotice"/);
   assert.match(app, /ifood.*99food.*keeta/s);
   assert.match(app, /data-provider-connect=/);
-  assert.match(app, /data-provider-sync=/);
+  assert.doesNotMatch(app, /data-provider-sync=/);
   assert.match(app, /polling-credentials/);
-  assert.match(app, /poll-now/);
+  assert.doesNotMatch(app, /poll-now/);
   assert.match(app, /Conectar/);
-  assert.match(app, /Sincronizar/);
+  assert.match(app, /Obtenha o Token/);
+  assert.match(app, /navigator\.onLine/);
   assert.doesNotMatch(page, /Token da API/);
   assert.doesNotMatch(app, /api_token|Test URL response/);
   assert.doesNotMatch(app, /Integration and credentials saved"/);
@@ -1346,4 +1353,50 @@ test("SQLite backup and restore recognize the active database schema", async () 
   assert.match(pt, /backupEncryptionKeyRequired: "Configure FOOD_SYSTEM_SECRET_KEY/);
   assert.match(restore, /SQLite restore source is invalid/);
   assert.match(restore, /replaceDatabase/);
+});
+
+test("payment integrations expose terminal and gateway boundaries", async () => {
+  const routes = await read("src/routes/payments.js");
+  const adapters = await read("src/payment-adapters.js");
+  const migration = await read("sqlite/migrations/014_payment_integrations.sql");
+  const server = await read("src/server.js");
+
+  assert.match(server, /import paymentRoutes from "\.\/routes\/payments\.js"/);
+  assert.match(server, /await app\.register\(paymentRoutes\)/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS "payment_terminals"/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS "payment_gateways"/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS "card_payments"/);
+  assert.match(migration, /ALTER TABLE "order_payments" ADD COLUMN "card_payment_id"/);
+
+  assert.match(routes, /app\.get\("\/api\/v1\/businesses\/:businessId\/payment-terminals"/);
+  assert.match(routes, /app\.post\("\/api\/v1\/businesses\/:businessId\/payment-terminals"/);
+  assert.match(routes, /app\.post\("\/api\/v1\/businesses\/:businessId\/payment-terminals\/:id\/charge"/);
+  assert.match(routes, /app\.post\("\/api\/v1\/businesses\/:businessId\/payment-gateways"/);
+  assert.match(routes, /app\.post\("\/api\/v1\/businesses\/:businessId\/payment-gateways\/:id\/checkout"/);
+  assert.match(routes, /app\.post\("\/api\/v1\/businesses\/:businessId\/payment-gateways\/:id\/webhook", \{ bodyLimit: MAX_WEBHOOK_BYTES \}/);
+  assert.match(routes, /app\.get\("\/api\/v1\/businesses\/:businessId\/card-payments"/);
+
+  assert.match(routes, /encryptSecret\(JSON\.stringify\(value\)\)/);
+  assert.match(routes, /decryptSecret\(rows\[0\]\.encrypted_value\)/);
+  assert.match(routes, /timingSafeEqual\(expected, received\)/);
+  assert.match(routes, /isIP\(host\) === 4/);
+  assert.match(routes, /requestPublicHttps\(url/);
+  assert.doesNotMatch(routes, /credentials\.api_token/);
+
+  for (const provider of ["stone", "pagbank", "getnet", "cielo", "rede", "sicredi", "sicoob", "generic"]) {
+    assert.match(adapters, new RegExp(`case "${provider}"`));
+  }
+  for (const provider of ["mercadopago", "asaas", "stripe", "pagarme"]) {
+    assert.match(adapters, new RegExp(`case "${provider}"`));
+  }
+
+  const page = await readFrontend("pages/app/payments/index.html");
+  const app = await readFrontend("pages/app/payments/app.js");
+  assert.match(page, /id="terminalForm"/);
+  assert.match(page, /id="gatewayForm"/);
+  assert.match(page, /id="chargeForm"/);
+  assert.match(app, /fetchPaymentTerminals/);
+  assert.match(app, /fetchPaymentGateways/);
+  assert.match(app, /checkout_url/);
+  assert.match(app, /openExternalUrl/);
 });

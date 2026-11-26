@@ -11,7 +11,7 @@ import { audit } from "../audit.js";
 import { decryptFile, hasSecretKey } from "../security.js";
 import { beginRestore, endRestore, isRestoreInProgress } from "../maintenance.js";
 import { assertCompatibleSchema, replaceDatabase } from "../db.js";
-import { createBackupName, isSafeBackupName } from "../backup-files.js";
+import { createBackupName, isSafeBackupName, isSafeDisplayName, metadataName, normalizeDisplayName } from "../backup-files.js";
 import { acquireRestoreGuard } from "../restore-coordination.js";
 import { isInvalidBackup, isStorageFull } from "../storage-errors.js";
 
@@ -54,7 +54,10 @@ export default async function backupRoutes(app) {
     const backups = await Promise.all(names.map(async (name) => {
       const info = await lstat(path.join(backupDir, name));
       if (!info.isFile()) return null;
-      return { name, size: info.size, created_at: info.mtime.toISOString() };
+      const displayName = await readFile(path.join(backupDir, metadataName(name)), "utf8")
+        .then((text) => { const parsed = JSON.parse(text); return isSafeDisplayName(parsed.display_name) ? normalizeDisplayName(parsed.display_name) : ""; })
+        .catch(() => "");
+      return { name, display_name: displayName, size: info.size, created_at: info.mtime.toISOString() };
     }));
     return { backups: backups.filter(Boolean).sort((a, b) => b.created_at.localeCompare(a.created_at)) };
   });
@@ -97,6 +100,7 @@ export default async function backupRoutes(app) {
     }
 
     await rm(file, { force: false });
+    await rm(path.join(backupDir, metadataName(name)), { force: true });
     request.auditAttempted = true;
     try { await audit(request, user, "backup.deleted", "backup", null, { backup_name: name }); }
     catch (error) { request.log.error(error, "Backup deleted but audit record failed"); }
@@ -107,6 +111,9 @@ export default async function backupRoutes(app) {
     const user = await requireLocalAdmin(request, reply);
     if (!user) return;
     if (!hasSecretKey()) return reply.code(503).send({ error: "Backup encryption key is not configured" });
+    const body = request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body : {};
+    const displayName = normalizeDisplayName(body.display_name);
+    if (displayName && !isSafeDisplayName(displayName)) return reply.badRequest("Invalid backup display name");
     let stdout;
     try {
       ({ stdout } = await execFileAsync(process.execPath, ["src/backup.js"], { cwd: backendRoot, windowsHide: true, env: { ...process.env, FOOD_SYSTEM_INTERNAL_RESTORE_BACKUP: "" } }));
@@ -115,6 +122,12 @@ export default async function backupRoutes(app) {
       if (isStorageFull(error)) return reply.code(507).send({ error: "Insufficient storage for backup" });
       if (isInvalidBackup(error)) return reply.code(422).send({ error: "Backup failed integrity validation" });
       return reply.internalServerError("Backup failed");
+    }
+    if (displayName) {
+      const createdName = stdout.split(/\r?\n/).map((line) => /^Backup created: (.*)$/.exec(line)?.[1]).find(Boolean);
+      if (createdName && isSafeBackupName(path.basename(createdName))) {
+        await writeFile(path.join(backupDir, metadataName(path.basename(createdName))), JSON.stringify({ display_name: displayName }), { mode: 0o600 });
+      }
     }
     let auditRecorded = true;
     request.auditAttempted = true;

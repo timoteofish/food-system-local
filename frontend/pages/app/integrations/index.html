@@ -41,6 +41,7 @@
           <a href="../reports/index.html" aria-label="Reports" title="Reports"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M4 20V10m5 10V4m5 16v-7m5 7V7" /></svg><span class="menu-label">Reports</span></a>
           <a href="../fiscal/index.html" aria-label="Tax documents" title="Tax documents"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6" /></svg><span class="menu-label">Tax documents</span></a>
           <a class="active" aria-current="page" href="./index.html" aria-label="Integrations" title="Integrations"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 7V4m6 3V4M8 7h8v4a4 4 0 0 1-8 0zm4 8v5m-5 0h10" /></svg><span class="menu-label">Integrations</span></a>
+          <a href="../payments/index.html" aria-label="Payments" title="Payments"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 7h18v12H3zm0 4h18M7 15h4" /></svg><span class="menu-label">Pagamentos</span></a>
           <a href="../backups/index.html" aria-label="Backups" title="Backups"><svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v13H4zM3 4h18M9 11h6m-6 4h6" /></svg><span class="menu-label">Backups</span></a>
         </div>
         </nav>
@@ -60,6 +61,13 @@
           <div><h1>Integrações</h1></div>
         </div>
 
+        <label class="integration-search" for="integrationSearch">
+          <span class="integration-search__input-wrap">
+            <svg class="integration-search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.3" /><path d="m16 16 4.2 4.2" /></svg>
+            <input id="integrationSearch" type="search" autocomplete="off" placeholder="Pesquisar integração" aria-label="Pesquisar integrações" />
+          </span>
+        </label>
+
         <div class="integration-providers" id="integrationProviders" aria-live="polite" aria-busy="true"></div>
 
         <p class="operation-message" id="integrationMessage" role="status" aria-live="polite" hidden></p>
@@ -71,10 +79,9 @@
       <section class="integration-modal__panel" role="dialog" aria-modal="true" aria-labelledby="integrationModalTitle">
         <button class="integration-modal__close" type="button" data-modal-close aria-label="Fechar">×</button>
         <h2 id="integrationModalTitle"></h2>
+        <p class="integration-modal__hint">Obtenha o token de integração no site do aplicativo e cole abaixo.</p>
         <form id="integrationModalForm" class="integration-modal__form">
-          <label>URL
-            <input type="url" name="poll_url" pattern="https://.+" placeholder="https://..." required autocomplete="off" />
-          </label>
+          <button id="integrationModalTokenButton" class="integration-modal__token-button" type="button"></button>
           <label>Token
             <input type="password" name="access_token" minlength="8" maxlength="4096" required autocomplete="new-password" />
           </label>

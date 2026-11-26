@@ -259,3 +259,30 @@ export const pingApi = async () => {
 
 export const checkForUpdates = (businessId) =>
   apiRequest(`/businesses/${businessId}/system/update`);
+
+export const fetchPaymentTerminals = (businessId) =>
+  apiRequest(`/businesses/${businessId}/payment-terminals`).then((data) => data.terminals || []);
+
+export const createPaymentTerminal = (businessId, terminal) =>
+  apiRequest(`/businesses/${businessId}/payment-terminals`, { method: "POST", body: terminal }).then((data) => data.terminal);
+
+export const deletePaymentTerminal = (businessId, terminalId) =>
+  apiRequest(`/businesses/${businessId}/payment-terminals/${terminalId}`, { method: "DELETE" });
+
+export const chargePaymentTerminal = (businessId, terminalId, charge) =>
+  apiRequest(`/businesses/${businessId}/payment-terminals/${terminalId}/charge`, { method: "POST", body: charge }).then((data) => data.payment);
+
+export const fetchPaymentGateways = (businessId) =>
+  apiRequest(`/businesses/${businessId}/payment-gateways`).then((data) => data.gateways || []);
+
+export const createPaymentGateway = (businessId, gateway) =>
+  apiRequest(`/businesses/${businessId}/payment-gateways`, { method: "POST", body: gateway }).then((data) => data.gateway);
+
+export const deletePaymentGateway = (businessId, gatewayId) =>
+  apiRequest(`/businesses/${businessId}/payment-gateways/${gatewayId}`, { method: "DELETE" });
+
+export const createGatewayCheckout = (businessId, gatewayId, checkout) =>
+  apiRequest(`/businesses/${businessId}/payment-gateways/${gatewayId}/checkout`, { method: "POST", body: checkout }).then((data) => data.payment);
+
+export const fetchCardPayments = (businessId) =>
+  apiRequest(`/businesses/${businessId}/card-payments`).then((data) => data.payments || []);

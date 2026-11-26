@@ -11,7 +11,8 @@ backend/
 ├── sqlite/
 │   └── schema.sql        # Current SQLite schema used when creating a local database
 ├── src/
-│   ├── routes/           # Fastify route plugins, grouped by product area
+│   ├── routes/           # Fastify route plugins, grouped by product area (includes payments.js)
+│   ├── payment-adapters.js # Terminal/gateway protocol payload builders and parsers
 │   ├── server.js         # API composition, global hooks, health checks, shutdown
 │   ├── dev-server.js     # Source/development API entry point; loads local env and secret
 │   ├── db.js             # SQLite adapter, database lifecycle, backup/restore primitives
@@ -65,6 +66,16 @@ The backup screen saves only on the current computer; it does not export files o
 If the current database fails integrity or foreign-key checks, the application refuses to replace it because it cannot create a restorable safety backup. Preserve the existing database, encrypted backups and key for administrator-assisted recovery; do not delete or overwrite them while investigating.
 
 The standalone tasks are available through `npm run db:backup`, `npm run db:restore -- <sqlite-file>`, and `npm run db:update`. Database initialization, migration, seeding, standalone restoration, and the print worker load the same `FOOD_SYSTEM_ENV_FILE` configuration as the source launcher; existing process environment variables take precedence. The standalone restore accepts a plaintext SQLite database, not an encrypted `.sqlite.enc` backup. Stop the desktop app, API, workers, and any other processes using the destination database before running it: current API and worker processes coordinate with restoration, but older versions and arbitrary external processes do not. It snapshots committed source WAL changes, validates the snapshot, and stages it on the destination filesystem. For encrypted backups, use the restore action in the app. Incremental SQLite migrations run at database open; `db:update` creates a backup and verifies the baseline, but does not apply the historical MariaDB SQL files.
+
+## Payment integrations
+
+Two payment integration paths are available under `/api/v1/businesses/:businessId`:
+
+- **Local card terminals** (`payment_terminals`): each terminal has a provider (`stone`, `pagbank`, `getnet`, `cielo`, `rede`, `sicredi`, `sicoob`, `generic`), a display name, an endpoint URL, and an optional access token encrypted in `secure_secrets`. The endpoint must be HTTPS or an HTTP address on loopback/private-network ranges; public HTTP destinations are rejected. Charging is a synchronous JSON POST built by `src/payment-adapters.js`, and the result is stored in `card_payments`. Approved charges can optionally create an `order_payments` allocation linked through `card_payment_id`. An idempotency key can be supplied to avoid duplicate charges.
+
+- **Online gateways** (`payment_gateways`): each gateway has a provider (`mercadopago`, `pagbank`, `asaas`, `stripe`, `pagarme`), an API URL, an access token, a webhook secret, and an optional return URL. Checkout creates a hosted payment URL through `src/payment-adapters.js`; confirmation arrives at `POST .../payment-gateways/:id/webhook` with an HMAC-SHA256 signature in `x-payment-signature`. Only pending `card_payments` are updated by webhooks.
+
+The frontend page at `frontend/pages/app/payments/` registers terminals/gateways, starts charges and checkouts, and lists the payment history. External checkout URLs are opened through the Tauri `open_external_url` command, with a browser fallback.
 
 ## Security and external requests
 

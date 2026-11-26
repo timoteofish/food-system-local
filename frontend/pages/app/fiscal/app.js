@@ -15,6 +15,8 @@ const errorClose = document.getElementById("fiscalErrorClose");
 const fiscalMessage = document.getElementById("fiscalMessage");
 const createForm = document.getElementById("fiscalForm");
 const createButton = createForm.querySelector("button[type='submit']");
+const searchInput = document.getElementById("fiscalSearch");
+let documents = [];
 let appShellReady = false;
 
 const setLoading = (isLoading) => {
@@ -68,14 +70,15 @@ const setMessage = (element, text = "", type = "success") => {
   element.classList.toggle("is-success", type === "success" && Boolean(text));
 };
 
-const renderDocuments = (documents) => {
+const renderDocuments = (visibleDocuments) => {
   documentList.setAttribute("aria-busy", "false");
-  if (!documents.length) {
-    documentList.innerHTML = `<p class="operation-empty">${translate("fiscalNoDocuments")}</p>`;
+  if (!visibleDocuments.length) {
+    const emptyKey = documents.length && searchInput.value.trim() ? "fiscalNoSearchResults" : "fiscalNoDocuments";
+    documentList.innerHTML = `<p class="operation-empty">${translate(emptyKey)}</p>`;
     return;
   }
 
-  documentList.innerHTML = documents.map((document) => {
+  documentList.innerHTML = visibleDocuments.map((document) => {
     const statusKey = document.status === "draft" ? "draft" : "legacy";
     const status = translate(statusLabels[statusKey]);
     const documentType = translate(documentTypeLabels[document.document_type] || "fiscalUnknownDocument");
@@ -102,13 +105,25 @@ const renderDocuments = (documents) => {
   }).join("");
 };
 
+const applyFilter = () => {
+  const query = searchInput.value.trim().toLocaleLowerCase("pt-BR");
+  const visible = query
+    ? documents.filter((document) => [document.number, document.order_id, documentTypeLabels[document.document_type], translate(documentTypeLabels[document.document_type] || "fiscalUnknownDocument")]
+      .some((value) => String(value || "").toLocaleLowerCase("pt-BR").includes(query)))
+    : documents;
+  renderDocuments(visible);
+};
+
+searchInput.addEventListener("input", applyFilter);
+
 const load = async () => {
   setLoading(true);
   documentList.setAttribute("aria-busy", "true");
   documentList.replaceChildren();
   try {
     const data = await apiRequest(`/businesses/${businessId}/fiscal/documents`);
-    renderDocuments(Array.isArray(data.documents) ? data.documents : []);
+    documents = Array.isArray(data.documents) ? data.documents : [];
+    applyFilter();
     setLoading(false);
     return true;
   } catch (error) {
@@ -128,6 +143,7 @@ const start = async () => {
       await initAppShell({ activeNav: "fiscal" });
       appShellReady = true;
     }
+    searchInput.placeholder = translate("fiscalSearchPlaceholder");
     await load();
   } catch (error) {
     showLoadError(error);
