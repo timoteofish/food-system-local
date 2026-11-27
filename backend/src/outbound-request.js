@@ -58,7 +58,10 @@ const requestPublicHttpsResult = async (url, { method = "GET", body, headers = {
     const request = httpsRequest(url, {
       method,
       headers: { Accept: "application/json", ...headers, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
-      lookup: (_hostname, _options, callback) => callback(null, selected.address, selected.family),
+      lookup: (_hostname, options, callback) => {
+        if (options?.all) return callback(null, [{ address: selected.address, family: selected.family }]);
+        return callback(null, selected.address, selected.family);
+      },
       timeout: 10000,
     }, (response) => {
       response.on("data", (chunk) => {

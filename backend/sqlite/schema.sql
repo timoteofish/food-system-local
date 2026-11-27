@@ -272,7 +272,7 @@ CREATE INDEX IF NOT EXISTS `idx_fiscal_documents_fk_fiscal_order` ON `fiscal_doc
 CREATE TABLE IF NOT EXISTS "integration_connections" (
   "id" TEXT NOT NULL,
   "business_id" TEXT NOT NULL,
-  "provider" TEXT NOT NULL CHECK ("provider" IN ('ifood', '99food', 'keeta', 'delivery_logistics', 'payment')),
+  "provider" TEXT NOT NULL CHECK ("provider" IN ('ifood', '99food', 'keeta', 'delivery_logistics', 'payment', 'ai_model')),
   "display_name" TEXT NOT NULL,
   "status" TEXT NOT NULL DEFAULT 'disconnected' CHECK ("status" IN ('disconnected', 'pending', 'reachable', 'error', 'disabled')),
   "settings" TEXT NOT NULL CHECK (json_valid("settings")),

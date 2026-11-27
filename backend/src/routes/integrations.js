@@ -6,7 +6,7 @@ import { decryptSecret, encryptSecret, hasSecretKey } from "../security.js";
 import { requestPublicHttps } from "../outbound-request.js";
 import { canTransitionOrderStatus } from "../order-status.js";
 
-const providers = new Set(["ifood", "99food", "keeta", "delivery_logistics", "payment"]);
+const providers = new Set(["ifood", "99food", "keeta", "delivery_logistics", "payment", "ai_model"]);
 const connectionStatuses = new Set(["disconnected", "pending", "error", "disabled"]);
 const externalStatuses = new Set(["received", "accepted", "preparing", "ready", "out_for_delivery", "completed", "cancelled", "failed"]);
 const MAX_INTEGRATION_SETTINGS_BYTES = 32 * 1024;

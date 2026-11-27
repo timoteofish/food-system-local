@@ -79,14 +79,130 @@
       <section class="integration-modal__panel" role="dialog" aria-modal="true" aria-labelledby="integrationModalTitle">
         <button class="integration-modal__close" type="button" data-modal-close aria-label="Fechar">×</button>
         <h2 id="integrationModalTitle"></h2>
-        <p class="integration-modal__hint">Obtenha o token de integração no site do aplicativo e cole abaixo.</p>
+        <p class="integration-modal__hint">Obtenha o token de integração no site do aplicativo e cole abaixo</p>
         <form id="integrationModalForm" class="integration-modal__form">
           <button id="integrationModalTokenButton" class="integration-modal__token-button" type="button"></button>
+          <label id="integrationUrlLabel" hidden>URL de consulta HTTPS
+            <input type="url" name="poll_url" placeholder="https://exemplo.com/pedidos" autocomplete="off" />
+          </label>
           <label>Token
             <input type="password" name="access_token" minlength="8" maxlength="4096" required autocomplete="new-password" />
           </label>
           <button class="btn btn--primary" type="submit">Salvar</button>
         </form>
+      </section>
+    </div>
+
+    <div class="integration-modal" id="paymentModal" hidden>
+      <button class="integration-modal__backdrop" type="button" data-modal-close aria-label="Fechar"></button>
+      <section class="integration-modal__panel integration-modal__panel--wide" role="dialog" aria-modal="true" aria-labelledby="paymentModalTitle">
+        <button class="integration-modal__close" type="button" data-modal-close aria-label="Fechar">×</button>
+        <h2 id="paymentModalTitle">Pagamentos</h2>
+        <p class="integration-modal__hint">Configure a máquina de cartão ou o gateway usado para receber os pedidos</p>
+        <div class="payment-tabs" role="tablist">
+          <button class="payment-tab is-active" type="button" role="tab" data-payment-tab="terminal">Máquina de cartão</button>
+          <button class="payment-tab" type="button" role="tab" data-payment-tab="gateway">Gateway</button>
+        </div>
+        <div data-payment-panel="terminal" role="tabpanel">
+          <form id="terminalForm" class="integration-modal__form">
+            <label>Nome
+              <input name="display_name" maxlength="120" placeholder="Maquineta caixa 1" required />
+            </label>
+            <label>Operadora
+              <select name="provider" required></select>
+            </label>
+            <label>Endereço da máquina
+              <input name="endpoint_url" placeholder="http://127.0.0.1:3001/charge ou HTTPS" required />
+              <small>Use HTTP no próprio computador ou HTTPS público</small>
+            </label>
+            <label>Token de acesso (opcional)
+              <input type="password" name="access_token" minlength="8" maxlength="4096" autocomplete="new-password" />
+            </label>
+            <label class="integration-check"><input type="checkbox" name="active" checked /> Ativa</label>
+            <button class="btn btn--primary" type="submit">Adicionar máquina</button>
+          </form>
+          <h3 class="payment-subtitle">Máquinas cadastradas</h3>
+          <div id="integrationTerminalList" class="integration-detail-list"></div>
+        </div>
+        <div data-payment-panel="gateway" role="tabpanel" hidden>
+          <form id="gatewayForm" class="integration-modal__form">
+            <label>Nome
+              <input name="display_name" maxlength="120" placeholder="Mercado Pago" required />
+            </label>
+            <label>Gateway
+              <select name="provider" required></select>
+            </label>
+            <label>URL da API
+              <input name="api_url" type="url" placeholder="https://api.exemplo.com" required />
+            </label>
+            <label>Token de acesso
+              <input type="password" name="access_token" minlength="8" maxlength="4096" required autocomplete="new-password" />
+            </label>
+            <label>Segredo do webhook
+              <input type="password" name="webhook_secret" minlength="16" maxlength="512" required autocomplete="new-password" />
+            </label>
+            <label>URL de retorno (opcional)
+              <input name="return_url" type="url" placeholder="https://loja.exemplo.com/pedido" />
+            </label>
+            <label class="integration-check"><input type="checkbox" name="active" checked /> Ativo</label>
+            <button class="btn btn--primary" type="submit">Adicionar gateway</button>
+          </form>
+          <h3 class="payment-subtitle">Gateways cadastrados</h3>
+          <div id="integrationGatewayList" class="integration-detail-list"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="integration-modal" id="aiModal" hidden>
+      <button class="integration-modal__backdrop" type="button" data-modal-close aria-label="Fechar"></button>
+      <section class="integration-modal__panel integration-modal__panel--wide" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle">
+        <button class="integration-modal__close" type="button" data-modal-close aria-label="Fechar">×</button>
+        <h2 id="aiModalTitle">Modelos de IA</h2>
+        <p class="integration-modal__hint">Use qualquer provedor compatível com a API de chat da OpenAI A chave fica criptografada no computador</p>
+        <div class="payment-tabs" role="tablist">
+          <button class="payment-tab is-active" type="button" role="tab" data-ai-tab="config">Configuração</button>
+          <button class="payment-tab" type="button" role="tab" data-ai-tab="key">Chave e teste</button>
+          <button class="payment-tab" type="button" role="tab" data-ai-tab="use">Usar</button>
+        </div>
+        <div data-ai-panel="config" role="tabpanel">
+          <form id="aiForm" class="integration-modal__form">
+            <label>Nome
+              <input name="display_name" maxlength="120" placeholder="OpenAI" required />
+            </label>
+            <label>URL base da API
+              <input name="base_url" type="url" placeholder="https://api.openai.com/v1" required />
+              <small>Deve ser HTTPS público sem usuário ou senha na URL</small>
+            </label>
+            <label>Modelo
+              <input name="model" maxlength="190" placeholder="gpt-4o-mini" required />
+            </label>
+            <label>Temperatura
+              <input name="temperature" type="number" min="0" max="2" step="0.1" value="0.3" />
+            </label>
+            <label>Máximo de tokens
+              <input name="max_tokens" type="number" min="1" max="8000" step="1" value="600" />
+            </label>
+            <button class="btn btn--primary" type="submit">Salvar configuração</button>
+          </form>
+        </div>
+        <div data-ai-panel="key" role="tabpanel" hidden>
+          <form id="aiKeyForm" class="integration-modal__form">
+            <label>Chave de API
+              <input type="password" name="api_key" minlength="8" maxlength="4096" required autocomplete="new-password" placeholder="sk" />
+            </label>
+            <button class="btn btn--primary" type="submit">Salvar chave</button>
+          </form>
+          <button id="aiTestButton" class="btn btn--secondary ai-test-button" type="button">Testar conexão</button>
+        </div>
+        <div data-ai-panel="use" role="tabpanel" hidden>
+          <form id="aiChatForm" class="integration-modal__form">
+            <label>Pergunta
+              <textarea name="prompt" rows="4" maxlength="8000" required placeholder="Resuma as vendas de hoje"></textarea>
+            </label>
+            <button class="btn btn--primary" type="submit">Gerar resposta</button>
+          </form>
+          <p id="aiResult" class="ai-result" role="status" aria-live="polite"></p>
+        </div>
       </section>
     </div>
 

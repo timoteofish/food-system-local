@@ -59,7 +59,6 @@
   object-fit: cover;
   background: var(--surface-soft, rgba(255,255,255,.04));
 }
-
 .provider-card__name { font-size: 1.15rem; font-weight: 700; }
 
 .provider-card__state {
@@ -91,6 +90,15 @@
 }
 .provider-btn--primary:hover:not(:disabled) { filter: brightness(1.12); }
 .provider-card--online .provider-btn--primary { background: color-mix(in srgb, var(--success, #16803a) 70%, #000); }
+.provider-btn--secondary {
+  padding: 11px 22px;
+  color: var(--text, #fff);
+  background: var(--surface-soft, rgba(255,255,255,.08));
+  border: 1px solid var(--line, rgba(255,255,255,.14));
+}
+.provider-btn--secondary:hover:not(:disabled) { filter: brightness(1.2); }
+.provider-btn--link { display: inline-block; text-decoration: none; text-align: center; }
+.provider-btn:disabled { opacity: .6; cursor: wait; }
 
 .integration-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; }
 .integration-modal[hidden] { display: none; }
@@ -132,7 +140,9 @@
 .integration-modal__token-button:hover { background: var(--accent-dark, #a30f24); }
 .integration-modal__form { display: grid; gap: 14px; }
 .integration-modal__form label { display: grid; gap: 6px; font-size: .85rem; color: var(--muted); }
-.integration-modal__form input {
+.integration-modal__form input,
+.integration-modal__form textarea,
+.integration-modal__form select {
   box-sizing: border-box;
   width: 100%;
   padding: 11px 12px;
@@ -140,8 +150,39 @@
   border-radius: 10px;
   color: var(--text, #fff);
   background: var(--surface-soft, rgba(255,255,255,.04));
+  font: inherit;
 }
+.integration-modal__form textarea { resize: vertical; min-height: 96px; }
 .integration-modal__form .btn { width: 100%; }
+.ai-result {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-soft, rgba(255,255,255,.04));
+  font-size: .9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.ai-result:empty { display: none; }
+.ai-test-button { width: 100%; margin-top: 14px; padding: 11px 18px; }
+
+.integration-modal__panel--wide { width: min(560px, calc(100vw - 32px)); max-height: 86vh; overflow: auto; }
+.payment-tabs { display: flex; gap: 8px; margin: 16px 0; border-bottom: 1px solid var(--line, rgba(255,255,255,.1)); }
+.payment-tab {
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.payment-tab.is-active { color: var(--accent); border-bottom-color: var(--accent); }
+.integration-modal__form small { font-size: .75rem; color: var(--muted); }
+.integration-check { display: flex !important; align-items: center; gap: 8px; }
+.integration-check input { width: 16px; height: 16px; }
+.payment-subtitle { margin: 20px 0 10px; font-size: .95rem; }
 
 #integrationMessage {
   margin: 0;
@@ -151,6 +192,20 @@
 }
 #integrationMessage.is-success { color: var(--accent-text, var(--accent-dark)); background: var(--accent-soft, rgba(15,118,110,.15)); }
 #integrationMessage.is-error { color: var(--danger-text, var(--danger)); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
+.integration-detail-list { display: grid; gap: 10px; }
+.integration-detail-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line, rgba(255,255,255,.1));
+  border-radius: 10px;
+  background: var(--surface-soft, rgba(255,255,255,.04));
+  font-size: .88rem;
+}
+.integration-detail-item div { display: grid; gap: 3px; }
+.integration-detail-item span { color: var(--muted); font-size: .8rem; }
+.integration-detail-item .btn { justify-self: start; padding: 7px 12px; font-size: .8rem; }
 
 @media (max-width: 520px) {
   .integration-providers { grid-template-columns: 1fr; }
